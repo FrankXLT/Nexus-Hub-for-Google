@@ -101,7 +101,7 @@
 
 ---
 
-## Stage 6: Python Headless OAuth Bootstrapper
+## Stage 5: Python Headless OAuth Bootstrapper
 **Internal Simulation & Correction:** *The agent will assume it can open a local web browser to authenticate. It must be forced to write a headless-compatible OAuth flow.*
 
 **Copy/Paste this to Gemini Code Assist:**
@@ -118,7 +118,7 @@
 
 ---
 
-## Stage 7: Isolated Health Checks & Diagnostic Logging
+## Stage 6: Isolated Health Checks & Diagnostic Logging
 **Internal Simulation & Correction:** *The agent might try to log diagnostics into the main SQLite database, which defeats the purpose if the database is down. It must be forced to use Google Drive for isolated logging.*
 
 **Copy/Paste this to Gemini Code Assist:**
@@ -136,7 +136,7 @@
 
 ---
 
-## Stage 8: Delta Sync & Tenacity Backoff
+## Stage 7: Delta Sync & Tenacity Backoff
 **Internal Simulation & Correction:** *The agent will likely try to write a script that does a full folder scan `drive.files().list()`. It must be forced to use the `Changes.list` endpoint and the `tenacity` library for error handling.*
 
 **Copy/Paste this to Gemini Code Assist:**
@@ -154,3 +154,35 @@
 > - Append a summary of the generated files and logic to `PROMPT_AUDIT.md`.
 > - Update `README.md` to reflect these new features.
 > - Update `INSTRUCTIONS.md` with any required setup steps for this specific phase (e.g., if we just wrote the webhook, add the Nginx setup instructions; if we wrote the Delta Sync, add the instructions for enabling the Drive/Gmail APIs in GCP).
+
+## Stage 8: The LLM Processing Engine
+**Internal Simulation & Correction:** *The agent might try to use outdated Gemini SDKs or fail to parse the JSON outputs safely. It must be forced to use the latest `google-genai` SDK and implement structured output parsing.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 8 based on Section 4.2 and Section 9.3 of ARCHITECTURE.md. Write the `llm_engine.py` module to handle the batch processing and Gemini API interactions.
+> 
+> **Strict Constraints:**
+> 1. Use the official Google GenAI SDK to interact with the Gemini models.
+> 2. Implement the Two-Stage Triage logic for Google Drive and the Single-Pass logic for Gmail as defined in the architecture.
+> 3. Inject the exact prompts from Section 9.3. 
+> 4. **CRITICAL:** You must force the LLM to return `application/json` using the `response_mime_type` configuration, and you must wrap the JSON parsing (`json.loads`) in a `try/except` block to prevent crashes if the LLM hallucinates formatting.
+> 5. If Stage 2 extraction succeeds, write the database `UPDATE` to `Workspace_Artifacts` and the `INSERT` to `Artifact_History`.
+> 
+> **Post-Execution Documentation:** Append updates to PROMPT_AUDIT.md and README.md. Detail any required Gemini API key configurations in INSTRUCTIONS.md."
+
+---
+
+## Stage 9: Frontend UI (Material Design & State)
+**Internal Simulation & Correction:** *The agent might try to write a monolithic HTML file or use heavy external frameworks. It must be forced to use the separated Apps Script architecture and lightweight vanilla JS/CSS.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 9 based on Section 7 and Section 9.1 of ARCHITECTURE.md. We are returning to the Google Apps Script environment to build the frontend.
+> 
+> **Strict Constraints:**
+> 1. Generate `Index.html` (the Material Design shell and Split-Pane layout), `CSS_Styles.html` (styling and grid layouts), `JS_State.html` (client-side data memory), and `JS_Actions.html` (DOM manipulation and `google.script.run` calls).
+> 2. Ensure `Index.html` properly includes the CSS and JS files using the `<?!= include('filename'); ?>` templating syntax required by Apps Script.
+> 3. Build the dynamic data grid to render the `custom_data` JSON fields.
+> 4. Build the Audit Timeline tab to render the history logs.
+> 5. Keep dependencies zero. Use vanilla JavaScript and CSS variables for the theming.
+> 
+> **Post-Execution Documentation:** Append updates to PROMPT_AUDIT.md and README.md. Write the final Apps Script deployment instructions (how to publish as a Web App) in INSTRUCTIONS.md."
