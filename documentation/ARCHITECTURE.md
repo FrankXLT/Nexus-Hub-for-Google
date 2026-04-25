@@ -6,6 +6,7 @@ This document outlines the architectural shift from isolated, event-driven Googl
 
 The "Nexus Hub" unifies the management of entities across Gmail, Google Drive, and Google Calendar. By enforcing a strict taxonomy and dynamic custom data extraction, the system transforms discrete files and emails into a centralized relational database. It relies on a hybrid architecture: a responsive, standalone Google Apps Script frontend backed by a persistent Google Cloud VM running a Python synchronization engine.
 
+```mermaid
 flowchart TB
 
     %% Defining Styles
@@ -62,6 +63,7 @@ flowchart TB
     %% Client-Server Webhook Flow
     GS -- "HMAC-SHA256 Encrypted Request" --> WH
     WH -- "JSON Validation Response" --> GS
+```
 
 ### **1.1 Influences & Referenced Architectures**
 
@@ -152,6 +154,7 @@ To maximize Gemini API context caching, processing is batched by Correspondent.
 * **Gmail (Single-Pass):** Threads are grouped by native Sender metadata immediately upon delta sync and sent to the LLM in Correspondent-specific batches.  
 * **Drive (Two-Stage Triage):** Raw documents are OCR'd via Document AI (hOCR payloads discarded). Stage 1 identifies the Correspondent. Stage 2 batches the documents by Correspondent for deep Purpose and Custom Field extraction.
 
+```mermaid
 flowchart TD
     %% Styling
     classDef raw fill:#f1f3f4,stroke:#5f6368;
@@ -172,6 +175,7 @@ flowchart TD
     
     Success -- Yes --> Archive[Archive, Apply Metadata & Folder Colors]:::final
     Success -- No / Ambiguous --> Review[Flag for 'Purpose/Review' Exception Queue]:::queue
+```
 
 ### **4.3 Resiliency and Error Handling Protocols**
 * **Exponential Backoff:** All calls to Google Workspace APIs (Drive, Gmail) or the Gemini API must be wrapped in an exponential backoff retry decorator (e.g., using the `tenacity` library or a custom robust implementation). 
@@ -196,6 +200,7 @@ flowchart TD
 | Workspace\_Artifacts | Master index. Fields: taxonomy path, summary, native hot-links, status, and custom\_data (JSON). |
 | Artifact\_History | Immutable audit log. Fields: artifact\_id, timestamp, actor, action\_type, previous\_state (JSON), new\_state (JSON). |
 
+```mermaid
 erDiagram
     Taxonomy_Entities ||--o{ Workspace_Artifacts : "categorizes"
     Workspace_Artifacts ||--o{ Artifact_History : "tracks changes"
@@ -238,6 +243,7 @@ erDiagram
         json previous_state
         json new_state
     }
+```
 
 #### **5.2.1 SQLite Schema Constraints**
 When generating the SQL creation scripts, the following constraints are mandatory:
@@ -256,6 +262,7 @@ The Apps Script Web App is configured via appsscript.json to "Execute As: Me" an
 
 Communication utilizes Cryptographic Webhooks. Nginx provides HTTPS. The Python VM demands an HMAC-SHA256 signature in the header (hashed with a shared Secret Key) and a timestamp to prevent replay attacks.
 
+```mermaid
 sequenceDiagram
     autonumber
     actor User
@@ -281,6 +288,7 @@ sequenceDiagram
         VM-->>GAS: 200 OK (Success JSON)
         GAS-->>Browser: Update UI Grid
     end
+```
 
 ### **6.3 Identity & Secrets Management Protocols**
 To prevent accidental credential leaks and ensure seamless authentication across headless environments, the following strict protocols apply:
