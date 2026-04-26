@@ -94,28 +94,27 @@ Once a batch threshold is met for a specific Correspondent, the documents underg
 Unlike Drive documents, emails arrive with structured metadata, allowing for a highly efficient, single-pass extraction.
 
 ```mermaid  
-
-sequenceDiagram  
-    autonumber  
-    participant Gmail as Gmail API  
-    participant PubSub as GCP Pub/Sub  
-    participant WH as Webhook (FastAPI)  
-    participant Sync as Sync Engine (Python)  
-    participant LLM as Gemini API  
+sequenceDiagram
+    autonumber
+    participant Gmail as Gmail API
+    participant PubSub as GCP Pub/Sub
+    participant WH as Webhook (FastAPI)
+    participant Sync as Sync Engine (Python)
+    participant LLM as Gemini API
     participant DB as nexus.db
 
-    Gmail->>PubSub: Push Notification (New Email)  
-    PubSub->>WH: POST /api/pubsub  
-    WH->>Sync: Trigger Delta Sync  
-    Sync->>Gmail: history().list() fetch modified threads  
-    Note over Sync: Groups threads by Sender Domain  
-    Sync->>LLM: Single-Pass Extraction  
-    LLM-->>Sync: Returns Taxonomy, Summary, Action_State, Fields  
-    alt Successful Parse  
-        Sync->>DB: INSERT Artifact & History Log  
-        Sync->>Gmail: Apply Nested Labels & Brand Colors  
-    else JSON Parse Error  
-        Sync->>DB: Flag ERROR_LLM_PARSE  
+    Gmail->>PubSub: Push Notification (New Email)
+    PubSub->>WH: POST /api/pubsub
+    WH->>Sync: Trigger Delta Sync
+    Sync->>Gmail: history().list() fetch modified threads
+    Note over Sync: Groups threads by Sender Domain
+    Sync->>LLM: Single-Pass Extraction
+    LLM-->>Sync: Returns Taxonomy, Summary, Action_State, Fields
+    alt Successful Parse
+        Sync->>DB: INSERT Artifact & History Log
+        Sync->>Gmail: Apply Nested Labels & Brand Colors
+    else JSON Parse Error
+        Sync->>DB: Flag ERROR_LLM_PARSE
     end
 ```
 
@@ -127,28 +126,28 @@ sequenceDiagram
 When an artifact fails strict normalization or Gemini returns an ambiguous result, it is flagged as Purpose/Review. These items await human verification in the Apps Script frontend. When a user provides a manual correction, the system secures the transmission via a cryptographic handshake.
 
 ```mermaid  
-sequenceDiagram  
-    autonumber  
-    actor User  
-    participant UI as Apps Script UI (Browser)  
-    participant GS as Apps Script Backend (Code.gs)  
-    participant VM as Python VM (main.py)  
+sequenceDiagram
+    autonumber
+    actor User
+    participant UI as Apps Script UI (Browser)
+    participant GS as Apps Script Backend (Code.gs)
+    participant VM as Python VM (main.py)
     participant DB as SQLite (nexus.db)
 
-    User->>UI: Corrects Taxonomy (Manual Override)  
-    UI->>GS: google.script.run.updateArtifact(payload)  
-    Note over GS: Retrieves HMAC Secret from PropertiesService  
-    GS->>GS: Generates HMAC-SHA256 Hash<br/>Appends UNIX Timestamp  
-    GS->>VM: UrlFetchApp POST to /api/update<br/>Header: X-Nexus-Signature  
-    Note over VM: Validates Timestamp (< 5 mins)<br/>Recalculates HMAC Hash  
-    alt Signature Valid  
-        VM->>DB: UPDATE Workspace_Artifacts  
-        VM->>DB: INSERT Artifact_History (Actor: USER)  
-        VM-->>GS: 200 OK  
-        GS-->>UI: Success Notification  
-    else Signature Invalid / Expired  
-        VM-->>GS: 401 Unauthorized  
-        GS-->>UI: Error: Security Handshake Failed  
+    User->>UI: Corrects Taxonomy (Manual Override)
+    UI->>GS: google.script.run.updateArtifact(payload)
+    Note over GS: Retrieves HMAC Secret from PropertiesService
+    GS->>GS: Generates HMAC-SHA256 Hash<br/>Appends UNIX Timestamp
+    GS->>VM: UrlFetchApp POST to /api/update<br/>Header: X-Nexus-Signature
+    Note over VM: Validates Timestamp (< 5 mins)<br/>Recalculates HMAC Hash
+    alt Signature Valid
+        VM->>DB: UPDATE Workspace_Artifacts
+        VM->>DB: INSERT Artifact_History (Actor: USER)
+        VM-->>GS: 200 OK
+        GS-->>UI: Success Notification
+    else Signature Invalid / Expired
+        VM-->>GS: 401 Unauthorized
+        GS-->>UI: Error: Security Handshake Failed
     end
 ```
 
@@ -195,28 +194,28 @@ To maintain visual cohesion across the Google Workspace ecosystem, Nexus Hub emp
 The frontend relies on a decoupled, asynchronous data retrieval model to ensure a highly responsive user experience without page reloads.
 
 ```mermaid  
-sequenceDiagram  
-    autonumber  
-    actor User  
-    participant UI as Browser (Index.html / JS_Actions)  
-    participant GAS as Apps Script Backend (Code.gs)  
-    participant VM as Nginx & FastAPI (GCP)  
+sequenceDiagram
+    autonumber
+    actor User
+    participant UI as Browser (Index.html / JS_Actions)
+    participant GAS as Apps Script Backend (Code.gs)
+    participant VM as Nginx & FastAPI (GCP)
     participant DB as SQLite (nexus.db)
 
-    User->>UI: Opens Dashboard or Modifies Filters  
-    UI->>GAS: google.script.run.fetchArtifacts(filters)  
-    Note over GAS: Retrieves HMAC Secret  
-    GAS->>GAS: Generate HMAC Signature + Timestamp  
-    GAS->>VM: GET /api/artifacts (with Auth Headers)  
-      
-    Note over VM: Validate HMAC & Timestamp  
-    VM->>DB: Execute Indexed SQL Query  
-    DB-->>VM: Return List of sqlite3.Row dictionaries  
-    VM-->>GAS: Return JSON Payload (HTTP 200)  
-    GAS-->>UI: Pass JSON via Async Promise  
-      
-    Note over UI: JS_State memory is updated.<br/>Material Data Grid renders rows.<br/>Split-Pane listener is attached.  
-    User->>UI: Clicks specific table row  
+    User->>UI: Opens Dashboard or Modifies Filters
+    UI->>GAS: google.script.run.fetchArtifacts(filters)
+    Note over GAS: Retrieves HMAC Secret
+    GAS->>GAS: Generate HMAC Signature + Timestamp
+    GAS->>VM: GET /api/artifacts (with Auth Headers)
+    
+    Note over VM: Validate HMAC & Timestamp
+    VM->>DB: Execute Indexed SQL Query
+    DB-->>VM: Return List of sqlite3.Row dictionaries
+    VM-->>GAS: Return JSON Payload (HTTP 200)
+    GAS-->>UI: Pass JSON via Async Promise
+    
+    Note over UI: JS_State memory is updated.<br/>Material Data Grid renders rows.<br/>Split-Pane listener is attached.
+    User->>UI: Clicks specific table row
     UI->>UI: Render Native Drive Iframe (Left Pane)<br/>Render Editable Custom Fields (Right Pane)
 ```
 
