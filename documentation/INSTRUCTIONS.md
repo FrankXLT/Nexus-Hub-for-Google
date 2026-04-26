@@ -1,5 +1,36 @@
 # Nexus Hub for Google - User Manual & Setup Instructions
 
+## Phase 0: Google Cloud Console Prerequisites
+
+Before provisioning the VM, you must configure the Google Cloud Project and generate your credentials.
+
+### 1. Enable Required APIs
+Navigate to **APIs & Services > Library** in the GCP Console and enable the following:
+* Gmail API
+* Google Drive API
+* Cloud Pub/Sub API
+* Document AI API
+
+![Enable APIs Screenshot](docs/img/gcp_enable_apis.png)
+
+### 2. Configure OAuth Consent Screen
+Because this is an internal tool, configure the OAuth screen for "Internal" use to bypass Google's app verification process.
+1. Navigate to **APIs & Services > OAuth consent screen**.
+2. Select **Internal** and click Create.
+3. Under Scopes, manually add `https://www.googleapis.com/auth/gmail.modify` and `https://www.googleapis.com/auth/drive`.
+
+![OAuth Scopes Screenshot](docs/img/gcp_oauth_scopes.png)
+
+### 3. Generate Desktop App Credentials
+The Python VM requires a headless OAuth flow. 
+1. Navigate to **APIs & Services > Credentials**.
+2. Click **Create Credentials > OAuth client ID**.
+3. Select **Desktop app** as the Application type. Name it "Nexus Hub Headless VM".
+4. Download the generated JSON file and rename it exactly to `credentials.json`. 
+
+![Download Credentials Screenshot](docs/img/gcp_download_credentials.png)
+*(Save this file; you will SCP or paste it into your VM in Phase 1).*
+
 ## Phase 1: Virtual Machine Provisioning & CI/CD
 
 ### 1. Provisioning the Google Cloud VM
