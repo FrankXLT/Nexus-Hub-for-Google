@@ -1,4 +1,9 @@
 # Nexus Hub for Google
+![Python](https://img.shields.io/badge/Python-3.11-blue?style=flat-square&logo=python)
+![Google Cloud](https://img.shields.io/badge/Google_Cloud-e2--micro-4285F4?style=flat-square&logo=googlecloud)
+![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED?style=flat-square&logo=docker)
+![Gemini](https://img.shields.io/badge/AI-Gemini_Pro-8E75B2?style=flat-square&logo=googlegemini)
+![SQLite](https://img.shields.io/badge/Database-SQLite3-003B57?style=flat-square&logo=sqlite)
 
 The Nexus Hub unifies the management of entities across Gmail, Google Drive, and Google Calendar. By enforcing a strict taxonomy and dynamic custom data extraction, the system transforms discrete files and emails into a centralized relational database. It relies on a hybrid architecture: a responsive, standalone Google Apps Script frontend backed by a persistent Google Cloud VM running a Python synchronization engine.
 
