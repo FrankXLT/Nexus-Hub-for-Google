@@ -15,9 +15,11 @@ The Nexus Hub unifies the management of entities across Gmail, Google Drive, and
 - **LLM Metadata Extraction:** Implemented `llm_engine.py` leveraging the Google GenAI SDK for Two-Stage Triage processing of Google Drive OCR texts and Single-Pass contextual extraction for Gmail threads.
 - **Frontend Material UI:** Developed a zero-dependency Google Apps Script frontend utilizing a Split-Pane layout, dynamic data grids, and an Audit Timeline.
 - **Programmatic Color Management:** Implemented `branding_engine.py` to calculate Euclidean distances in RGB space to match brand colors to the strict Gmail API allowed palette, seamlessly syncing label and folder colors across the workspace.
+- **Telemetry & Hardening:** Enhanced system resiliency via Docker Compose configuration with built-in log rotation (`json-file`, max 10MB), explicit SQLite `Error_Logs` tracking, database concurrency protection (`locked_by_system`), and robust LLM taxonomy normalization logic to handle hallucinations and aggressively enforce the exception queue fallback.
 
 ## Version History
 
+- **v1.1.0:** Phase 16 - Telemetry and Hardening update, including Docker log rotation, `Error_Logs` table, and LLM Taxonomy Normalization.
 - **v1.0.0:** Phase 12 - Implemented `branding_engine.py` for automated cross-workspace label and folder color synchronization.
 - **v0.9.0:** Phase 9 - Implemented the zero-dependency Material Design UI (HTML/CSS/JS) via Apps Script templates.
 - **v0.8.0:** Phase 8 - Implemented `llm_engine.py` to handle Gemini AI data extraction and artifact DB logging.

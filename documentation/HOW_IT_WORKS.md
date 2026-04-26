@@ -7,30 +7,27 @@ This internal documentation provides a detailed look at the core lifecycles with
 This section outlines the exact flow of a document from the moment it is uploaded to Google Drive until its metadata is extracted and persisted into the Nexus Hub database.
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    participant Drive as Google Drive
-    participant Sync as Sync Engine (Python)
-    participant DocAI as Document AI
-    participant LLM as Gemini API
-    participant DB as nexus.db
-
-    Drive->>Sync: Delta Sync (Changes API)
-    Sync->>DocAI: Send Raw PDF for OCR
-    DocAI-->>Sync: Return OCR Data
-    Note over Sync: Discards massive hOCR payload<br/>Keeps only raw text
-    Sync->>LLM: Stage 1 Triage (Find Correspondent)
-    LLM-->>Sync: Returns JSON {Correspondent}
-    Sync->>DB: Place in Holding Queue
-    Note over Sync: Waits for Batch Threshold
-    Sync->>LLM: Stage 2 Enforce (Grouped by Correspondent)
-    LLM-->>Sync: Returns Purpose, Summary, Custom Fields
-    alt Exact Match Found
-        Sync->>DB: INSERT Artifact & History Log
-        Sync->>Drive: Apply Folder Colors & AppProperties
-    else Ambiguous/Unknown
-        Sync->>DB: Route to Exception Queue (Purpose/Review)
-    end
+stateDiagram-v2
+    [*] --> RAW_INGESTED : New File/Email
+    
+    RAW_INGESTED --> OCR_PROCESSING : Sent to Document AI
+    OCR_PROCESSING --> OCR_FAILED : Unreadable/Corrupt
+    
+    OCR_PROCESSING --> TRIAGE_STAGE_1 : Text Extracted
+    TRIAGE_STAGE_1 --> UNKNOWN_CORRESPONDENT : Threshold Missed
+    
+    TRIAGE_STAGE_1 --> BATCH_QUEUED : Correspondent Matched
+    BATCH_QUEUED --> EXTRACTION_STAGE_2 : Processing Interval
+    
+    EXTRACTION_STAGE_2 --> ERROR_LLM_PARSE : JSON Malformed
+    EXTRACTION_STAGE_2 --> EXCEPTION_REVIEW : Purpose Ambiguous (Fallback)
+    
+    EXTRACTION_STAGE_2 --> PROCESSED : Exact Match
+    
+    EXCEPTION_REVIEW --> PROCESSED : User Manual Override (UI)
+    ERROR_LLM_PARSE --> TRIAGE_STAGE_1 : Auto-Retry (Max 3)
+    
+    PROCESSED --> [*]
 ```
 1. **Ingestion & Delta Synchronization:**
    - The user uploads or modifies a document in Google Drive.

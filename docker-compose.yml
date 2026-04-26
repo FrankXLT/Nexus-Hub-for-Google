@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  nexus-sync-engine:
+    build: .
+    container_name: nexus_sync_engine
+    command: python3 sync_engine.py
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

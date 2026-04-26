@@ -155,6 +155,29 @@ def persist_llm_results(artifact_id: str, summary: str, custom_data: Dict[str, A
 # Processing Pipelines
 # ---------------------------------------------------------------------------
 
+def normalize_taxonomy(extracted_tag: str, whitelist_str: str) -> str:
+    """
+    Normalizes common plural/misspelled tags before evaluation.
+    If it fails to match the whitelist, enforces 'Purpose/Review'.
+    """
+    if not extracted_tag:
+        return "Purpose/Review"
+        
+    extracted_tag = extracted_tag.strip()
+    whitelist = [item.strip() for item in whitelist_str.split('\n') if item.strip()]
+    
+    if extracted_tag in whitelist:
+        return extracted_tag
+        
+    # Attempt basic plural normalization
+    if extracted_tag.endswith('s') and extracted_tag[:-1] in whitelist:
+        return extracted_tag[:-1]
+    if extracted_tag.endswith('es') and extracted_tag[:-2] in whitelist:
+        return extracted_tag[:-2]
+        
+    # Aggressively enforce exception fallback
+    return "Purpose/Review"
+
 def process_gmail_thread(artifact_id: str, email_context: Dict[str, Any], dynamic_array_str: str, whitelist_str: str) -> None:
     """
     Single-Pass processing for Gmail threads.
@@ -166,6 +189,11 @@ def process_gmail_thread(artifact_id: str, email_context: Dict[str, Any], dynami
     result = call_gemini(prompt, full_context)
     
     if result:
+        # Normalize the taxonomy mapping
+        taxonomy_path = result.get("taxonomy_path", "")
+        normalized_path = normalize_taxonomy(taxonomy_path, whitelist_str)
+        result["taxonomy_path"] = normalized_path
+        
         persist_llm_results(
             artifact_id=artifact_id,
             summary=result.get("summary", ""),
@@ -193,8 +221,9 @@ def process_drive_document(artifact_id: str, ocr_text: str, correspondent_whitel
         return
         
     correspondent = result_s1["correspondent"]
+    correspondent = normalize_taxonomy(correspondent, correspondent_whitelist)
     
-    if correspondent == "UNKNOWN":
+    if correspondent == "UNKNOWN" or correspondent == "Purpose/Review":
         update_artifact_status(artifact_id, "UNKNOWN_CORRESPONDENT")
         print(f"Unknown correspondent for {artifact_id}")
         return
@@ -207,6 +236,11 @@ def process_drive_document(artifact_id: str, ocr_text: str, correspondent_whitel
     result_s2 = call_gemini(prompt_s2, context_s2)
     
     if result_s2:
+        # Normalize purpose
+        purpose = result_s2.get("purpose", "")
+        normalized_purpose = normalize_taxonomy(purpose, purpose_whitelist)
+        result_s2["purpose"] = normalized_purpose
+        
         # Merge correspondent into the final custom data payload
         custom_data = result_s2.get("custom_fields", {})
         if not isinstance(custom_data, dict):

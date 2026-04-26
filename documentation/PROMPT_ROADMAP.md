@@ -287,3 +287,18 @@
 > 3. Leave `[MERMAID_DIAGRAM_PLACEHOLDER: The UI Cryptographic Handshake]` under Section 3.
 > 
 > **Post-Execution Documentation:** Ensure these expansions reflect the depth of our actual python/GS implementation."
+
+## Stage 16: Telemetry, Normalization & Compose Hardening
+**Internal Simulation & Correction:** *The agent needs to augment existing files (`db_init.py`, `llm_engine.py`) and create a new one (`docker-compose.yml`). We must ensure it doesn't accidentally wipe out the existing logic in those Python files, but strictly augments them.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 16 based on our architectural review for Telemetry and Hardening. You will be augmenting our existing codebase.
+> 
+> **Tasks:**
+> 1. **Docker Compose:** Create a `docker-compose.yml` file. It must define the Python sync engine service, map a persistent volume for the `/data` directory (where `nexus.db` lives), load variables from `.env`, and implement a logging driver with `max-size: 10m` and `max-file: 3`.
+> 2. **Database Updates:** Modify `db_init.py`. 
+>    - Add a new `STRICT` table: `Error_Logs` with columns: `log_id` (PK), `timestamp`, `module_name`, `artifact_id` (FK, nullable), `error_message`, and `stack_trace` (JSON).
+>    - Add a boolean column `locked_by_system` (default 0) to the `Workspace_Artifacts` table to prevent race conditions during sync.
+> 3. **Taxonomy Normalization:** Update `llm_engine.py`. Before the LLM output is evaluated against the database whitelist, inject a pre-processing function to normalize common plural/misspelled tags (e.g., converting 'Receipts' -> 'Receipt'). If normalization fails and the tag still does not match the whitelist, aggressively enforce the 'Purpose/Review' exception fallback.
+> 
+> **Post-Execution Documentation:** Append these hardening updates to `PROMPT_AUDIT.md` and summarize the new telemetry architecture in `README.md`."

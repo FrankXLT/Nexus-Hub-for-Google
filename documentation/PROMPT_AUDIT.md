@@ -250,3 +250,23 @@ Expanded the internal 'How It Works' documentation and generated the comprehensi
 - `tooltips.json` (Updated)
 - `documentation/HOW_IT_WORKS.md` (Updated)
 - `documentation/PROMPT_AUDIT.md` (Updated)
+
+## Phase 16: Telemetry and Hardening
+**Date:** April 25, 2026
+
+**Summary:**
+Implemented architectural hardening and telemetry updates to improve system resiliency, logging, and data integrity.
+
+**Decisions Made:**
+- Created `docker-compose.yml` to orchestrate the Python sync engine, mounting the local `/data` directory as a persistent volume to preserve `nexus.db`.
+- Configured the Docker logging driver (`json-file`) with `max-size: 10m` and `max-file: 3` to prevent disk overflow from long-running background processes.
+- Updated `db_init.py` by adding the `Error_Logs` STRICT table for centralized stack trace/error persistence, and appended a `locked_by_system` boolean to `Workspace_Artifacts` to mitigate race conditions during sync.
+- Updated `llm_engine.py` by injecting `normalize_taxonomy()`. This function intercepts the Gemini JSON output, applies basic pluralization matching against the database whitelist, and aggressively routes the document to the 'Purpose/Review' queue if normalization fails, thereby preventing hallucinated tags from breaking the UI.
+- Updated `README.md` and `PROMPT_AUDIT.md` to document the new telemetry architecture.
+
+**Files Altered/Created:**
+- `docker-compose.yml` (Created)
+- `db_init.py` (Updated)
+- `llm_engine.py` (Updated)
+- `README.md` (Updated)
+- `documentation/PROMPT_AUDIT.md` (Updated)

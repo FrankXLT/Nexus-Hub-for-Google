@@ -73,6 +73,7 @@ def init_db(db_path: str = DB_PATH) -> None:
             summary TEXT,
             custom_data TEXT CHECK(json_valid(custom_data)),
             status TEXT,
+            locked_by_system INTEGER DEFAULT 0,
             FOREIGN KEY (taxonomy_id) REFERENCES Taxonomy_Entities (id) ON DELETE CASCADE
         ) STRICT;
     """)
@@ -87,6 +88,19 @@ def init_db(db_path: str = DB_PATH) -> None:
             action_type TEXT NOT NULL,
             previous_state TEXT CHECK(json_valid(previous_state)),
             new_state TEXT CHECK(json_valid(new_state)),
+            FOREIGN KEY (artifact_id) REFERENCES Workspace_Artifacts (artifact_id) ON DELETE CASCADE
+        ) STRICT;
+    """)
+
+    # 7. Error_Logs
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Error_Logs (
+            log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp INTEGER NOT NULL,
+            module_name TEXT NOT NULL,
+            artifact_id TEXT,
+            error_message TEXT NOT NULL,
+            stack_trace TEXT CHECK(json_valid(stack_trace)),
             FOREIGN KEY (artifact_id) REFERENCES Workspace_Artifacts (artifact_id) ON DELETE CASCADE
         ) STRICT;
     """)
