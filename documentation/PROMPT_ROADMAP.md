@@ -331,3 +331,57 @@
 > 4. **Fix `INSTRUCTIONS.md`:** Delete the manual `pip install` instructions. Update the manual to explain that Docker Compose will automatically build the image and install the Python dependencies.
 > 
 > **Post-Execution Documentation:** Append this containerization fix to `PROMPT_AUDIT.md`."
+
+## Stage 19: Dynamic Prompt Extraction & Seeding
+**Internal Simulation & Correction:** *The AI likely hardcoded the master prompts directly into `llm_engine.py` during Phase 8. This violates the goal of allowing users to update prompts via the UI. We must refactor the engine to fetch prompts dynamically from the `Config_Prompts` table and ensure this architectural shift is documented.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 19. We have an architectural flaw regarding how AI prompts are stored. Currently, the prompts from Section 9.3 are likely hardcoded in `llm_engine.py`. They must be fully database-driven so the user can update them later.
+> 
+> **Tasks:**
+> 1. **Update `db_init.py` (Seeding):** Write a new function `seed_default_prompts(conn)`. This function must safely `INSERT OR IGNORE` the master prompts (from Section 9.3: Gmail Single-Pass, Drive Stage 1, Drive Stage 2) into the `Config_Prompts` table so the database is pre-loaded on the first boot.
+> 2. **Refactor `llm_engine.py`:** Delete the hardcoded prompt strings. Write a helper function `fetch_active_prompt(prompt_key)` that queries the `Config_Prompts` table. 
+> 3. **Dynamic Injection:** Ensure the routing and extraction functions in `llm_engine.py` call `fetch_active_prompt()` to retrieve their instructions *immediately before* making the call to the Gemini API.
+> 4. **Update `main.py`:** Ensure the FastAPI server has a `GET /api/prompts` and `POST /api/prompts` endpoint (secured with the HMAC signature) so the Apps Script frontend can read and update these prompts in the database later.
+> 5. **Update `HOW_IT_WORKS.md`:** Add a new sub-section under the LLM Engine explaining this dynamic prompt architecture. Explain how prompts are fetched from the database in real-time, allowing users to modify AI behavior without requiring a Docker container restart.
+> 
+> **Post-Execution Documentation:** Append this refactor to `PROMPT_AUDIT.md`."
+
+---
+
+## Stage 20: The AI Self-Tuning Engine (Feedback Loop)
+**Internal Simulation & Correction:** *The system currently accepts manual UI corrections but does not use them to tune the LLM. We must build an asynchronous tuning loop that analyzes the error and updates the `Config_Prompts` table without blocking the UI's HTTP response, and document this technical mechanism.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 20 based on Section 9.3.4 (The Tuning Loop) of ARCHITECTURE.md. We need to implement the AI Self-Correction engine.
+> 
+> **Tasks:**
+> 1. **Create the Tuning Logic:** In `llm_engine.py`, write a new asynchronous function `generate_tuning_rule(artifact_id, original_json, corrected_json)`. 
+>    - This function must fetch the `raw_text` for the artifact from the database.
+>    - It must send the raw text, the AI's original mistake, and the user's correction to the Gemini model using the precise prompt structure defined in Section 9.3.4.
+>    - It must extract the generated `new_routing_rule` from Gemini's JSON response and append it to the existing prompt string in the `Config_Prompts` table for that specific Correspondent.
+> 2. **Wire the Webhook:** Modify the `POST /api/update` endpoint in `main.py`. When a user submits a manual override, the API must return the `200 OK` response to the frontend immediately, but use FastAPI's `BackgroundTasks` to execute `generate_tuning_rule()` asynchronously in the background.
+> 3. **Update `HOW_IT_WORKS.md`:** Review Section 4 (The Tuning Loop). Add a paragraph explicitly detailing the technical implementation: explain how FastAPI `BackgroundTasks` are used to process the Gemini AI tuning request asynchronously, ensuring the manual override webhook returns a 200 OK immediately to keep the UI snappy.
+> 
+> **Post-Execution Documentation:** Append this self-learning engine implementation to `PROMPT_AUDIT.md`."
+
+## Stage 21: The Master Project Audit & Documentation Alignment
+**Internal Simulation & Correction:** *By this stage, the agent has generated thousands of lines of code and documentation. It may have orphaned features or out-of-sync documents. This prompt forces a holistic reconciliation, demanding that it verify the implementation of the hardest features (dynamic prompts, tuning loop, containerization) and ensure the user manuals reflect the absolute final state.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 21: The Master Project Audit. You must now act as the Lead QA Engineer and Lead Technical Writer. We are preparing for the V1.x production release.
+> 
+> **Tasks:**
+> 1. **Cross-Reference Roadmap vs. Audit:** Read `PROMPT_AUDIT.md`. Verify that Stages 1 through 20 have been executed. Specifically, confirm that the features from our late-stage pivots (Stage 18 Containerization, Stage 19 Dynamic Prompts, Stage 20 Async Tuning Loop) are actually present in the `.py` files, not just in your memory.
+> 2. **Codebase vs. Architecture Check:** Scan the codebase to ensure no strict constraints were violated:
+>    - Are there any hardcoded Gemini prompts left in `llm_engine.py`? (They should be fetched from the DB).
+>    - Does `update.sh` correctly execute database migrations and restart Docker?
+>    - Are `fastapi` and `BackgroundTasks` properly handling the async tuning loop in `main.py`?
+> 3. **Documentation Alignment:** Review `README.md`, `INSTRUCTIONS.md`, and `HOW_IT_WORKS.md`. 
+>    - Ensure `INSTRUCTIONS.md` clearly explains how Docker Compose handles the Python dependencies (no manual `pip install`).
+>    - Ensure the `README.md` features list includes the Dead-Letter Queue, Dynamic Prompts, and the Self-Tuning Engine.
+> 
+> **Output:**
+> 1. If you find any broken code or missing documentation constraints during this scan, silently fix them in the respective files.
+> 2. Generate a final section at the bottom of `ARCHITECTURE_AUDIT.md` titled '## 7. V1.0 Master Release Audit'.
+> 3. In this section, provide a Pass/Fail checklist for the 20 Stages, confirm the documentation is fully synced, and declare the codebase Ready for Production."

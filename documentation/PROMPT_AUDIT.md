@@ -309,3 +309,41 @@ Addressed a critical architectural violation by fully containerizing the Python 
 - `docker-compose.yml` (Updated)
 - `documentation/INSTRUCTIONS.md` (Updated)
 - `documentation/PROMPT_AUDIT.md` (Updated)
+
+## Phase 19: Dynamic Prompt Architecture
+**Date:** April 26, 2026
+
+**Summary:**
+Addressed the architectural flaw of hardcoded AI prompts by fully migrating them to a dynamic, database-driven architecture, enabling on-the-fly tuning via the UI.
+
+**Decisions Made:**
+- Updated `db_init.py` by introducing the `seed_default_prompts(conn)` function. It safely executes `INSERT OR IGNORE` commands to populate the `Config_Prompts` table with the master Gmail and Drive prompts on the first boot.
+- Refactored `llm_engine.py` to remove all hardcoded prompt variables. Implemented the `fetch_active_prompt(prompt_key)` helper function, which queries the database for the active text string.
+- Adjusted `process_gmail_thread` and `process_drive_document` to invoke `fetch_active_prompt()` immediately prior to the Gemini API call, ensuring real-time prompt injection.
+- Added `GET /api/prompts` and `POST /api/prompts` endpoints to `main.py` allowing the frontend to read and update master prompts. Since the HMAC middleware automatically intercepts any `POST` request to `/api/*`, the update route is fully secured without needing to modify the core middleware.
+- Authored a new 'Dynamic Prompt Architecture' sub-section in `HOW_IT_WORKS.md` detailing the transition from static files to live SQLite injection.
+
+**Files Altered/Created:**
+- `db_init.py` (Updated)
+- `llm_engine.py` (Updated)
+- `main.py` (Updated)
+- `documentation/HOW_IT_WORKS.md` (Updated)
+- `documentation/PROMPT_AUDIT.md` (Updated)
+
+## Phase 20: AI Self-Correction Engine
+**Date:** April 26, 2026
+
+**Summary:**
+Implemented the AI Self-Correction engine based on Section 9.3.4 (The Tuning Loop) to dynamically generate and append new routing rules directly from user corrections.
+
+**Decisions Made:**
+- Developed the `generate_tuning_rule(artifact_id, original_json, corrected_json)` asynchronous function in `llm_engine.py`. This function retrieves the original text from SQLite, structures a diagnostic prompt, and calls the Gemini API to analyze the failure.
+- Configured the new tuning rule to dynamically append to the specific Correspondent's prompt string in the `Config_Prompts` table, effectively learning from its mistakes. If a correspondent-specific prompt doesn't exist, it intelligently creates one using the base `DRIVE_STAGE_2` instructions.
+- Wired the `/api/update` endpoint in `main.py` using FastAPI `BackgroundTasks`. This ensures the manual override instantly returns a 200 OK success state to the Google Apps Script frontend to maintain UI responsiveness, while the expensive LLM analysis and database tuning process occurs asynchronously in a background thread.
+- Updated Section 4 of `HOW_IT_WORKS.md` with explicit details regarding the technical implementation of the `BackgroundTasks` queue.
+
+**Files Altered/Created:**
+- `llm_engine.py` (Updated)
+- `main.py` (Updated)
+- `documentation/HOW_IT_WORKS.md` (Updated)
+- `documentation/PROMPT_AUDIT.md` (Updated)

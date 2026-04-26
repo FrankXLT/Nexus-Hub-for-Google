@@ -2,166 +2,239 @@
 
 ## System Overview
 
-Nexus Hub operates on a robust hybrid architecture, bridging the serverless convenience of Google Apps Script with the computational power of a dedicated Python Virtual Machine (VM). The Python VM acts as the centralized brain, utilizing a strict, WAL-enabled SQLite database (`nexus.db`) for high-concurrency state management, metadata storage, and immutable audit logging. The Apps Script environment serves as a zero-dependency, Material Design frontend, communicating with the backend VM via a cryptographically secured (HMAC-SHA256), replay-protected webhook bridge. This separation of concerns allows Nexus Hub to leverage the official Google GenAI SDK for complex Document AI and metadata extraction on the backend while providing a seamless, native-feeling UI directly within the user's Google Workspace.
+Nexus Hub operates on a robust hybrid architecture, bridging the serverless convenience of Google Apps Script with the computational power of a dedicated Python Virtual Machine (VM). The Python VM acts as the centralized brain, utilizing a strict, WAL-enabled SQLite database (`nexus.db`) for high-concurrency state management, metadata storage, and immutable audit logging. The Apps Script environment serves as a zero-dependency, Material Design frontend, communicating with the backend VM via a cryptographically secured (HMAC-SHA256), replay-protected webhook bridge. 
 
 ---
 
-## The Google Drive Pipeline (Deep Dive)
+## 1. The Google Drive Pipeline (Deep Dive)
 
-The Google Drive ingestion pipeline is designed to efficiently process complex, unstructured documents (like scanned PDFs or images) through a rigorous, Two-Stage Triage system powered by Gemini AI.
+The Google Drive ingestion pipeline is designed to efficiently process complex, unstructured documents through a rigorous, Two-Stage Triage system powered by Gemini AI.
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant D as Google Drive API
-    participant SE as Sync Engine (Python)
-    participant DocAI as Document AI
-    participant LLM as Gemini AI
+```mermaid  
+sequenceDiagram  
+    autonumber  
+    participant D as Google Drive API  
+    participant SE as Sync Engine (Python)  
+    participant DocAI as Document AI  
+    participant LLM as Gemini AI  
     participant DB as SQLite (nexus.db)
 
-    rect rgb(240, 248, 255)
-    Note right of D: Phase 1: Ingestion & OCR
-    D->>SE: Delta Push / Changes API (pageToken)
-    SE->>D: Download Raw PDF/Image File
-    SE->>DocAI: Transmit Payload for OCR
-    DocAI-->>SE: Return Full JSON (Text + hOCR bounding boxes)
-    Note over SE: Optimization: Strip out heavy hOCR data<br/>Retain only UTF-8 Raw Text
+    rect rgb(240, 248, 255)  
+    Note right of D: Phase 1: Ingestion & OCR  
+    D->>SE: Delta Push / Changes API (pageToken)  
+    SE->>D: Download Raw PDF/Image File  
+    SE->>DocAI: Transmit Payload for OCR  
+    DocAI-->>SE: Return Full JSON (Text + hOCR bounding boxes)  
+    Note over SE: Optimization: Strip out heavy hOCR data<br/>Retain only UTF-8 Raw Text  
     end
 
-    rect rgb(255, 245, 238)
-    Note right of D: Phase 2: Triage & Routing
-    SE->>LLM: Send Text to Triage Prompt
-    LLM-->>SE: Return Correspondent String (e.g., 'AWS')
-    SE->>DB: Insert to Holding Queue (Status: PENDING_BATCH)
+    rect rgb(255, 245, 238)  
+    Note right of D: Phase 2: Triage & Routing  
+    SE->>LLM: Send Text to Triage Prompt  
+    LLM-->>SE: Return Correspondent String (e.g., 'AWS')  
+    SE->>DB: Insert to Holding Queue (Status: PENDING_BATCH)  
     end
 
-    rect rgb(245, 255, 250)
-    Note right of D: Phase 3: Threshold Execution & Extraction
-    Note over SE: Cron triggers batch execution (e.g., 5 'AWS' files)
-    SE->>DB: Select batched artifacts
-    SE->>LLM: Send batched text + 'AWS' Purpose Whitelist + Schema
-    LLM-->>SE: Return Structured JSON (Purpose, Custom Fields, Summary)
+    rect rgb(245, 255, 250)  
+    Note right of D: Phase 3: Threshold Execution & Extraction  
+    Note over SE: Cron triggers batch execution  
+    SE->>DB: Select batched artifacts  
+    SE->>LLM: Send batched text + 'AWS' Purpose Whitelist + Schema  
+    LLM-->>SE: Return Structured JSON (Purpose, Custom Fields, Summary)  
     end
 
-    rect rgb(253, 245, 230)
-    Note right of D: Phase 4: Archival & Exception Handling
-    alt JSON Valid & Strict Match
-        SE->>DB: Update Artifact (Status: PROCESSED)
-        SE->>DB: Insert Artifact_History
-        SE->>D: Apply nested folderColorRgb
-        SE->>D: Inject Custom AppProperties Metadata
-    else Ambiguous Intent OR Normalization Failure
-        SE->>DB: Route to Exception Queue (Tag: Purpose/Review)
-    else LLM JSON Malformed / 500 Error
-        SE->>DB: Route to Error_Logs (Dead-Letter Queue)
-    end
+    rect rgb(253, 245, 230)  
+    Note right of D: Phase 4: Archival & Exception Handling  
+    alt JSON Valid & Strict Match  
+        SE->>DB: Update Artifact (Status: PROCESSED)  
+        SE->>DB: Insert Artifact_History  
+        SE->>D: Apply nested folderColorRgb  
+        SE->>D: Inject Custom AppProperties Metadata  
+    else Ambiguous Intent OR Normalization Failure  
+        SE->>DB: Route to Exception Queue (Tag: Purpose/Review)  
+    else LLM JSON Malformed / 500 Error  
+        SE->>DB: Route to Error_Logs (Dead-Letter Queue)  
+    end  
     end
 ```
 
-### Phase 1: Ingestion & OCR Strip-down
-1. **Delta Synchronization:** To avoid the prohibitive latency of full polling, the `sync_engine.py` background process maintains a persistent `pageToken` in the `Sync_State` SQLite table. Upon execution, it queries the Google Drive API (`changes().list`) using this token to fetch only the files modified since the last check.
-2. **Targeted Fetching:** For each modified file ID, the engine retrieves the raw text. If the file is an image or scanned PDF, the engine leverages Google Drive's native Optical Character Recognition (OCR) capabilities.
-3. **Payload Optimization:** The raw hOCR output can be massive and token-heavy. The engine strips down this payload, extracting only the raw, unstructured text to minimize latency and token consumption before passing it to the LLM engine.
+### **Phase 1: Ingestion & OCR Strip-down**
 
-### Phase 2: Triage & Routing Queue
-1. **Correspondent Identification (Stage 1):** The stripped text is passed to `llm_engine.py` with the `PROMPT_DRIVE_STAGE_1` prompt. This initial LLM call acts as a low-latency router. Its sole responsibility is to identify the primary organization, vendor, or sender (the "Correspondent") against a strict, pre-defined whitelist.
-2. **Taxonomy Normalization:** The LLM's output is intercepted by the `normalize_taxonomy` function. This crucial step prevents hallucinations by stripping whitespace, applying basic pluralization rules (e.g., matching "Receipts" to "Receipt"), and verifying the result against the database whitelist.
-3. **Queue Placement:** If a valid Correspondent is identified, the document is placed into a logical holding queue. If the LLM returns "UNKNOWN" or the normalization fails, the document bypasses the next extraction stage and is forcefully routed to the exception queue (flagged as `Purpose/Review`).
+1. **Delta Synchronization:** To avoid the prohibitive latency of full polling, the sync_engine.py process maintains a persistent pageToken in the Sync_State table. It queries the Google Drive API (changes().list) to fetch only files modified since the last check.  
+2. **Payload Optimization:** For scanned documents, the engine leverages Document AI for OCR. Because raw hOCR output is massive and token-heavy, the engine strips down this payload, retaining only the UTF-8 text to minimize latency before passing it to the LLM.
 
-### Phase 3: Threshold Batching & Extraction
-1. **Batch Accumulation:** To optimize API calls and respect rate limits, documents in the holding queue wait until a predefined `batch_threshold` (configured in `Config_System`) is reached for a specific Correspondent.
-2. **Deep Extraction (Stage 2):** Once the threshold is met, the grouped documents are processed using `PROMPT_DRIVE_STAGE_2`. Because the Correspondent is now known, the prompt is dynamically injected with the exact JSON schema required for that specific entity (e.g., extracting "Policy Number" and "Premium" for an insurance provider, or "Invoice Total" and "Due Date" for a utility company).
-3. **Exponential Backoff:** All Gemini API calls are wrapped in a `tenacity` decorator. If the API returns a 429 Too Many Requests error, the engine automatically retries using an exponential backoff strategy (up to a configured `max_retries` limit).
+### **Phase 2: Triage & Routing Queue**
 
-### Phase 4: Archival & Exception Handling
-1. **Database Persistence:** The resulting JSON payload is parsed. A `try/except` block protects the engine from fatal crashes if the LLM hallucinates an invalid format. Upon successful parsing, the `Workspace_Artifacts` table is updated (`UPDATE`) with the extracted `custom_data` and a status of `PROCESSED`.
-2. **Immutable Audit Logging:** Simultaneously, an `INSERT` operation is performed on the `Artifact_History` table. This creates a permanent, immutable record of the AI's action, storing both the `previous_state` and `new_state` of the document's metadata.
-3. **Workspace Synchronization:** Finally, `branding_engine.py` calculates the Euclidean color distance for the Correspondent's assigned brand color, applying the closest permissible hex code to the nested Drive folder's `folderColorRgb` property.
+1. **Correspondent Identification (Stage 1):** The stripped text is passed to the LLM to identify the primary organization, vendor, or sender against a strict whitelist.  
+2. **Taxonomy Normalization:** The LLM's output is intercepted to prevent "Label Creep."
 
----
+```mermaid  
+flowchart TD  
+    Raw[Raw Extracted Text] --> LLM[Gemini Generates 'Purpose' Tag]  
+    LLM --> Tag[e.g., 'Receipts']  
+      
+    Tag --> CheckDict{Check Normalization Dict}  
+    CheckDict -- "Match Found" --> Norm[Normalize: 'Receipts' -> 'Receipt']  
+    CheckDict -- "No Match" --> Verify{Verify Against DB Whitelist}  
+      
+    Norm --> Verify  
+      
+    Verify -- "Exact Match" --> Accept[Apply Tag & Process]  
+    Verify -- "Failed Match" --> Reject[Route to 'Purpose/Review']  
+      
+    style Accept fill:#e6f4ea,stroke:#1e8e3e  
+    style Reject fill:#fff7d0,stroke:#f29900
+```
+### **Phase 3 & 4: Threshold Batching, Extraction, and Archival**
 
-## The Gmail Pipeline (Deep Dive)
+Once a batch threshold is met for a specific Correspondent, the documents undergo deep extraction for Custom Fields. Successful extractions are written to the database and native Drive metadata. Ambiguous documents are forcefully routed to the Purpose/Review Exception Queue.
 
-Unlike Google Drive documents, emails arrive with structured metadata (Sender, Subject, Headers). The Gmail pipeline leverages this context to execute a highly efficient, single-pass extraction.
+## **2. The Gmail Pipeline (Deep Dive)**
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant Gmail as Gmail API
-    participant PubSub as GCP Pub/Sub
-    participant WH as Webhook (FastAPI)
-    participant Sync as Sync Engine (Python)
-    participant LLM as Gemini API
+Unlike Drive documents, emails arrive with structured metadata, allowing for a highly efficient, single-pass extraction.
+
+```mermaid  
+
+sequenceDiagram  
+    autonumber  
+    participant Gmail as Gmail API  
+    participant PubSub as GCP Pub/Sub  
+    participant WH as Webhook (FastAPI)  
+    participant Sync as Sync Engine (Python)  
+    participant LLM as Gemini API  
     participant DB as nexus.db
 
-    Gmail->>PubSub: Push Notification (New Email)
-    PubSub->>WH: POST /api/pubsub
-    WH->>Sync: Trigger Delta Sync
-    Sync->>Gmail: history().list() fetch modified threads
-    Note over Sync: Groups threads by Sender Domain
-    Sync->>LLM: Single-Pass Extraction
-    LLM-->>Sync: Returns Taxonomy, Summary, Action_State, Fields
-    alt Successful Parse
-        Sync->>DB: INSERT Artifact & History Log
-        Sync->>Gmail: Apply Nested Labels & Brand Colors
-    else JSON Parse Error
-        Sync->>DB: Flag ERROR_LLM_PARSE
+    Gmail->>PubSub: Push Notification (New Email)  
+    PubSub->>WH: POST /api/pubsub  
+    WH->>Sync: Trigger Delta Sync  
+    Sync->>Gmail: history().list() fetch modified threads  
+    Note over Sync: Groups threads by Sender Domain  
+    Sync->>LLM: Single-Pass Extraction  
+    LLM-->>Sync: Returns Taxonomy, Summary, Action_State, Fields  
+    alt Successful Parse  
+        Sync->>DB: INSERT Artifact & History Log  
+        Sync->>Gmail: Apply Nested Labels & Brand Colors  
+    else JSON Parse Error  
+        Sync->>DB: Flag ERROR_LLM_PARSE  
     end
 ```
 
-1. **Trigger Mechanisms:**
-   - **Primary (Pub/Sub):** In a production GCP environment, a Cloud Pub/Sub push notification serves as the primary trigger. When a new email arrives, a webhook is fired to the FastAPI `/api/pubsub` endpoint, immediately initiating the sync.
-   - **Fallback (Polling):** If Pub/Sub is unavailable, the `sync_engine.py` operates on a cron schedule. It polls the Gmail API (`users().history().list`) using the `historyId` stored in the `Sync_State` table to fetch delta updates.
-2. **Context Assembly:** The sync engine retrieves the modified email threads. It groups the messages by Sender Domain and assembles a condensed context payload, prioritizing the subject line and the most recent message body.
-3. **Single-Pass Extraction:** The payload is passed to `llm_engine.py` using `PROMPT_GMAIL`. Because the context is richer than raw OCR text, the Gemini AI executes a **Single-Pass** operation. It simultaneously determines the taxonomy path (`Category \ Correspondent \ Purpose`), generates a 1-sentence summary, assesses if human action is required, and extracts the dynamic custom fields based on the identified Purpose.
-4. **Normalization & Persistence:** The resulting taxonomy path is routed through the `normalize_taxonomy` function. If it passes, the `Workspace_Artifacts` and `Artifact_History` tables are updated within a WAL-enabled SQLite transaction.
-5. **Label Color Synchronization:** The `branding_engine.py` calculates the Euclidean distance for the assigned brand color and patches the specific nested Gmail Label's `color` property (background and text), ensuring visual consistency with the Drive folders.
+1. **Trigger Mechanisms:** A Cloud Pub/Sub push notification serves as the primary trigger, firing a webhook to initiate the sync. A cron-based polling fallback queries users().history().list.  
+2. **Single-Pass Extraction:** The payload is evaluated by Gemini in a single pass to determine the taxonomy path, generate a summary, assess actionability, and extract custom fields simultaneously.
 
----
+## **3. The Exception Queue & Manual UI Overrides**
 
-## UI Data Retrieval & Presentation
+When an artifact fails strict normalization or Gemini returns an ambiguous result, it is flagged as Purpose/Review. These items await human verification in the Apps Script frontend. When a user provides a manual correction, the system secures the transmission via a cryptographic handshake.
 
-The Google Apps Script frontend provides a zero-dependency, Material Design dashboard without requiring a traditional backend web framework.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant UI as Browser (Index.html / JS_Actions)
-    participant GAS as Apps Script Backend (Code.gs)
-    participant VM as Nginx & FastAPI (GCP)
+```mermaid  
+sequenceDiagram  
+    autonumber  
+    actor User  
+    participant UI as Apps Script UI (Browser)  
+    participant GS as Apps Script Backend (Code.gs)  
+    participant VM as Python VM (main.py)  
     participant DB as SQLite (nexus.db)
 
-    User->>UI: Opens Dashboard or Modifies Filters
-    UI->>GAS: google.script.run.fetchArtifacts(filters)
-    Note over GAS: Retrieves HMAC Secret
-    GAS->>GAS: Generate HMAC Signature + Timestamp
-    GAS->>VM: GET /api/artifacts (with Auth Headers)
-    
-    Note over VM: Validate HMAC & Timestamp
-    VM->>DB: Execute Indexed SQL Query
-    DB-->>VM: Return List of sqlite3.Row dictionaries
-    VM-->>GAS: Return JSON Payload (HTTP 200)
-    GAS-->>UI: Pass JSON via Async Promise
-    
-    Note over UI: JS_State memory is updated.<br/>Material Data Grid renders rows.<br/>Split-Pane listener is attached.
-    User->>UI: Clicks specific table row
+    User->>UI: Corrects Taxonomy (Manual Override)  
+    UI->>GS: google.script.run.updateArtifact(payload)  
+    Note over GS: Retrieves HMAC Secret from PropertiesService  
+    GS->>GS: Generates HMAC-SHA256 Hash<br/>Appends UNIX Timestamp  
+    GS->>VM: UrlFetchApp POST to /api/update<br/>Header: X-Nexus-Signature  
+    Note over VM: Validates Timestamp (< 5 mins)<br/>Recalculates HMAC Hash  
+    alt Signature Valid  
+        VM->>DB: UPDATE Workspace_Artifacts  
+        VM->>DB: INSERT Artifact_History (Actor: USER)  
+        VM-->>GS: 200 OK  
+        GS-->>UI: Success Notification  
+    else Signature Invalid / Expired  
+        VM-->>GS: 401 Unauthorized  
+        GS-->>UI: Error: Security Handshake Failed  
+    end
+```
+
+## **4. The Tuning Loop (AI Self-Correction)**
+
+Nexus Hub does not simply log user corrections; it learns from them. The system employs an asynchronous background loop to dynamically tune its own extraction prompts based on human feedback.
+
+```mermaid  
+flowchart TD  
+    UI[User Corrects Label in UI] --> WH[FastAPI Webhook: /api/update]  
+      
+    WH -- "Immediate Response" --> UI_Success[Returns 200 OK to UI]  
+    WH -- "Background Task" --> Fetch[Fetch Raw Text & Previous State]  
+      
+    Fetch --> LLM{Gemini Tuning Prompt}  
+      
+    Note right of LLM: "You made a mistake.<br/>Analyze the text and the user's correction.<br/>Write a 1-sentence rule to never do this again."  
+      
+    LLM --> Rule[Generate New Routing Rule]  
+    Rule --> DB[(Config_Prompts Table)]  
+    DB --> Update[Append Rule to Correspondent Prompt]  
+      
+    style LLM fill:#fce8e6,stroke:#d93025  
+    style DB fill:#fef7e0,stroke:#f9ab00  
+    style UI_Success fill:#e6f4ea,stroke:#1e8e3e
+```
+
+When a manual override occurs, the webhook immediately returns a 200 OK so the UI remains snappy. In the background, the Python engine queries Gemini with the AI's original mistake and the user's correction, generating a new persistent routing rule to prevent future recurrences.
+
+**Technical Implementation:** This asynchronous behavior is achieved using FastAPI's `BackgroundTasks`. During the `POST /api/update` webhook execution, the server attaches the `generate_tuning_rule` function to the background task queue. This guarantees the 200 OK response is dispatched to the Google Apps Script frontend instantaneously, preventing any blocking UI freeze while the Gemini AI API generates and saves the tuning rule.
+```
+
+## **5. Programmatic Color Management**
+
+To maintain visual cohesion across the Google Workspace ecosystem, Nexus Hub employs programmatic visual branding.
+
+1. **The Constraints:** The Gmail API strictly limits label colors to 35 specific background/text hex code combinations.  
+2. **Dual-Snapping Algorithm:** The branding_engine.py calculates the Euclidean distance in the RGB color space between a user's requested brand color and the allowed Gmail palette, snapping to the closest WCAG contrast-compliant pair.  
+3. **Synchronization:** That precise hex code pair is subsequently applied to both the Gmail nested labels and the corresponding Google Drive folders.
+
+## **6. UI Data Retrieval & Presentation**
+
+The frontend relies on a decoupled, asynchronous data retrieval model to ensure a highly responsive user experience without page reloads.
+
+```mermaid  
+sequenceDiagram  
+    autonumber  
+    actor User  
+    participant UI as Browser (Index.html / JS_Actions)  
+    participant GAS as Apps Script Backend (Code.gs)  
+    participant VM as Nginx & FastAPI (GCP)  
+    participant DB as SQLite (nexus.db)
+
+    User->>UI: Opens Dashboard or Modifies Filters  
+    UI->>GAS: google.script.run.fetchArtifacts(filters)  
+    Note over GAS: Retrieves HMAC Secret  
+    GAS->>GAS: Generate HMAC Signature + Timestamp  
+    GAS->>VM: GET /api/artifacts (with Auth Headers)  
+      
+    Note over VM: Validate HMAC & Timestamp  
+    VM->>DB: Execute Indexed SQL Query  
+    DB-->>VM: Return List of sqlite3.Row dictionaries  
+    VM-->>GAS: Return JSON Payload (HTTP 200)  
+    GAS-->>UI: Pass JSON via Async Promise  
+      
+    Note over UI: JS_State memory is updated.<br/>Material Data Grid renders rows.<br/>Split-Pane listener is attached.  
+    User->>UI: Clicks specific table row  
     UI->>UI: Render Native Drive Iframe (Left Pane)<br/>Render Editable Custom Fields (Right Pane)
 ```
 
-1. **The `google.script.run` Trigger:** When a user interacts with the UI (e.g., clicking "Refresh" or switching tabs), the client-side JavaScript (`JS_Actions.html`) triggers an asynchronous `google.script.run` call to the `Code.gs` backend router.
-2. **Cryptographic GET Request:** `Code.gs` retrieves the `NEXUS_HMAC_SECRET` from `PropertiesService.getScriptProperties()`. It constructs a payload containing the requested action and a current UNIX timestamp. It then calculates an HMAC-SHA256 signature using `Utilities.computeHmacSha256Signature()` and dispatches a secure `UrlFetchApp` GET request to the Python VM's FastAPI endpoint.
-3. **VM Validation & Dictionary Row Fetching:** The FastAPI server (`main.py`) intercepts the request. The HMAC middleware validates the signature and ensures the timestamp is within the 300-second Replay Protection window. Once authenticated, the server queries `nexus.db`. Because `conn.row_factory = sqlite3.Row` is strictly enforced, the database returns robust dictionary objects rather than fragile tuples, ensuring exact column-to-key mapping.
-4. **JSON Payload Delivery:** The Python VM serializes the dictionary rows into a JSON response and returns it to `Code.gs`, which passes it back to the client-side success handler.
-5. **Client-Side State Management:** The frontend `appState` object (in `JS_State.html`) caches the returned JSON payload in local memory. The `appActions` DOM manipulation logic dynamically iterates over this cached data, re-rendering the Data Grid, the Split-Pane details view, and the Audit Timeline instantly, entirely bypassing the need for slow, full-page reloads.
+1. **Secure Proxy:** Apps Script fetches the HMAC secret, generates a timestamped signature, and proxies the GET request to the Python VM.  
+2. **Database Fetch:** The Python engine validates the signature, queries the SQLite index, and returns standard JSON array payloads utilizing sqlite3.Row dictionary mappings.  
+3. **State Management:** The UI receives the payload, stores it in JS_State.html (acting as client-side memory), and immediately renders the split-pane data grid dynamically.
 
----
+## **7. Error Routing & Dead-Letter Queue**
 
-## Error Routing & Dead-Letter Queue
+To ensure the automated ingestion pipeline never crashes or loses data, Nexus Hub employs a robust Dead-Letter Queue (DLQ).
 
-To ensure enterprise-grade resiliency and data integrity during high-volume synchronizations, the architecture implements robust error handling and concurrency controls.
+1. **Race Conditions:** If a user modifies a file in Drive while the Python engine is processing it, the locked_by_system boolean in the Workspace_Artifacts table prevents the UI from causing a data collision.  
+2. **API Timeouts:** If a 500 error occurs when calling Gemini or Google APIs, the artifact is logged into the Error_Logs table alongside its full stack trace.  
+3. **Auto-Retry:** The background sync job periodically polls the Error_Logs table. Failed artifacts are automatically re-queued for processing up to a maximum of 3 attempts before requiring manual admin intervention.
 
-1. **System Locking (`locked_by_system`):** The `Workspace_Artifacts` table features a `locked_by_system` boolean column. When `sync_engine.py` picks up a batch of artifacts for LLM extraction, it toggles this boolean to `1`. This acts as a database-level mutex. If another cron job or Pub/Sub trigger fires concurrently, it will skip locked rows, preventing race conditions, duplicate API calls, and conflicting database updates. The lock is released (`0`) once processing completes.
-2. **The `Error_Logs` Dead-Letter Queue:** If a fatal exception occurs during synchronization (e.g., an unhandled API timeout, a malformed JSON hallucination from Gemini, or a permission denial), the failure is intercepted. Instead of silently failing or polluting standard output, a detailed entry is inserted into the strict `Error_Logs` table.
-3. **Structured Telemetry:** This table captures the exact `timestamp`, the originating `module_name`, the associated `artifact_id` (if applicable), a human-readable `error_message`, and the complete `stack_trace` formatted as JSON. This centralized telemetry allows administrators to query exact points of failure without digging through scattered text files.
-4. **Exception Fallback:** If the LLM extraction succeeds but the `normalize_taxonomy` function cannot match the output to a whitelisted taxonomy, the artifact is aggressively routed to the exception queue by forcefully assigning it a taxonomy of `Purpose/Review`. This guarantees that ambiguous or hallucinated categorizations never bypass human oversight.
+## **8. Dynamic Prompt Architecture**
+
+Nexus Hub employs a fully database-driven prompt architecture, eliminating hardcoded instructions from the execution environment. This allows administrators to modify AI behavior on-the-fly without needing to restart the Docker container or redeploy the Python VM.
+
+1. **Initialization:** On first boot, the system seeds the default master prompts (Gmail Single-Pass, Drive Stage 1, and Drive Stage 2) into the `Config_Prompts` SQLite table.
+2. **Real-time Injection:** Immediately before triggering an external call to the Gemini API, the LLM extraction engine queries the database in real-time to fetch the active instructions.
+3. **Frontend Modification:** The backend exposes secured `GET /api/prompts` and `POST /api/prompts` endpoints, allowing the Google Apps Script frontend to seamlessly read and apply updates to these core instructions.

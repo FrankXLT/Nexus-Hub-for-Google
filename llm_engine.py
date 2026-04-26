@@ -20,47 +20,17 @@ from db_init import DB_PATH
 # Master AI Prompts (Section 9.3)
 # ---------------------------------------------------------------------------
 
-PROMPT_GMAIL = """You are a strict data extraction system for a centralized knowledge hub. Review the provided email thread. 
-
-**Tasks:**
-1. **Taxonomy Mapping:** Map the email to ONE exact `Category \\ Correspondent \\ Purpose` from the provided whitelist. If it does not match perfectly, output the purpose as 'Purpose/Review'.
-2. **Summary:** Generate a concise, 1-sentence summary of the thread's current state.
-3. **Action State:** Determine if this email requires human action (true/false).
-4. **Custom Fields:** Based on the mapped Purpose, extract the following fields: [DYNAMIC_ARRAY]. Return null if not found.
-
-**Rules:** Hallucinating new categories is strictly forbidden. 
-**Output:** ONLY valid JSON.
-{
-  "taxonomy_path": "string",
-  "summary": "string",
-  "requires_action": boolean,
-  "custom_fields": { "Field1": "value" }
-}"""
-
-PROMPT_DRIVE_STAGE_1 = """You are an intelligent document routing engine. Review the following raw OCR text. It may contain scanning errors.
-
-**Task:** Identify the primary organization, vendor, or sender of this document. Match it to ONE exact `Correspondent` string from the provided whitelist.
-
-**Rules:**
-- Ignore generic payment processors (e.g., PayPal, Stripe) if the actual vendor is mentioned.
-- If the correspondent is completely unknown or the document is unreadable, output 'UNKNOWN'.
-**Output:** ONLY valid JSON: { "correspondent": "string" }"""
-
-PROMPT_DRIVE_STAGE_2 = """You are a precise metadata extraction agent. Review the OCR text for this document belonging to the correspondent: [CORRESPONDENT].
-
-**Tasks:**
-1. **Purpose Mapping:** Map the document's intent to ONE exact `Purpose` from the provided whitelist. Output 'Purpose/Review' if ambiguous.
-2. **Document Title:** Generate a concise, highly descriptive title for this document (e.g., 'Q3 Auto Insurance Renewal Policy').
-3. **Document Date:** Extract the primary creation or effective date of the document in YYYY-MM-DD format.
-4. **Custom Fields:** Extract the following specific fields for this purpose: [DYNAMIC_ARRAY]. Return null if not found.
-
-**Output:** ONLY valid JSON.
-{
-  "purpose": "string",
-  "title": "string",
-  "document_date": "YYYY-MM-DD",
-  "custom_fields": { "Field1": "value" }
-}"""
+def fetch_active_prompt(prompt_key: str) -> str:
+    """Fetches the active prompt from the Config_Prompts table in the database."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT prompt_text FROM Config_Prompts WHERE target_app = ?", (prompt_key,))
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        raise ValueError(f"Prompt {prompt_key} not found in database.")
+    return row['prompt_text']
 
 # ---------------------------------------------------------------------------
 # API Interaction
@@ -151,6 +121,65 @@ def persist_llm_results(artifact_id: str, summary: str, custom_data: Dict[str, A
     conn.commit()
     conn.close()
 
+async def generate_tuning_rule(artifact_id: str, original_json: Dict[str, Any], corrected_json: Dict[str, Any]) -> None:
+    """
+    Asynchronously generates a tuning rule based on a user's manual override
+    and appends it to the correspondent's active prompt.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT raw_text FROM Workspace_Artifacts WHERE artifact_id = ?", (artifact_id,))
+    row = cursor.fetchone()
+    if not row or not row['raw_text']:
+        conn.close()
+        return
+        
+    raw_text = row['raw_text']
+    
+    # Extract correspondent from corrected JSON or default to UNKNOWN
+    correspondent = corrected_json.get("correspondent")
+    if not correspondent:
+        taxonomy = corrected_json.get("taxonomy_path", "")
+        parts = taxonomy.split('\\')
+        if len(parts) >= 2:
+            correspondent = parts[1].strip()
+        else:
+            correspondent = "UNKNOWN"
+
+    prompt = f"""You are an AI Systems Engineer optimizing a routing ruleset. In a previous execution, the model miscategorized a document.
+
+**Original Text:** {raw_text}
+**Model Output:** {json.dumps(original_json)}
+**User Correction:** {json.dumps(corrected_json)}
+
+**Task:** Analyze why the model failed. Generate a concise, 1-sentence strict routing rule that will prevent this specific error in the future. This rule will be appended to the system prompt for this Correspondent.
+**Output:** ONLY valid JSON: {{ "error_analysis": "string", "new_routing_rule": "string" }}"""
+
+    # We call the synchronous call_gemini. In a fully async system, we'd use run_in_threadpool.
+    result = call_gemini(prompt, "")
+    
+    if result and "new_routing_rule" in result:
+        new_rule = result["new_routing_rule"]
+        
+        cursor.execute("SELECT prompt_text FROM Config_Prompts WHERE target_app = ?", (correspondent,))
+        prompt_row = cursor.fetchone()
+        
+        if prompt_row:
+            existing_prompt = prompt_row['prompt_text']
+            updated_prompt = existing_prompt + f"\n- {new_rule}"
+            cursor.execute("UPDATE Config_Prompts SET prompt_text = ? WHERE target_app = ?", (updated_prompt, correspondent))
+        else:
+            # If no correspondent-specific prompt exists, create one using DRIVE_STAGE_2 as base
+            cursor.execute("SELECT prompt_text FROM Config_Prompts WHERE target_app = 'DRIVE_STAGE_2'")
+            base_row = cursor.fetchone()
+            base_prompt = base_row['prompt_text'] if base_row else ""
+            updated_prompt = base_prompt + f"\n- {new_rule}"
+            cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", (correspondent, updated_prompt))
+            
+        conn.commit()
+    conn.close()
+
 # ---------------------------------------------------------------------------
 # Processing Pipelines
 # ---------------------------------------------------------------------------
@@ -182,7 +211,7 @@ def process_gmail_thread(artifact_id: str, email_context: Dict[str, Any], dynami
     """
     Single-Pass processing for Gmail threads.
     """
-    prompt = PROMPT_GMAIL.replace("[DYNAMIC_ARRAY]", dynamic_array_str)
+    prompt = fetch_active_prompt('GMAIL').replace("[DYNAMIC_ARRAY]", dynamic_array_str)
     full_context = f"Whitelist:\n{whitelist_str}\n\nEmail Context:\n{json.dumps(email_context, indent=2)}"
     
     print(f"Processing Gmail thread {artifact_id}...")
@@ -213,7 +242,7 @@ def process_drive_document(artifact_id: str, ocr_text: str, correspondent_whitel
     
     # Stage 1: Triage (Identify Correspondent)
     context_s1 = f"Whitelist:\n{correspondent_whitelist}\n\nOCR Text:\n{ocr_text}"
-    result_s1 = call_gemini(PROMPT_DRIVE_STAGE_1, context_s1)
+    result_s1 = call_gemini(fetch_active_prompt('DRIVE_STAGE_1'), context_s1)
     
     if not result_s1 or not result_s1.get("correspondent"):
         update_artifact_status(artifact_id, "ERROR_STAGE_1_FAILED")
@@ -231,7 +260,7 @@ def process_drive_document(artifact_id: str, ocr_text: str, correspondent_whitel
     print(f"Correspondent identified as '{correspondent}'. Proceeding to Stage 2...")
     
     # Stage 2: Enforce & Extract
-    prompt_s2 = PROMPT_DRIVE_STAGE_2.replace("[CORRESPONDENT]", correspondent).replace("[DYNAMIC_ARRAY]", dynamic_array_str)
+    prompt_s2 = fetch_active_prompt('DRIVE_STAGE_2').replace("[CORRESPONDENT]", correspondent).replace("[DYNAMIC_ARRAY]", dynamic_array_str)
     context_s2 = f"Purpose Whitelist:\n{purpose_whitelist}\n\nOCR Text:\n{ocr_text}"
     result_s2 = call_gemini(prompt_s2, context_s2)
     

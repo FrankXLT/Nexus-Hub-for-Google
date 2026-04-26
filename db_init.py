@@ -105,9 +105,63 @@ def init_db(db_path: str = DB_PATH) -> None:
         ) STRICT;
     """)
     
+    seed_default_prompts(conn)
+    
     conn.commit()
     conn.close()
     print(f"Database initialization complete: {db_path} with STRICT tables and WAL mode enabled.")
+
+def seed_default_prompts(conn: sqlite3.Connection) -> None:
+    """
+    Seeds the default master prompts into the Config_Prompts table
+    if they do not already exist.
+    """
+    PROMPT_GMAIL = """You are a strict data extraction system for a centralized knowledge hub. Review the provided email thread. 
+
+**Tasks:**
+1. **Taxonomy Mapping:** Map the email to ONE exact `Category \\ Correspondent \\ Purpose` from the provided whitelist. If it does not match perfectly, output the purpose as 'Purpose/Review'.
+2. **Summary:** Generate a concise, 1-sentence summary of the thread's current state.
+3. **Action State:** Determine if this email requires human action (true/false).
+4. **Custom Fields:** Based on the mapped Purpose, extract the following fields: [DYNAMIC_ARRAY]. Return null if not found.
+
+**Rules:** Hallucinating new categories is strictly forbidden. 
+**Output:** ONLY valid JSON.
+{
+  "taxonomy_path": "string",
+  "summary": "string",
+  "requires_action": boolean,
+  "custom_fields": { "Field1": "value" }
+}"""
+
+    PROMPT_DRIVE_STAGE_1 = """You are an intelligent document routing engine. Review the following raw OCR text. It may contain scanning errors.
+
+**Task:** Identify the primary organization, vendor, or sender of this document. Match it to ONE exact `Correspondent` string from the provided whitelist.
+
+**Rules:**
+- Ignore generic payment processors (e.g., PayPal, Stripe) if the actual vendor is mentioned.
+- If the correspondent is completely unknown or the document is unreadable, output 'UNKNOWN'.
+**Output:** ONLY valid JSON: { "correspondent": "string" }"""
+
+    PROMPT_DRIVE_STAGE_2 = """You are a precise metadata extraction agent. Review the OCR text for this document belonging to the correspondent: [CORRESPONDENT].
+
+**Tasks:**
+1. **Purpose Mapping:** Map the document's intent to ONE exact `Purpose` from the provided whitelist. Output 'Purpose/Review' if ambiguous.
+2. **Document Title:** Generate a concise, highly descriptive title for this document (e.g., 'Q3 Auto Insurance Renewal Policy').
+3. **Document Date:** Extract the primary creation or effective date of the document in YYYY-MM-DD format.
+4. **Custom Fields:** Extract the following specific fields for this purpose: [DYNAMIC_ARRAY]. Return null if not found.
+
+**Output:** ONLY valid JSON.
+{
+  "purpose": "string",
+  "title": "string",
+  "document_date": "YYYY-MM-DD",
+  "custom_fields": { "Field1": "value" }
+}"""
+
+    cursor = conn.cursor()
+    cursor.execute("INSERT OR IGNORE INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('GMAIL', PROMPT_GMAIL))
+    cursor.execute("INSERT OR IGNORE INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('DRIVE_STAGE_1', PROMPT_DRIVE_STAGE_1))
+    cursor.execute("INSERT OR IGNORE INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('DRIVE_STAGE_2', PROMPT_DRIVE_STAGE_2))
 
 if __name__ == "__main__":
     init_db()

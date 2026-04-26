@@ -27,7 +27,7 @@ if [ -d "migrations" ]; then
     shopt -s nullglob
     for migration in migrations/*.py; do
         echo "Executing migration: $migration..."
-        python3 "$migration"
+        docker compose run --rm nexus-api python3 "$migration"
     done
     shopt -u nullglob
 else

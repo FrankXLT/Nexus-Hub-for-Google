@@ -8,10 +8,14 @@ import hmac
 import hashlib
 import time
 import json
+import sqlite3
 from typing import Callable, Awaitable
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
+
+from db_init import DB_PATH
+from llm_engine import generate_tuning_rule
 
 # Load environment variables from .env file
 load_dotenv()
@@ -86,11 +90,69 @@ async def verify_nexus_signature(request: Request, call_next: Callable[[Request]
     return response
 
 @app.post("/api/update")
-async def update_data(request: Request):
+async def update_data(request: Request, background_tasks: BackgroundTasks):
     """
     Endpoint for handling data updates from Google Apps Script.
     """
+    try:
+        body = await request.json()
+        artifact_id = body.get("artifact_id")
+        original_json = body.get("original_json", {})
+        corrected_json = body.get("corrected_json", {})
+        
+        if artifact_id and corrected_json:
+            background_tasks.add_task(generate_tuning_rule, artifact_id, original_json, corrected_json)
+            
+    except Exception as e:
+        print(f"Error processing update: {e}")
+        
     return {"status": "success", "message": "Webhook received securely."}
+
+@app.get("/api/prompts")
+async def get_prompts():
+    """
+    Retrieves the active master prompts from the database.
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT target_app, prompt_text FROM Config_Prompts")
+        rows = cursor.fetchall()
+        conn.close()
+        
+        prompts = {row["target_app"]: row["prompt_text"] for row in rows}
+        return JSONResponse(content={"status": "success", "prompts": prompts})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+@app.post("/api/prompts")
+async def update_prompts(request: Request):
+    """
+    Updates a master prompt in the database.
+    Expected JSON payload: {"target_app": "...", "prompt_text": "...", "timestamp": "..."}
+    """
+    try:
+        body = await request.json()
+        target_app = body.get("target_app")
+        prompt_text = body.get("prompt_text")
+        
+        if not target_app or not prompt_text:
+            return JSONResponse(status_code=400, content={"detail": "Missing target_app or prompt_text"})
+            
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("PRAGMA journal_mode=WAL;")
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE Config_Prompts SET prompt_text = ? WHERE target_app = ?",
+            (prompt_text, target_app)
+        )
+        conn.commit()
+        conn.close()
+        
+        return JSONResponse(content={"status": "success", "message": f"Prompt {target_app} updated successfully."})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
 
 @app.post("/api/health")
 async def health_check_post(request: Request):
