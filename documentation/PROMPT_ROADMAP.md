@@ -302,3 +302,32 @@
 > 3. **Taxonomy Normalization:** Update `llm_engine.py`. Before the LLM output is evaluated against the database whitelist, inject a pre-processing function to normalize common plural/misspelled tags (e.g., converting 'Receipts' -> 'Receipt'). If normalization fails and the tag still does not match the whitelist, aggressively enforce the 'Purpose/Review' exception fallback.
 > 
 > **Post-Execution Documentation:** Append these hardening updates to `PROMPT_AUDIT.md` and summarize the new telemetry architecture in `README.md`."
+
+## Stage 17: The Master Documentation Rewrite
+**Internal Simulation & Correction:** *The agent previously generated a superficial HOW_IT_WORKS.md. This prompt forces a complete rewrite, demanding extreme technical depth, procedural step-by-step lifecycles, and the inclusion of the UI data retrieval flow.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 17. Your previous draft of `HOW_IT_WORKS.md` was too high-level and took shortcuts. You must act as a Senior Technical Writer and completely rewrite `HOW_IT_WORKS.md` from scratch. 
+> 
+> **Strict Content Requirements:**
+> 1. **System Overview:** Begin with a brief summary of the hybrid architecture.
+> 2. **The Google Drive Pipeline (Deep Dive):** Break this down into 4 explicit procedural phases: (1) Ingestion & OCR Strip-down, (2) Triage & Routing Queue, (3) Threshold Batching & Extraction, (4) Archival & Exception Handling. Leave placeholder: `[MERMAID_DIAGRAM: Advanced Drive Pipeline]`.
+> 3. **The Gmail Pipeline (Deep Dive):** Detail the single-pass extraction, Pub/Sub trigger vs. Polling fallback, and labeling sequence. Leave placeholder: `[MERMAID_DIAGRAM: Gmail Pub/Sub Flow]`.
+> 4. **UI Data Retrieval & Presentation:** Create a new section detailing how the Material UI actually gets its data. Explain the `google.script.run` trigger, the HMAC secured GET request to the VM, the SQLite dictionary row fetching, and how the frontend `JS_State.html` handles the JSON payload to render the Split-Pane view without page reloads. Leave placeholder: `[MERMAID_DIAGRAM: UI Data Flow]`.
+> 5. **Error Routing & Dead-Letter Queue:** Detail how Stage 16's `Error_Logs` table and `locked_by_system` booleans manage race conditions and API failures.
+> 
+> **Formatting:** Use bolding, numbered lists, and sub-headers. Do not summarize. Explain the *why* and *how* for every step. Do not write Mermaid code, only leave the exact placeholders requested."
+
+## Stage 18: Container Dependency & Dockerfile Fix
+**Internal Simulation & Correction:** *The agent documented a manual `pip install` on the host VM, violating the containerization architecture. It must generate a Dockerfile and requirements.txt to isolate the Python environment.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 18. I reviewed your INSTRUCTIONS.md and discovered a critical architectural violation. In Phase 8, you instruct the user to manually run `pip install google-genai` on the VM. This violates our strict Docker containerization constraint (Section 3.4).
+> 
+> **Tasks & Corrections:**
+> 1. **Create `requirements.txt`:** Generate this file including all required Python libraries with strict versions (e.g., `fastapi`, `uvicorn`, `google-api-python-client`, `google-auth-oauthlib`, `tenacity`, `python-dotenv`, `google-genai`).
+> 2. **Create `Dockerfile`:** Write a Dockerfile using `python:3.11-slim`. It must copy the repository files, install the `requirements.txt` via pip, and set the entrypoint to run the FastAPI `uvicorn` server from `main.py`.
+> 3. **Update `docker-compose.yml`:** Ensure the compose file is configured to `build: .` from the new Dockerfile rather than using a raw python image.
+> 4. **Fix `INSTRUCTIONS.md`:** Delete the manual `pip install` instructions. Update the manual to explain that Docker Compose will automatically build the image and install the Python dependencies.
+> 
+> **Post-Execution Documentation:** Append this containerization fix to `PROMPT_AUDIT.md`."

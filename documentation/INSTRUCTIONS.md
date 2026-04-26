@@ -185,10 +185,7 @@ To allow the sync engine to fetch changes, you must enable the respective APIs i
    - **Google Drive API**
 
 ### 2. Installing Sync Engine Dependencies
-The synchronization engine uses `tenacity` for robust error handling. On the VM, install the required packages:
-```bash
-pip install google-api-python-client tenacity
-```
+Dependencies are automatically installed via the `Dockerfile` when running `docker compose up -d`. There is no need for manual `pip install` commands.
 
 ### 3. Running the Sync Engine
 You can trigger the synchronization engine manually to fetch delta changes:
@@ -220,9 +217,9 @@ Update the environment file on your VM to include the new API key:
 3. Save and close.
 
 ### 3. Install the GenAI SDK
-Install the official Google GenAI SDK and any other remaining dependencies on the VM:
+Dependencies like the Google GenAI SDK are automatically installed via the `Dockerfile`. Ensure your container is running the latest build:
 ```bash
-pip install google-genai
+docker compose up -d --build
 ```
 
 ## Phase 9: Frontend Web App Deployment

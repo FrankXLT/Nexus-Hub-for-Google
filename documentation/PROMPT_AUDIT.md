@@ -270,3 +270,42 @@ Implemented architectural hardening and telemetry updates to improve system resi
 - `llm_engine.py` (Updated)
 - `README.md` (Updated)
 - `documentation/PROMPT_AUDIT.md` (Updated)
+
+## Phase 17: The Master Documentation Rewrite
+**Date:** April 25, 2026
+
+**Summary:**
+Completely rewrote `HOW_IT_WORKS.md` from scratch to provide extreme technical depth, procedural step-by-step lifecycles, and inclusion of the UI data retrieval flow.
+
+**Decisions Made:**
+- Scrapped the previous high-level draft of `HOW_IT_WORKS.md`.
+- Acted as a Senior Technical Writer to articulate the *why* and *how* for every architectural choice.
+- **System Overview:** Provided a brief summary of the hybrid architecture spanning Google Apps Script, Python VM, and SQLite.
+- **The Google Drive Pipeline:** Broken down into 4 procedural phases (Ingestion & OCR Strip-down, Triage & Routing Queue, Threshold Batching & Extraction, Archival & Exception Handling) with the `[MERMAID_DIAGRAM: Advanced Drive Pipeline]` placeholder.
+- **The Gmail Pipeline:** Detailed the single-pass extraction, Pub/Sub vs. Polling triggers, and labeling sequence with the `[MERMAID_DIAGRAM: Gmail Pub/Sub Flow]` placeholder.
+- **UI Data Retrieval & Presentation:** Authored a new section outlining the `google.script.run` trigger, the HMAC-secured GET request, SQLite dictionary row fetching, and client-side rendering via `JS_State.html`, including the `[MERMAID_DIAGRAM: UI Data Flow]` placeholder.
+- **Error Routing & Dead-Letter Queue:** Fully detailed how Phase 16's `Error_Logs` table and `locked_by_system` booleans manage race conditions and API failures.
+- Documented Phase 17 execution in `PROMPT_AUDIT.md`.
+
+**Files Altered/Created:**
+- `documentation/HOW_IT_WORKS.md` (Updated)
+- `documentation/PROMPT_AUDIT.md` (Updated)
+
+## Phase 18: Docker Containerization Fix
+**Date:** April 25, 2026
+
+**Summary:**
+Addressed a critical architectural violation by fully containerizing the Python VM environment, eliminating manual `pip install` commands from the deployment workflow.
+
+**Decisions Made:**
+- Created `requirements.txt` to strictly define all Python dependencies with their respective versions (`fastapi`, `uvicorn`, `google-api-python-client`, `google-auth-oauthlib`, `tenacity`, `python-dotenv`, `google-genai`).
+- Developed a `Dockerfile` based on `python:3.11-slim`. It handles the dependency installation during the image build process and sets the default command to execute the `uvicorn` FastAPI server for `main.py`.
+- Updated `docker-compose.yml` to define both the `nexus-api` service (running the default web server) and the `nexus-sync-engine` service (overriding the command to run the background sync process). Both leverage `build: .` to ensure the environment is consistent.
+- Refactored `INSTRUCTIONS.md` to remove all manual pip commands, replacing them with accurate Docker Compose build and run instructions to ensure the deployment workflow strictly adheres to Section 3.4.
+
+**Files Altered/Created:**
+- `requirements.txt` (Created)
+- `Dockerfile` (Created)
+- `docker-compose.yml` (Updated)
+- `documentation/INSTRUCTIONS.md` (Updated)
+- `documentation/PROMPT_AUDIT.md` (Updated)
