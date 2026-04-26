@@ -385,3 +385,18 @@
 > 1. If you find any broken code or missing documentation constraints during this scan, silently fix them in the respective files.
 > 2. Generate a final section at the bottom of `ARCHITECTURE_AUDIT.md` titled '## 7. V1.0 Master Release Audit'.
 > 3. In this section, provide a Pass/Fail checklist for the 20 Stages, confirm the documentation is fully synced, and declare the codebase Ready for Production."
+
+## Revised Stage 21: The Final Codebase Verification
+**Internal Simulation & Correction:** *By this stage, the AI has generated extensive code, but the Lead Architect has manually taken over the documentation. This prompt restricts the agent strictly to a codebase audit to ensure the late-stage features (dynamic prompts, async webhook, and containerized migrations) actually exist in the `.py` and `.sh` files without risking further documentation corruption.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute a revised Phase 21: The Final Codebase Verification. The Lead Architect has already manually polished the documentation suite. Your only job is to audit the Python codebase to ensure our latest features were implemented safely and correctly.
+> 
+> **Tasks:**
+> 1. **Verify Dynamic Prompts:** Scan `llm_engine.py`. Confirm that `fetch_active_prompt()` is being actively used to query the `Config_Prompts` table. If there are any massive, hardcoded prompt strings still lingering in the file, delete them and replace them with the dynamic fetch call.
+> 2. **Verify Async Tuning:** Scan `main.py`. Confirm that `BackgroundTasks` from `fastapi` is imported and utilized in the `/api/update` webhook endpoint to trigger the `generate_tuning_rule` function asynchronously. 
+> 3. **Verify Containerization:** Scan `update.sh`. Ensure that any database migrations are executed *inside* the docker container (e.g., `docker compose run --rm nexus-api python3 db_init.py`) rather than directly on the host VM.
+> 
+> **Output:**
+> 1. If you find any missing logic, silently patch the respective `.py` or `.sh` files now.
+> 2. Append 'Phase 21: Final Codebase Verification' to `PROMPT_AUDIT.md`, logging that you verified the dynamic prompts, async webhook, and dockerized execution. Do not alter any other markdown files."

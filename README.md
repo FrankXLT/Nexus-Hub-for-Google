@@ -11,29 +11,25 @@ The Nexus Hub unifies the management of entities across Gmail, Google Drive, and
 
 - **Automated Provisioning:** Provides `setup.sh` for an idempotent Ubuntu VM setup, installing Docker, Node.js, and `@google/clasp`.
 - **CI/CD Lifecycle:** Contains `update.sh` for streamlined trunk-based deployment, managing migrations, codebase fetching, and Google Apps Script force pushes via `clasp`.
-- **Diagnostic Suite:** Implemented `diagnostics.py` to isolate points of failure, verifying SQLite database integrity and Google Workspace OAuth validity, and uploading reports securely to Google Drive.
 - **Google Workspace API Bridge:** Created `auth.py` for headless OAuth 2.0 authentication, handling necessary scopes for Gmail Modify and Drive access.
-- **Apps Script Frontend Integration:** Added `Code.gs` serving as the web app router and secure client-side cryptographic bridge.
-- **Backend Webhook Security:** Implemented `main.py` using FastAPI, complete with HMAC-SHA256 signature validation and UNIX timestamp replay protection to securely receive payloads from Apps Script.
-- **Centralized Database:** Built-in `db_init.py` ensures a strict, WAL-enabled, and JSON-validated SQLite schema for robust metadata synchronization across the workspace.
-- **Delta Synchronization Engine:** Developed `sync_engine.py` for highly efficient delta fetching from Google Drive and Gmail APIs.
-- **LLM Metadata Extraction:** Implemented `llm_engine.py` leveraging the Google GenAI SDK for Two-Stage Triage processing of Google Drive OCR texts and Single-Pass contextual extraction for Gmail threads.
-- **Frontend Material UI:** Developed a zero-dependency Google Apps Script frontend utilizing a Split-Pane layout, dynamic data grids, and an Audit Timeline.
-- **Programmatic Color Management:** Implemented `branding_engine.py` to calculate Euclidean distances in RGB space to match brand colors to the strict Gmail API allowed palette, seamlessly syncing label and folder colors across the workspace.
-- **Telemetry & Hardening:** Enhanced system resiliency via Docker Compose configuration with built-in log rotation (`json-file`, max 10MB), explicit SQLite `Error_Logs` tracking (Dead-Letter Queue), database concurrency protection (`locked_by_system`), and robust LLM taxonomy normalization logic to handle hallucinations and aggressively enforce the exception queue fallback.
-- **Dynamic Prompts & Self-Tuning Engine:** AI behavior can be updated on-the-fly via a fully database-driven prompt architecture. The system features an async Tuning Loop that learns from user manual overrides and automatically generates new routing rules using `FastAPI BackgroundTasks`.
+- **Backend Webhook Security:** Implemented `main.py` using FastAPI, complete with HMAC-SHA256 signature validation and UNIX timestamp replay protection.
+- **Centralized Database & DLQ:** Built-in `db_init.py` ensures a strict, WAL-enabled SQLite schema. Includes a robust Dead-Letter Queue (`Error_Logs`) to catch and auto-retry API timeouts.
+- **Delta Synchronization Engine:** Developed `sync_engine.py` for highly efficient delta fetching from Google Drive (Changes API) and Gmail (History API).
+- **Self-Tuning LLM Engine:** Utilizes the Google GenAI SDK for RAG/Semantic categorization. Features a FastAPI `BackgroundTasks` loop that automatically rewrites and improves its own database-driven prompts based on user corrections.
+- **Frontend Material UI:** A zero-dependency Google Apps Script frontend utilizing a Split-Pane layout, dynamic data grids, and an immutable Audit Timeline.
 
 ## Version History
 
-- **v1.1.0:** Phase 16 - Telemetry and Hardening update, including Docker log rotation, `Error_Logs` table, and LLM Taxonomy Normalization.
-- **v1.0.0:** Phase 12 - Implemented `branding_engine.py` for automated cross-workspace label and folder color synchronization.
+- **v1.0.0:** Phase 19-21 - Decoupled hardcoded LLM prompts to SQLite, implemented FastAPI BackgroundTasks for the AI Self-Tuning loop, and finalized documentation.
+- **v0.11.0:** Phase 16-18 - Containerized the Python backend via Docker Compose, added the Dead-Letter Queue, and implemented taxonomy normalization.
+- **v0.10.0:** Phase 11-15 - Refactored database row factories, implemented programmatic visual branding, and deployed the Help Center tooltips.
 - **v0.9.0:** Phase 9 - Implemented the zero-dependency Material Design UI (HTML/CSS/JS) via Apps Script templates.
 - **v0.8.0:** Phase 8 - Implemented `llm_engine.py` to handle Gemini AI data extraction and artifact DB logging.
 - **v0.7.0:** Phase 7 - Implemented `sync_engine.py` Delta Synchronization Engine for Gmail & Drive.
-- **v0.6.0:** Phase 6 - Implemented `diagnostics.py` and diagnostic ping routing in `main.py` and `Code.gs`.
+- **v0.6.0:** Phase 6 - Implemented `diagnostics.py` and diagnostic ping routing.
 - **v0.5.0:** Phase 5 - Implemented `auth.py` for Google Workspace headless authentication.
 - **v0.4.0:** Phase 4 - Implemented `Code.gs` Apps Script Router & Cryptographic Webhook Client.
-- **v0.3.0:** Phase 3 - Implemented `main.py` Webhook Receiver with HMAC Signature & Replay Protection middleware.
+- **v0.3.0:** Phase 3 - Implemented `main.py` Webhook Receiver with HMAC Signature & Replay Protection.
 - **v0.2.0:** Phase 2 - Implemented Database Initialization (`db_init.py`) with STRICT and JSON validation constraints.
 - **v0.1.0:** Phase 1 - VM Infrastructure and CI/CD Pipeline implemented (`setup.sh`, `update.sh`).
 

@@ -356,9 +356,11 @@ Must strictly use: Code.gs (router/webhooks), Index.html (shell), CSS\_Styles.ht
 // Expected HTTP Headers  
 { "Content-Type": "application/json", "X-Nexus-Signature": "\[HMAC\_SHA256\_HASH\]" }
 
-### **9.3 Master AI Prompts & Validation Schemas**
+### **9.3 Master AI Prompts & Validation Schemas (Seed Values)**
 
-To prevent LLM hallucination, prevent "label creep," and ensure strict JSON parsing, the prompts heavily utilize system-role framing and few-shot methodology adapted from the Paperless-ngx and Nexus for Gmail ecosystems.
+To prevent LLM hallucination and "label creep", the system relies on strict system-role framing and few-shot methodology. 
+
+*Note: The prompts listed below represent the **Initial Factory Seed Values**. During system initialization (`db_init.py`), these strings are injected into the `Config_Prompts` SQLite table. The `llm_engine.py` fetches them dynamically at runtime, allowing the AI Self-Tuning loop or system administrators to modify the active instructions without altering the codebase.*
 
 #### 9.3.1 Gmail: Single-Pass Context Extraction
 * **Trigger:** Delta Sync detects a new or updated email thread.

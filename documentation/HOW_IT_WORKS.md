@@ -12,7 +12,7 @@ The Google Drive ingestion pipeline is designed to efficiently process complex, 
 
 ```mermaid  
 sequenceDiagram  
-    autonumber  
+    autonumber
     participant D as Google Drive API  
     participant SE as Sync Engine (Python)  
     participant DocAI as Document AI  
@@ -71,16 +71,16 @@ sequenceDiagram
 ```mermaid  
 flowchart TD  
     Raw[Raw Extracted Text] --> LLM[Gemini Generates 'Purpose' Tag]  
-    LLM --> Tag[e.g., 'Receipts']  
+    LLM --> Tag["e.g., 'Receipts'"]  
       
     Tag --> CheckDict{Check Normalization Dict}  
-    CheckDict -- "Match Found" --> Norm[Normalize: 'Receipts' -> 'Receipt']  
+    CheckDict -- "Match Found" --> Norm["Normalize: 'Receipts' -> 'Receipt'"]  
     CheckDict -- "No Match" --> Verify{Verify Against DB Whitelist}  
       
     Norm --> Verify  
       
     Verify -- "Exact Match" --> Accept[Apply Tag & Process]  
-    Verify -- "Failed Match" --> Reject[Route to 'Purpose/Review']  
+    Verify -- "Failed Match" --> Reject["Route to 'Purpose/Review'"]  
       
     style Accept fill:#e6f4ea,stroke:#1e8e3e  
     style Reject fill:#fff7d0,stroke:#f29900
@@ -165,7 +165,7 @@ flowchart TD
       
     Fetch --> LLM{Gemini Tuning Prompt}  
       
-    Note right of LLM: "You made a mistake.<br/>Analyze the text and the user's correction.<br/>Write a 1-sentence rule to never do this again."  
+    LLM -.- PromptNote["You made a mistake.<br/>Analyze the text and the user's correction.<br/>Write a 1-sentence rule to never do this again."]  
       
     LLM --> Rule[Generate New Routing Rule]  
     Rule --> DB[(Config_Prompts Table)]  
@@ -174,12 +174,13 @@ flowchart TD
     style LLM fill:#fce8e6,stroke:#d93025  
     style DB fill:#fef7e0,stroke:#f9ab00  
     style UI_Success fill:#e6f4ea,stroke:#1e8e3e
+    style PromptNote fill:#f9f9f9,stroke:#333,stroke-dasharray: 5 5
 ```
 
 When a manual override occurs, the webhook immediately returns a 200 OK so the UI remains snappy. In the background, the Python engine queries Gemini with the AI's original mistake and the user's correction, generating a new persistent routing rule to prevent future recurrences.
 
 **Technical Implementation:** This asynchronous behavior is achieved using FastAPI's `BackgroundTasks`. During the `POST /api/update` webhook execution, the server attaches the `generate_tuning_rule` function to the background task queue. This guarantees the 200 OK response is dispatched to the Google Apps Script frontend instantaneously, preventing any blocking UI freeze while the Gemini AI API generates and saves the tuning rule.
-```
+
 
 ## **5. Programmatic Color Management**
 
