@@ -139,3 +139,33 @@ function runSystemDiagnostics() {
   }
 }
 
+/**
+ * Runs a sandbox prompt against an artifact's raw text.
+ * 
+ * @param {Object} payload - The object containing artifact_id and prompt_string.
+ * @returns {Object} The JSON response from the VM.
+ */
+function runSandboxPrompt(payload) {
+  try {
+    const result = sendToNexusVM("/api/sandbox", payload);
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Bulk updates multiple artifacts.
+ * 
+ * @param {Object} payload - The object containing artifact_ids and metadata.
+ * @returns {Object} The JSON response from the VM.
+ */
+function bulkUpdateArtifacts(payload) {
+  try {
+    const result = sendToNexusVM("/api/bulk-update", payload);
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+

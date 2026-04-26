@@ -400,3 +400,124 @@
 > **Output:**
 > 1. If you find any missing logic, silently patch the respective `.py` or `.sh` files now.
 > 2. Append 'Phase 21: Final Codebase Verification' to `PROMPT_AUDIT.md`, logging that you verified the dynamic prompts, async webhook, and dockerized execution. Do not alter any other markdown files."
+
+## Stage 22: UI Expansion, Bulk Edits, and Prompt Sandbox
+**Internal Simulation & Correction:** *The current UI lacks bulk editing, distinct exception queues, and a safe testing environment. We must expand the Apps Script frontend and FastAPI backend to support these missing enterprise features.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 22 based on the newly added Sections 7.5 and 7.6 of ARCHITECTURE.md. We are expanding the UI and API.
+> 
+> **Tasks:**
+> 1. **Sandbox API (`main.py` & `llm_engine.py`):** Create a new endpoint `POST /api/sandbox`. It accepts an `artifact_id` and a temporary `prompt_string`. It must fetch the raw text, run it through Gemini using the temporary prompt, and return the result WITHOUT updating the `Workspace_Artifacts` or `Artifact_History` tables.
+> 2. **Bulk Edit API (`main.py`):** Create `POST /api/bulk-update` accepting a list of `artifact_ids` and a metadata payload to update multiple records simultaneously.
+> 3. **UI Expansion (`Index.html`, `JS_Actions.html`):**
+>    - Implement distinct tabs for 'Correspondent Review' and 'Purpose Review'.
+>    - Add checkbox selection to the data grid and a 'Bulk Edit' action bar.
+>    - Build the 'Prompt Sandbox' tab allowing the user to select an artifact, edit the prompt, and see the dry-run JSON output.
+>    - Implement an advanced filter bar allowing cross-ecosystem search (filtering by App, Category, and Custom Field JSON keys).
+> 
+> **Output:** Silently update the `.py`, `.html`, and `.gs` files. Append 'Phase 22: UI Expansion & Sandbox' to `PROMPT_AUDIT.md`."
+
+## Stage 23: Discovery Mode & RAG Knowledge Retrieval
+**Internal Simulation & Correction:** *The current AI strictly uses whitelists. We must add a 'Discovery' fallback to suggest new correspondents, and implement a natural language chat interface to query the extracted SQLite metadata.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 23 based on the user requirement for RAG querying and Taxonomy Discovery.
+> 
+> **Tasks:**
+> 1. **Discovery Mode (`llm_engine.py`):** Update the Stage 1 and Stage 2 extraction prompts. If the LLM cannot match a whitelist, instruct it to suggest a `discovered_correspondent` or `discovered_purpose`. 
+> 2. **Pending DB State (`db_init.py` & `llm_engine.py`):** Ensure these suggestions are saved to the `Workspace_Artifacts` custom data under a `pending_discovery` key, and route the status to `Correspondent/Review` or `Purpose/Review` so the user can approve them in the UI.
+> 3. **RAG Backend (`main.py` & `llm_engine.py`):** Create `POST /api/ask`. It accepts a natural language string. The backend must:
+>    - Use Gemini to convert the user's question into a safe SQLite query targeting the `Workspace_Artifacts` metadata (or perform a direct semantic search if integrated).
+>    - Fetch the relevant rows.
+>    - Pass the rows and the user's question back to Gemini to generate a human-readable summary.
+> 4. **RAG Frontend (`Index.html`):** Add an 'AI Assistant' chat window that connects to the `runAskAI` function in `Code.gs`.
+> 
+> **Output:** Silently update the codebase. Append 'Phase 23: Discovery & RAG' to `PROMPT_AUDIT.md`."
+
+## Stage 24: Database Refactor & Three-Tier Taxonomy
+**Internal Simulation & Correction:** *We are transitioning to a multi-dimensional, three-tier entity schema with frequency tracking and zero-trust ecosystem toggles. The database must be completely refactored to support this.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 24 based on the new constraints in `ARCHITECTURE.md`. We are implementing the Multi-Dimensional Entity Schema and Three-Tier Hierarchy.
+> 
+> **Tasks:**
+> 1. **Refactor `db_init.py`:** Restructure the taxonomy tables to enforce a `Category -> Correspondent/Division -> Purpose` hierarchy. 
+> 2. **Implement Entity Profiles:** Add columns to store sending subdomains, physical addresses, brand color arrays, and frequency/confidence weights.
+> 3. **Implement Toggles:** Add `is_gmail_enabled` and `is_drive_enabled` booleans. Ensure the default state for any new insertion is `FALSE` (Zero-Trust).
+> 
+> **Output:** > 1. Silently update `db_init.py`. 
+> 2. Update `HOW_IT_WORKS.md` to explain the new three-tier schema and zero-trust defaults. 
+> 3. Append 'Phase 24: Database Schema Refactor' to `PROMPT_AUDIT.md`."
+
+---
+
+## Stage 25: Quota Governor & Drive Seed Ingestion
+**Internal Simulation & Correction:** *The backend requires protection from API quota exhaustion and the ability to passively ingest the `taxonomy_seed.json` file from Drive.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 25. We need to implement the Quota Governor and the passive JSON seeder.
+> 
+> **Tasks:**
+> 1. **The Governor (`sync_engine.py`):** Implement the 72-Hour Priority Lane. Track daily Google API calls. Throttle historical batch processing if it exceeds 70% of the daily estimated quota. Ensure the database tracks the operation cost per entity.
+> 2. **Seed Ingestion (`main.py` & `sync_engine.py`):** Write a background cron function that checks Google Drive for `taxonomy_seed.json`. If found, parse it, update the SQLite entity profiles/frequency weights, and ensure all imported nodes default to `is_gmail_enabled = FALSE` and `is_drive_enabled = FALSE`.
+> 
+> **Output:** > 1. Silently update the Python files. 
+> 2. Update `HOW_IT_WORKS.md` to detail the Quota Governor logic. 
+> 3. Append 'Phase 25: Quota Governor & Ingestion' to `PROMPT_AUDIT.md`."
+
+---
+
+## Stage 26: UI Hierarchy & Blacklist Toggles
+**Internal Simulation & Correction:** *The frontend must be upgraded to support cascading dropdowns for the three-tier hierarchy and ecosystem toggles for the Zero-Trust blacklist.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 26. We are updating the Google Apps Script frontend to match the new database schema.
+> 
+> **Tasks:**
+> 1. **Cascading Hierarchy (`JS_Actions.html` & `Index.html`):** Replace flat correspondent dropdowns with cascading selectors (Category -> Correspondent -> Purpose). 
+> 2. **Review Queues & Toggles:** Build the UI logic to display items where both ecosystem booleans are `FALSE` (The Zero-Trust Review Queue). Add checkboxes allowing the user to enable/disable specific labels for Gmail or Drive.
+> 3. **Bulk Estimates:** When a user selects items for a bulk edit, display a warning estimating the API quota cost based on the database's tracked operation metrics.
+> 
+> **Output:**
+> 1. Silently update the HTML/JS files.
+> 2. Update the `README.md` features list to include the Three-Tier Hierarchy and Zero-Trust UI.
+> 3. Append 'Phase 26: UI Hierarchy & Zero-Trust' to `PROMPT_AUDIT.md`."
+
+---
+
+## Stage 27: Telemetry & Alerting Matrix
+**Internal Simulation & Correction:** *The background synchronization engine needs a way to alert the user of critical failures or items requiring human review without forcing them to constantly check the UI. We must build a tiered notification engine.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 28 based on Section 8.6 of ARCHITECTURE.md. We are building the Telemetry & Alerting Matrix.
+> 
+> **Tasks:**
+> 1. **The Notifier Module (`notifier.py`):** Create a new file with a class `NexusNotifier`. It must support two methods: `send_urgent_webhook(payload)` (which POSTs to a URL found in `os.environ.get('NEXUS_WEBHOOK_URL')`) and `send_daily_digest(email_body)` (which uses the existing Google API service to send an email to the authenticated user).
+> 2. **Wire the DLQ (`sync_engine.py`):** Update the exception handling. If a fatal OAuth error or database lock occurs, trigger `send_urgent_webhook()`. 
+> 3. **The Daily Digest Cron (`main.py`):** Create a background scheduler job that runs once a day. It must query the database for all items currently in the 'Error_Logs' (DLQ) and all items in the 'Workspace_Artifacts' where `is_gmail_enabled` and `is_drive_enabled` are both FALSE (the Zero-Trust Quarantine). It formats these into an HTML email and sends it via `send_daily_digest()`.
+> 
+> **Output:**
+> 1. Silently update the codebase and create `notifier.py`.
+> 2. Update `README.md` to include the Alerting Matrix feature.
+> 3. Update `INSTRUCTIONS.md` to explain how to add the `NEXUS_WEBHOOK_URL` to the `.env` file.
+> 4. Append 'Phase 28: Telemetry & Alerting Matrix' to `PROMPT_AUDIT.md`."
+
+---
+
+## Stage 28: The V1.1 Master Project Audit & Doc Alignment
+**Internal Simulation & Correction:** *This is the final QA sweep. The agent must verify its own codebase against the architectural constraints and guarantee all user-facing documentation is perfectly aligned.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 27: The V1.1 Master Project Audit. You are acting as the Lead QA Engineer. 
+> 
+> **Tasks:**
+> 1. **Codebase Verification:** Scan the `.py`, `.sh`, and `.gs` files. Ensure the Three-Tier Hierarchy, 72-Hour Priority Lane, and Zero-Trust defaults are physically present in the code. Ensure the Apps Script timeout protection (continuation tokens) is implemented in any heavy frontend routing functions.
+> 2. **Documentation Sweep:** Review `README.md`, `INSTRUCTIONS.md`, and `HOW_IT_WORKS.md`. 
+>    - Ensure `INSTRUCTIONS.md` clearly explains how to configure the Google Drive Folder ID for the `taxonomy_seed.json` file.
+>    - Ensure `HOW_IT_WORKS.md` accurately reflects the 'Google Inbox' design philosophy and Quota Management.
+> 
+> **Output:**
+> 1. Silently fix any code or documentation inconsistencies you find.
+> 2. Generate a Pass/Fail checklist at the bottom of `ARCHITECTURE_AUDIT.md` for Stages 22 through 26.
+> 3. Append 'Phase 27: Final V1.1 Master Audit' to `PROMPT_AUDIT.md`."

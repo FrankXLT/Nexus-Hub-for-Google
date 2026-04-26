@@ -69,14 +69,47 @@ const appActions = {
     }, 800);
   },
 
+  applyFilters: function() {
+    this.renderGrid();
+  },
+
   renderGrid: function() {
     const tbody = document.getElementById('grid-body');
     tbody.innerHTML = '';
+    
+    const filterApp = (document.getElementById('filter-app').value || '').toLowerCase();
+    const filterCat = (document.getElementById('filter-category').value || '').toLowerCase();
+    const filterJson = (document.getElementById('filter-json').value || '').toLowerCase();
 
     appState.artifacts.forEach(artifact => {
+      
+      // Filter Logic
+      const isDoc = artifact.artifact_id.startsWith('doc_');
+      const isMail = artifact.artifact_id.startsWith('mail_');
+      const appType = isDoc ? 'drive' : (isMail ? 'gmail' : '');
+      
+      if (filterApp && !appType.includes(filterApp)) return;
+      if (filterCat && !(artifact.taxonomy || '').toLowerCase().includes(filterCat)) return;
+      
+      if (filterJson) {
+        let matchJson = false;
+        if (artifact.custom_data) {
+           matchJson = Object.keys(artifact.custom_data).some(k => k.toLowerCase().includes(filterJson));
+        }
+        if (!matchJson) return;
+      }
+
       const tr = document.createElement('tr');
       tr.setAttribute('data-id', artifact.artifact_id);
-      tr.onclick = () => appState.selectArtifact(artifact.artifact_id);
+      
+      // Checkbox Logic
+      const isChecked = appState.selectedIds.has(artifact.artifact_id) ? 'checked' : '';
+      
+      tr.onclick = (e) => {
+        if(e.target.type !== 'checkbox') {
+           appState.selectArtifact(artifact.artifact_id);
+        }
+      };
 
       // Status Badge
       let statusClass = 'pending';
@@ -95,6 +128,7 @@ const appActions = {
       }
 
       tr.innerHTML = `
+        <td style="width: 40px; text-align: center;"><input type="checkbox" onclick="appActions.toggleRowSelection('${artifact.artifact_id}', event)" ${isChecked}></td>
         <td><span style="font-family:monospace; color:var(--text-secondary);">${artifact.artifact_id.substring(0,8)}...</span></td>
         <td>${artifact.taxonomy}</td>
         <td>${artifact.summary}</td>
@@ -103,6 +137,88 @@ const appActions = {
       `;
       tbody.appendChild(tr);
     });
+  },
+
+  toggleSelectAll: function(checkbox) {
+    appState.selectAll(checkbox.checked);
+    this.renderGrid();
+  },
+
+  toggleRowSelection: function(id, event) {
+    event.stopPropagation();
+    appState.toggleSelection(id);
+  },
+
+  bulkEdit: function() {
+    if (appState.selectedIds.size === 0) {
+      this.showToast("No artifacts selected for bulk edit.");
+      return;
+    }
+    
+    // In a real app, this would open a modal to collect new metadata.
+    // For now, we simulate a status update to 'PROCESSED'
+    const newStatus = prompt("Enter new status for " + appState.selectedIds.size + " selected artifacts:", "PROCESSED");
+    if (!newStatus) return;
+
+    const payload = {
+      artifact_ids: Array.from(appState.selectedIds),
+      metadata: { status: newStatus }
+    };
+    
+    this.showToast("Submitting bulk update...");
+    google.script.run
+      .withSuccessHandler((result) => {
+        if(result.success) {
+          this.showToast("Bulk edit successful.");
+          // Update local state mock for immediate feedback
+          payload.artifact_ids.forEach(id => {
+            const art = appState.getArtifact(id);
+            if(art) art.status = newStatus;
+          });
+          appState.selectedIds.clear();
+          document.getElementById('select-all').checked = false;
+          this.renderGrid();
+          appActions.renderDetailsPane();
+        } else {
+          this.showToast("Bulk Edit Failed: " + result.error);
+        }
+      })
+      .withFailureHandler((error) => {
+        this.showToast("Apps Script Error: " + error.message);
+      })
+      .bulkUpdateArtifacts(payload);
+  },
+
+  runSandbox: function() {
+    const artifactId = document.getElementById('sandbox-artifact-id').value;
+    const promptString = document.getElementById('sandbox-prompt').value;
+    const outputElement = document.getElementById('sandbox-output');
+    
+    if (!artifactId || !promptString) {
+      this.showToast("Artifact ID and Prompt are required.");
+      return;
+    }
+    
+    outputElement.textContent = "Running prompt... please wait.";
+    this.showToast("Executing sandbox prompt...");
+    
+    const payload = { artifact_id: artifactId, prompt_string: promptString };
+    
+    google.script.run
+      .withSuccessHandler((result) => {
+        if(result.success) {
+          this.showToast("Sandbox execution successful.");
+          outputElement.textContent = JSON.stringify(result.data.result, null, 2);
+        } else {
+          this.showToast("Sandbox Execution Failed: " + result.error);
+          outputElement.textContent = "Error: " + result.error;
+        }
+      })
+      .withFailureHandler((error) => {
+        this.showToast("Apps Script Error: " + error.message);
+        outputElement.textContent = "Error: " + error.message;
+      })
+      .runSandboxPrompt(payload);
   },
 
   renderDetailsPane: function() {

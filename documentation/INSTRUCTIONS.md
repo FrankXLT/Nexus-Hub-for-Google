@@ -215,6 +215,21 @@ To allow the sync engine to fetch changes, you must enable the respective APIs i
    - **Gmail API**
    - **Google Drive API**
 
+### Configure the `.env` File (Updated for v1.1)
+Update the environment file on your VM to include your API keys, telemetry webhooks, and Drive folder IDs:
+1. Open the `.env` file:
+   ```bash
+   nano .env
+
+NEXUS_HMAC_SECRET=your_super_secret_random_string_here
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# Pushover API for Critical System Alerts (Phase 28)
+```NEXUS_WEBHOOK_URL=https://api.pushover.net/1/messages.json?user=YOUR_USER_KEY&token=YOUR_APP_TOKEN```
+
+# Google Drive Folder ID for taxonomy_seed.json ingest (Phase 25)
+DRIVE_SEED_FOLDER_ID=your_google_drive_folder_id_here
+
 ### 2. Installing Sync Engine Dependencies
 Dependencies are automatically installed via the `Dockerfile` when running `docker compose up -d`. There is no need for manual `pip install` commands.
 
@@ -274,3 +289,23 @@ clasp push
    - **Who has access:** "Only myself".
 5. Click **Deploy**.
 6. Copy the **Web app URL** provided. This is your personal, secure link to the Nexus Hub dashboard. You can bookmark this URL.
+
+## Phase 10: Advanced Integrations (Telemetry & Zero-Trust Seeding)
+
+With the v1.1 update, Nexus Hub supports immediate push notifications for critical errors and passive taxonomy ingestion from external scrapers.
+
+### 1. Pushover Push Notifications (Telemetry Matrix)
+To receive immediate mobile alerts for critical system failures (like SQLite database locks or dropped OAuth credentials):
+1. Create an account at [Pushover.net](https://pushover.net/) and install the mobile app.
+2. Copy your **User Key** from the main dashboard.
+3. Click **Create an Application/API Token**, name it "Nexus Hub", and copy the generated **API Token/Key**.
+4. Construct your webhook URL and add it to your `.env` file:
+   `https://api.pushover.net/1/messages.json?user=YOUR_USER_KEY&token=YOUR_APP_TOKEN`
+
+### 2. Configure the Drive Seeder Folder (Taxonomy Bootstrapping)
+To enable the backend Python VM to automatically ingest new correspondents and purposes from your external Nexus for Gmail worker:
+1. Open Google Drive and create a dedicated folder for Nexus data transfers.
+2. Open the folder and copy the Folder ID from the URL: `https://drive.google.com/drive/folders/[COPY_THIS_ID_HERE]`.
+3. Add this ID to the `DRIVE_SEED_FOLDER_ID` variable in your `.env` file.
+4. Ensure your standalone Apps Script (Nexus for Gmail) is programmed to save the `taxonomy_seed.json` file directly into this folder. 
+5. The background `sync_engine.py` will automatically detect the file, ingest the multi-dimensional entity data, and place the new items in your UI's Zero-Trust Review Queue.

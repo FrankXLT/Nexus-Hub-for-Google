@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 
 from db_init import DB_PATH
-from llm_engine import generate_tuning_rule
+from llm_engine import generate_tuning_rule, run_sandbox_prompt
 
 # Load environment variables from .env file
 load_dotenv()
@@ -107,6 +107,82 @@ async def update_data(request: Request, background_tasks: BackgroundTasks):
         print(f"Error processing update: {e}")
         
     return {"status": "success", "message": "Webhook received securely."}
+
+@app.post("/api/sandbox")
+async def sandbox_endpoint(request: Request):
+    """
+    Endpoint for testing prompts against raw text without modifying database.
+    """
+    try:
+        body = await request.json()
+        artifact_id = body.get("artifact_id")
+        prompt_string = body.get("prompt_string")
+        
+        if not artifact_id or not prompt_string:
+            return JSONResponse(status_code=400, content={"detail": "Missing artifact_id or prompt_string"})
+            
+        result = run_sandbox_prompt(artifact_id, prompt_string)
+        return JSONResponse(content={"status": "success", "result": result})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+@app.post("/api/bulk-update")
+async def bulk_update_endpoint(request: Request):
+    """
+    Endpoint for handling bulk updates to metadata for multiple artifacts simultaneously.
+    """
+    try:
+        body = await request.json()
+        artifact_ids = body.get("artifact_ids", [])
+        metadata = body.get("metadata", {})
+        
+        if not artifact_ids or not isinstance(artifact_ids, list):
+            return JSONResponse(status_code=400, content={"detail": "Invalid or missing artifact_ids"})
+            
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL;")
+        cursor = conn.cursor()
+        
+        now = int(time.time())
+        for a_id in artifact_ids:
+            cursor.execute("SELECT custom_data, status FROM Workspace_Artifacts WHERE artifact_id = ?", (a_id,))
+            row = cursor.fetchone()
+            if row:
+                previous_state = {}
+                try:
+                    previous_state = json.loads(row['custom_data']) if row['custom_data'] else {}
+                except json.JSONDecodeError:
+                    pass
+                previous_state["status"] = row['status']
+                
+                # Merge metadata
+                new_state = previous_state.copy()
+                new_state.update(metadata)
+                
+                # Assume status or taxonomy might be updated
+                new_status = metadata.get("status", row['status'])
+                
+                new_state_json = json.dumps(new_state)
+                previous_state_json = json.dumps(previous_state)
+                
+                cursor.execute("""
+                    UPDATE Workspace_Artifacts 
+                    SET custom_data = ?, status = ?
+                    WHERE artifact_id = ?
+                """, (new_state_json, new_status, a_id))
+                
+                cursor.execute("""
+                    INSERT INTO Artifact_History (artifact_id, timestamp, actor, action_type, previous_state, new_state)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (a_id, now, "USER", "BULK_UPDATE", previous_state_json, new_state_json))
+        
+        conn.commit()
+        conn.close()
+        
+        return JSONResponse(content={"status": "success", "message": f"Updated {len(artifact_ids)} artifacts."})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
 
 @app.get("/api/prompts")
 async def get_prompts():

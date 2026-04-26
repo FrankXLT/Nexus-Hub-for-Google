@@ -7,6 +7,7 @@ const appState = {
   artifacts: [], // Mock or fetched data
   history: [], // Mock or fetched data
   selectedArtifactId: null,
+  selectedIds: new Set(),
 
   switchTab: function(tabId, event) {
     this.activeTab = tabId;
@@ -29,6 +30,7 @@ const appState = {
 
   setArtifacts: function(data) {
     this.artifacts = data;
+    this.selectedIds.clear();
   },
 
   setHistory: function(data) {
@@ -43,6 +45,22 @@ const appState = {
     document.querySelectorAll('#grid-body tr').forEach(el => el.classList.remove('selected'));
     const selectedRow = document.querySelector(`tr[data-id="${id}"]`);
     if(selectedRow) selectedRow.classList.add('selected');
+  },
+
+  toggleSelection: function(id) {
+    if(this.selectedIds.has(id)) {
+      this.selectedIds.delete(id);
+    } else {
+      this.selectedIds.add(id);
+    }
+  },
+
+  selectAll: function(selectAll) {
+    if(selectAll) {
+      this.artifacts.forEach(a => this.selectedIds.add(a.artifact_id));
+    } else {
+      this.selectedIds.clear();
+    }
   },
   
   getArtifact: function(id) {

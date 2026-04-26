@@ -65,7 +65,10 @@ flowchart TB
     WH -- "JSON Validation Response" --> GS
 ```
 
-### **1.1 Influences & Referenced Architectures**
+### **1.1 Philosophical Inspiration: The Spiritual Successor to Google Inbox**
+Nexus Hub is heavily inspired by the design philosophy of the discontinued "Inbox by Gmail" application. Where Inbox attempted to use rigid algorithms to "bundle" emails and extract actionable data, Nexus Hub leverages the semantic reasoning of Gemini AI to achieve what Inbox envisioned: a true zero-inbox, task-oriented interface. By applying this philosophy not just to Gmail, but extending it to Google Drive, the system transforms unstructured chaos into a highly organized, queryable knowledge graph.
+
+### **1.2 Influences & Referenced Architectures**
 
 The Nexus Hub architecture heavily synthesizes lessons learned and proven paradigms from the following open-source projects:
 
@@ -200,7 +203,7 @@ flowchart TD
 | **Config_System** | Global preferences and throttling limits (interval, batch sizes). |
 | **Sync_State** | Stores app_name, sync_token (historyId/pageToken), and last_updated timestamp. |
 | **Config_Prompts** | Stores user-defined AI instructions by target app. |
-| **Taxonomy_Entities** | Rules engine containing Categories, Correspondents, Strict Purposes, and `custom_field_schema`. |
+| **Taxonomy_Entities** | Rules engine. Fields: id, category_id, name, type (Correspondent/Purpose), is_gmail_enabled, is_drive_enabled, subdomains, addresses, brand_colors, frequency_weights. |
 | **Workspace_Artifacts**| Master index. Fields: artifact_id, taxonomy_id, raw_text, summary, status, `custom_data` (JSON), and `locked_by_system` (Boolean). |
 | **Artifact_History** | Immutable audit log. Fields: log_id, artifact_id, timestamp, actor, action_type, previous_state (JSON), new_state (JSON). |
 | **Error_Logs** | Dead-Letter Queue. Fields: log_id, timestamp, module_name, artifact_id (nullable), error_message, stack_trace (JSON). |
@@ -324,6 +327,24 @@ To reduce cognitive load and provide transparent system observability, the front
 * **Centralized Content:** Help text and tooltip definitions must be completely decoupled from the `Index.html` shell. They are authored in a centralized `HOW_IT_WORKS.md` and a structured `tooltips.json` file.
 * **Dynamic Tooltips:** Complex configuration parameters in the Settings Module (e.g., `max_triage_batch`, `processing_interval_minutes`) must feature hoverable UI tooltips that dynamically fetch their definitions from the `tooltips.json` payload.
 
+### **7.5 The Discovery Queue & Bulk Management**
+The UI must provide explicit separation between items needing tagging.
+* **Correspondent/Review Queue:** Items where the sender/organization could not be identified. The UI must allow users to map it to an existing correspondent or approve a newly discovered one.
+* **Purpose/Review Queue:** Known correspondents with ambiguous intent.
+* **Bulk Operations:** The data grid must include checkbox selectors allowing users to select multiple artifacts and apply bulk metadata overrides, bulk re-processing, or bulk taxonomy shifting in a single API call.
+
+### **7.6 The AI Sandbox & RAG Chat**
+* **Prompt Playground:** A dedicated UI tab allowing administrators to select an existing `artifact_id`, modify a prompt, and run a "Dry Run" extraction. This returns the JSON output to the UI without saving it to the database, allowing for safe prompt engineering.
+* **Knowledge Retrieval (RAG):** An interactive chat interface. When a user asks a natural language question, the backend queries the SQLite `Workspace_Artifacts` custom JSON metadata, injects the results into a Gemini context window, and returns a synthesized answer.
+
+### **7.7 Three-Tier Hierarchical Taxonomy & Ecosystem Toggles**
+The system utilizes a strict three-tier relational hierarchy: `Category` -> `Correspondent/Division` -> `Purpose/Document Type`. 
+* **UI Implementation:** The frontend must use cascading dropdown selectors to navigate this hierarchy.
+* **Ecosystem Toggles:** The database includes `is_gmail_enabled` and `is_drive_enabled` booleans for all taxonomy nodes. The UI must provide checkboxes to toggle these. 
+
+### **7.8 Zero-Trust Discovery & Security**
+All newly discovered Correspondents or Purposes (via LLM hallucination, UI discovery, or Drive JSON seeding) must default to a Zero-Trust state (`is_gmail_enabled = FALSE` and `is_drive_enabled = FALSE`). This forces them into the UI Review Queue. If left disabled, they act as a system-wide Blacklist, preventing the AI from routing to them.
+
 ## **8\. Settings & Telemetry Module**
 
 ### **8.1 Central Command Console**
@@ -344,6 +365,21 @@ To instantly isolate points of failure across the hybrid architecture, the syste
   2. **Database Integrity:** Performs a test read/write transaction against `nexus.db` to verify strict schema enforcement and check for WAL lock errors.
   3. **OAuth Validity:** Performs a low-cost, read-only ping against the Google Drive and Gmail APIs to verify the headless `token.json` hasn't expired or lost scope authorization.
 * **Isolated Diagnostic Logging:** The results of these health checks are deliberately NOT logged in the primary `nexus.db` (in case the database itself is the point of failure). Instead, the Python engine formats the results as a timestamped JSON/HTML report and uploads it to a dedicated "Nexus Diagnostics" Google Drive folder, completely isolated from the primary document ingestion pipeline.
+
+### **8.4 Intelligent Quota Management (The Governor)**
+To prevent API exhaustion and ensure real-time responsiveness, `sync_engine.py` implements a Priority Governor:
+* **72-Hour Priority Lane:** The synchronization engine prioritizes processing artifacts generated within the last 72 hours.
+* **Historical Throttling:** Background batching for artifacts older than 72 hours must be artificially capped (e.g., consuming no more than 70% of the daily Google API quota limit), ensuring the real-time lane is never starved.
+* **Cost Tracking:** The database must track the average number of API operations required to process specific entity types to forecast quota burn rates during bulk UI edits.
+
+### **8.5 Drive Ingestion Seeder**
+The system includes a scheduled background task to look for `taxonomy_seed.json` in Google Drive. It imports the multi-dimensional entity profiles (subdomains, addresses, colors, frequency weights) into the SQLite knowledge graph, keeping them in a Zero-Trust `disabled` state until user review.
+
+### **8.6 Telemetry & Alerting Matrix (`notifier.py`)**
+The backend must include a dedicated notification engine to proactively inform the user of system state, utilizing both native Gmail delivery and out-of-band webhooks.
+* **Severity Levels:** Events are categorized as CRITICAL (immediate delivery), WARNING/QUARANTINE (aggregated into a daily digest), or INFO (silent UI logging).
+* **Delivery Methods:** * *Email:* The engine uses the established Gmail OAuth credentials to send a daily digest of quarantined items and DLQ errors.
+  * *Push/Webhook:* Critical infrastructure failures (e.g., lost OAuth credentials, DB corruption) trigger an immediate HTTP POST to an external webhook URL defined in the `.env` file (e.g., Discord, Slack, Pushover).
 
 ## **9\. Technical Appendices (For AI Code Generation)**
 

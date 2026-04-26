@@ -4,19 +4,24 @@
 ![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED?style=flat-square&logo=docker)
 ![Gemini](https://img.shields.io/badge/AI-Gemini_Pro-8E75B2?style=flat-square&logo=googlegemini)
 ![SQLite](https://img.shields.io/badge/Database-SQLite3-003B57?style=flat-square&logo=sqlite)
+![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
+![License](https://img.shields.io/badge/license-GPLv3-green.svg)
+![Platform](https://img.shields.io/badge/platform-Google_Workspace-orange.svg)
 
-The Nexus Hub unifies the management of entities across Gmail, Google Drive, and Google Calendar. By enforcing a strict taxonomy and dynamic custom data extraction, the system transforms discrete files and emails into a centralized relational database. It relies on a hybrid architecture: a responsive, standalone Google Apps Script frontend backed by a persistent Google Cloud VM running a Python synchronization engine.
+Nexus Hub is a self-hosted, AI-powered knowledge management system that unifies your Google Workspace ecosystem. Acting as the spiritual successor to Google Inbox, it transforms unstructured emails and Google Drive documents into a centralized, queryable relational database.
+
+By leveraging Google's Gemini Large Language Models (LLMs) and a strictly governed Zero-Trust Taxonomy, Nexus Hub autonomously categorizes, extracts, and organizes your digital life while keeping your data entirely within your personal Google Cloud environment.
 
 ## Features
 
-- **Automated Provisioning:** Provides `setup.sh` for an idempotent Ubuntu VM setup, installing Docker, Node.js, and `@google/clasp`.
-- **CI/CD Lifecycle:** Contains `update.sh` for streamlined trunk-based deployment, managing migrations, codebase fetching, and Google Apps Script force pushes via `clasp`.
-- **Google Workspace API Bridge:** Created `auth.py` for headless OAuth 2.0 authentication, handling necessary scopes for Gmail Modify and Drive access.
-- **Backend Webhook Security:** Implemented `main.py` using FastAPI, complete with HMAC-SHA256 signature validation and UNIX timestamp replay protection.
-- **Centralized Database & DLQ:** Built-in `db_init.py` ensures a strict, WAL-enabled SQLite schema. Includes a robust Dead-Letter Queue (`Error_Logs`) to catch and auto-retry API timeouts.
-- **Delta Synchronization Engine:** Developed `sync_engine.py` for highly efficient delta fetching from Google Drive (Changes API) and Gmail (History API).
-- **Self-Tuning LLM Engine:** Utilizes the Google GenAI SDK for RAG/Semantic categorization. Features a FastAPI `BackgroundTasks` loop that automatically rewrites and improves its own database-driven prompts based on user corrections.
-- **Frontend Material UI:** A zero-dependency Google Apps Script frontend utilizing a Split-Pane layout, dynamic data grids, and an immutable Audit Timeline.
+* **Zero-Touch Autonomy:** Natively monitors Gmail and Google Drive via delta-syncs and Pub/Sub webhooks, automatically tagging and sorting incoming artifacts without manual intervention.
+* **Three-Tier Hierarchical Taxonomy:** Groups entities logically (`Category` -> `Correspondent` -> `Document Type`) to prevent directory sprawl and label bloat.
+* **Multi-Dimensional Entity Profiles:** Maps specific sending subdomains, addresses, and inferred purposes to specific vendors to create a deterministic knowledge graph.
+* **Zero-Trust Security & Quarantine:** newly discovered vendors and document types are quarantined in a disabled state until manually approved by the user.
+* **Intelligent Quota Governor:** Defends your daily Google API limits by prioritizing real-time emails (last 72 hours) and throttling historical batch processing.
+* **RAG Knowledge Retrieval:** Features a natural language AI Assistant that queries your extracted SQLite metadata to answer complex questions about your documents and spending.
+* **Cross-Ecosystem Visual Branding:** Synchronizes WCAG-compliant brand colors across both Gmail nested labels and Google Drive folders.
+* **Telemetry & Push Alerts:** Integrates with Pushover to instantly notify you of critical infrastructure failures, while emailing daily digests of quarantined items.
 
 ## Version History
 
@@ -64,6 +69,7 @@ flowchart LR
 - [Master Architecture Specification](documentation/ARCHITECTURE.md)
 - [Prompt Audit Log](documentation/PROMPT_AUDIT.md)
 - [Step-by-Step Instructions](documentation/INSTRUCTIONS.md)
+* [How It Works](HOW_IT_WORKS.md)
 
 ## License
 

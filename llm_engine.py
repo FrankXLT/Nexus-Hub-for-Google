@@ -67,6 +67,24 @@ def call_gemini(prompt: str, context: str) -> Optional[Dict[str, Any]]:
         print(f"Gemini API Error: {e}")
         raise # Raise to trigger tenacity retry
 
+def run_sandbox_prompt(artifact_id: str, prompt_string: str) -> Optional[Dict[str, Any]]:
+    """
+    Executes a temporary prompt against an artifact's raw text without saving state.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT raw_text FROM Workspace_Artifacts WHERE artifact_id = ?", (artifact_id,))
+    row = cursor.fetchone()
+    conn.close()
+    
+    if not row or not row['raw_text']:
+        raise ValueError(f"Artifact {artifact_id} not found or has no raw text.")
+        
+    raw_text = row['raw_text']
+    context = f"Raw Text:\n{raw_text}"
+    return call_gemini(prompt_string, context)
+
 # ---------------------------------------------------------------------------
 # Database Operations
 # ---------------------------------------------------------------------------
