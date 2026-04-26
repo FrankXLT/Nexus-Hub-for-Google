@@ -1,0 +1,201 @@
+<script>
+/**
+ * Client-Side Actions and DOM Manipulation
+ */
+const appActions = {
+  
+  init: function() {
+    this.refreshData(); // Fetch initial data
+  },
+
+  showToast: function(message, duration = 3000) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => {
+      toast.classList.remove('show');
+    }, duration);
+  },
+
+  /**
+   * Generates mock data for development.
+   * In a real flow, this would call `google.script.run.getNexusData(...)`
+   */
+  refreshData: function() {
+    this.showToast("Syncing with Nexus Hub...");
+    
+    // Simulated fetch delay
+    setTimeout(() => {
+      const mockArtifacts = [
+        {
+          artifact_id: 'doc_12345',
+          taxonomy: 'Finance / AWS / Invoice',
+          summary: 'AWS Monthly Billing - October 2026',
+          status: 'PROCESSED',
+          custom_data: { title: 'AWS Oct 2026', total_amount: '$145.20', due_date: '2026-11-01' }
+        },
+        {
+          artifact_id: 'mail_67890',
+          taxonomy: 'HR / Stripe / Update',
+          summary: 'Stripe API Terms of Service Update',
+          status: 'PROCESSED',
+          custom_data: { requires_action: false, impact: 'Low' }
+        },
+        {
+          artifact_id: 'doc_55555',
+          taxonomy: 'UNKNOWN',
+          summary: 'Scanned Image 001',
+          status: 'ERROR_STAGE_1_FAILED',
+          custom_data: { error: 'Illegible OCR' }
+        }
+      ];
+
+      const mockHistory = [
+        {
+          log_id: 1,
+          artifact_id: 'doc_12345',
+          timestamp: Date.now() / 1000 - 3600,
+          actor: 'LLM_ENGINE',
+          action_type: 'AI_EXTRACTION',
+          previous_state: {},
+          new_state: { title: 'AWS Oct 2026', total_amount: '$145.20' }
+        }
+      ];
+
+      appState.setArtifacts(mockArtifacts);
+      appState.setHistory(mockHistory);
+      this.renderGrid();
+      this.showToast("Data Refreshed", 2000);
+    }, 800);
+  },
+
+  renderGrid: function() {
+    const tbody = document.getElementById('grid-body');
+    tbody.innerHTML = '';
+
+    appState.artifacts.forEach(artifact => {
+      const tr = document.createElement('tr');
+      tr.setAttribute('data-id', artifact.artifact_id);
+      tr.onclick = () => appState.selectArtifact(artifact.artifact_id);
+
+      // Status Badge
+      let statusClass = 'pending';
+      if (artifact.status.includes('PROCESSED')) statusClass = 'processed';
+      if (artifact.status.includes('ERROR')) statusClass = 'error';
+
+      // JSON Chips
+      let customDataHtml = '';
+      if (artifact.custom_data) {
+        Object.keys(artifact.custom_data).forEach(key => {
+          // Truncate long values
+          let val = artifact.custom_data[key];
+          if(typeof val === 'string' && val.length > 20) val = val.substring(0, 20) + '...';
+          customDataHtml += `<span class="json-chip">${key}: ${val}</span>`;
+        });
+      }
+
+      tr.innerHTML = `
+        <td><span style="font-family:monospace; color:var(--text-secondary);">${artifact.artifact_id.substring(0,8)}...</span></td>
+        <td>${artifact.taxonomy}</td>
+        <td>${artifact.summary}</td>
+        <td><span class="status-badge ${statusClass}">${artifact.status}</span></td>
+        <td>${customDataHtml}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  },
+
+  renderDetailsPane: function() {
+    const pane = document.getElementById('details-view');
+    const artifact = appState.getArtifact(appState.selectedArtifactId);
+
+    if (!artifact) {
+      pane.innerHTML = `<p class="placeholder-text">Select an item to view details</p>`;
+      return;
+    }
+
+    let customDataRows = '';
+    if (artifact.custom_data) {
+      Object.entries(artifact.custom_data).forEach(([key, value]) => {
+        customDataRows += `
+          <div class="detail-row">
+            <span class="detail-label">${key}</span>
+            <span class="detail-value">${JSON.stringify(value)}</span>
+          </div>
+        `;
+      });
+    }
+
+    pane.innerHTML = `
+      <div class="detail-group">
+        <h4>Core Metadata</h4>
+        <div class="detail-row"><span class="detail-label">ID</span><span class="detail-value" style="font-family:monospace;">${artifact.artifact_id}</span></div>
+        <div class="detail-row"><span class="detail-label">Taxonomy</span><span class="detail-value">${artifact.taxonomy}</span></div>
+        <div class="detail-row"><span class="detail-label">Status</span><span class="detail-value">${artifact.status}</span></div>
+      </div>
+      <div class="detail-group">
+        <h4>Summary</h4>
+        <p style="font-size:0.875rem; line-height:1.4;">${artifact.summary}</p>
+      </div>
+      <div class="detail-group">
+        <h4>Extracted Custom Data</h4>
+        ${customDataRows || '<p style="font-size:0.875rem; color:var(--text-secondary);">No custom data available.</p>'}
+      </div>
+      <div class="detail-group" style="display:flex; gap:8px;">
+         <button class="btn btn-primary" onclick="appActions.showToast('Feature coming soon')">View Native Document</button>
+      </div>
+    `;
+  },
+
+  renderTimeline: function() {
+    const timeline = document.getElementById('audit-timeline');
+    timeline.innerHTML = '';
+
+    if(appState.history.length === 0) {
+      timeline.innerHTML = '<p class="placeholder-text">No audit history available.</p>';
+      return;
+    }
+
+    appState.history.forEach(log => {
+      const date = new Date(log.timestamp * 1000).toLocaleString();
+      const li = document.createElement('li');
+      li.className = 'timeline-event';
+      
+      let icon = 'auto_awesome';
+      if(log.actor === 'USER') icon = 'person';
+      
+      li.innerHTML = `
+        <div class="timeline-icon"><i class="material-icons">${icon}</i></div>
+        <div class="timeline-content">
+          <div class="timeline-header">
+            <span class="timeline-actor">${log.actor}</span>
+            <span class="timeline-date">${date}</span>
+          </div>
+          <div class="timeline-action">${log.action_type} on <code>${log.artifact_id}</code></div>
+          <div class="timeline-diff">
+            <strong>Changes:</strong><br/>
+            ${JSON.stringify(log.new_state, null, 2)}
+          </div>
+        </div>
+      `;
+      timeline.appendChild(li);
+    });
+  },
+
+  triggerDiagnostics: function() {
+    this.showToast("Running diagnostics... Check VM logs if it fails.");
+    google.script.run
+      .withSuccessHandler((result) => {
+        if(result.success) {
+          this.showToast("Diagnostics Passed! See Drive for JSON.", 5000);
+        } else {
+          this.showToast("Diagnostics Failed: " + result.error, 5000);
+        }
+      })
+      .withFailureHandler((error) => {
+        this.showToast("Apps Script Error: " + error.message, 5000);
+      })
+      .runSystemDiagnostics();
+  }
+};
+</script>

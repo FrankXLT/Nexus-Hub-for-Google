@@ -1,0 +1,15 @@
+{
+  "system_config": {
+    "NEXUS_HMAC_SECRET": "The cryptographic secret used to sign and verify payloads between Apps Script and the Python VM, ensuring requests are authentic.",
+    "GEMINI_API_KEY": "The API key required to authenticate with the Google GenAI SDK for LLM-based metadata extraction.",
+    "NEXUS_VM_URL": "The public HTTPS endpoint of your Python backend VM. This tells the Apps Script frontend where to send its webhook payloads.",
+    "drive_sync_interval": "The frequency (in minutes) at which the background engine checks for new or modified files in Google Drive.",
+    "gmail_sync_interval": "The frequency (in minutes) at which the background engine polls the Gmail API or Pub/Sub for new email threads.",
+    "llm_model": "The specific Gemini AI model version used for text processing (e.g., gemini-2.5-flash).",
+    "triage_enabled": "Toggles the Two-Stage Triage extraction pipeline for Google Drive documents. When disabled, falls back to Single-Pass extraction.",
+    "log_retention_days": "The number of days to keep immutable audit logs in the Artifact_History table before automatically archiving or deleting them.",
+    "auto_color_sync": "When enabled, the branding engine automatically calculates Euclidean color distances to sync hex values between Drive folders and Gmail labels.",
+    "batch_threshold": "The minimum number of pending artifacts required in the holding queue before triggering the Stage 2 Enforce LLM processing.",
+    "max_retries": "The maximum number of exponential backoff retry attempts for Google API and Gemini API calls when rate-limited (429)."
+  }
+}

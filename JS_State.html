@@ -1,0 +1,52 @@
+<script>
+/**
+ * Client-Side State Management (Memory)
+ */
+const appState = {
+  activeTab: 'grid',
+  artifacts: [], // Mock or fetched data
+  history: [], // Mock or fetched data
+  selectedArtifactId: null,
+
+  switchTab: function(tabId, event) {
+    this.activeTab = tabId;
+    
+    // Update Nav
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    if (event) {
+        event.currentTarget.classList.add('active');
+    }
+    
+    // Update Views
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab-' + tabId).classList.add('active');
+
+    // Trigger render if needed
+    if(tabId === 'audit') {
+      appActions.renderTimeline();
+    }
+  },
+
+  setArtifacts: function(data) {
+    this.artifacts = data;
+  },
+
+  setHistory: function(data) {
+    this.history = data;
+  },
+
+  selectArtifact: function(id) {
+    this.selectedArtifactId = id;
+    appActions.renderDetailsPane();
+    
+    // Highlight row
+    document.querySelectorAll('#grid-body tr').forEach(el => el.classList.remove('selected'));
+    const selectedRow = document.querySelector(`tr[data-id="${id}"]`);
+    if(selectedRow) selectedRow.classList.add('selected');
+  },
+  
+  getArtifact: function(id) {
+    return this.artifacts.find(a => a.artifact_id === id);
+  }
+};
+</script>

@@ -314,6 +314,11 @@ If the Gemini model confidently maps an artifact to a strict taxonomy and extrac
 
 The review UI features a split-pane: native Google Drive preview on the left, editable metadata on the right. A dedicated "Audit History" tab queries the Artifact\_History table to render a chronological timeline of AI and user actions.
 
+### **7.4 In-App Documentation & Contextual Tooltips**
+To reduce cognitive load and provide transparent system observability, the frontend includes an integrated "How It Works" help center and contextual tooltips.
+* **Centralized Content:** Help text and tooltip definitions must be completely decoupled from the `Index.html` shell. They are authored in a centralized `HOW_IT_WORKS.md` and a structured `tooltips.json` file.
+* **Dynamic Tooltips:** Complex configuration parameters in the Settings Module (e.g., `max_triage_batch`, `processing_interval_minutes`) must feature hoverable UI tooltips that dynamically fetch their definitions from the `tooltips.json` payload.
+
 ## **8\. Settings & Telemetry Module**
 
 ### **8.1 Central Command Console**

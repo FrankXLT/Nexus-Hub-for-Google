@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <?!= include('CSS_Styles'); ?>
+  </head>
+  <body>
+    <!-- Material Design Shell -->
+    <div class="app-container">
+      <!-- Sidebar -->
+      <nav class="sidebar">
+        <div class="sidebar-header">
+          <h2>Nexus Hub</h2>
+        </div>
+        <ul class="nav-list">
+          <li class="nav-item active" onclick="appState.switchTab('grid', event)">
+            <i class="material-icons">grid_view</i> Workspace
+          </li>
+          <li class="nav-item" onclick="appState.switchTab('audit', event)">
+            <i class="material-icons">history</i> Audit Timeline
+          </li>
+          <li class="nav-item" onclick="appActions.triggerDiagnostics()">
+            <i class="material-icons">health_and_safety</i> Diagnostics
+          </li>
+        </ul>
+      </nav>
+
+      <!-- Main Content Area -->
+      <main class="main-content">
+        <!-- Split-Pane Layout for Workspace -->
+        <div id="tab-grid" class="tab-content active">
+          <div class="split-pane">
+            <div class="pane pane-left">
+              <div class="pane-header">
+                <h3>Data Grid</h3>
+                <button class="btn btn-primary" onclick="appActions.refreshData()"><i class="material-icons">refresh</i> Refresh</button>
+              </div>
+              <div class="table-container">
+                <table class="data-grid" id="data-grid">
+                  <thead>
+                    <tr>
+                      <th>Artifact ID</th>
+                      <th>Taxonomy / Correspondent</th>
+                      <th>Summary</th>
+                      <th>Status</th>
+                      <th>Custom Data</th>
+                    </tr>
+                  </thead>
+                  <tbody id="grid-body">
+                    <!-- Dynamic Rows -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="pane pane-right resize-handle">
+              <div class="pane-header">
+                <h3>Details Preview</h3>
+              </div>
+              <div id="details-view" class="details-content">
+                <p class="placeholder-text">Select an item to view details</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Audit Timeline Tab -->
+        <div id="tab-audit" class="tab-content">
+          <div class="pane-header">
+            <h3>Audit Timeline</h3>
+          </div>
+          <div class="timeline-container">
+            <ul class="timeline" id="audit-timeline">
+              <!-- Dynamic Timeline Events -->
+            </ul>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast"></div>
+
+    <?!= include('JS_State'); ?>
+    <?!= include('JS_Actions'); ?>
+    <script>
+      // Initialize App
+      document.addEventListener("DOMContentLoaded", () => {
+        appActions.init();
+      });
+    </script>
+  </body>
+</html>

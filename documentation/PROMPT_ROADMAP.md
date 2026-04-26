@@ -186,3 +186,104 @@
 > 5. Keep dependencies zero. Use vanilla JavaScript and CSS variables for the theming.
 > 
 > **Post-Execution Documentation:** Append updates to PROMPT_AUDIT.md and README.md. Write the final Apps Script deployment instructions (how to publish as a Web App) in INSTRUCTIONS.md."
+
+---
+
+## Stage 10: Final Codebase & Architecture Audit
+**Internal Simulation & Correction:** *Agents often suffer from 'context drift' by Stage 9 and may have silently dropped a constraint from Stage 2. This forces a complete retrospective sweep of the local directory against the master spec.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 10: The Final QA Audit. You have completed the primary build. You must now act as the Lead QA Engineer. 
+> 
+> **Tasks:**
+> 1. Read the `PROMPT_AUDIT.md` to see what you previously claimed to build.
+> 2. Scan the actual codebase you just generated (`.py`, `.gs`, `.html`, `.sh` files).
+> 3. Cross-reference the actual codebase against the strict constraints outlined in `ARCHITECTURE.md`.
+> 
+> **Output:**
+> Generate a new file named `ARCHITECTURE_AUDIT.md`. This file MUST contain the following sections:
+> 
+> - **1. File Manifest:** A list of every file generated and its current state.
+> - **2. Security Compliance:** Verify explicitly if the HMAC-SHA256 signature is validating timestamps in `main.py`, and if `auth.py` is properly configured for a headless VM (no browser auto-open). Check if any secrets are hardcoded.
+> - **3. Database Integrity Check:** Confirm that `db_init.py` includes the `STRICT` keyword on ALL tables, uses `PRAGMA journal_mode=WAL`, and enforces Foreign Keys.
+> - **4. Resiliency Check:** Confirm that the Google API and Gemini API calls use the `tenacity` exponential backoff, and that JSON responses from Gemini are wrapped in safe `try/except` blocks.
+> - **5. Discrepancies & Deviations:** Self-report any constraints from `ARCHITECTURE.md` that were missed, skipped, or implemented differently than requested.
+> 
+> Do not write any new application code during this stage. Only generate the `ARCHITECTURE_AUDIT.md` file."
+
+## Stage 11: Database Utility Refactor (Audit Fix)
+**Internal Simulation & Correction:** *The audit revealed the DB is returning tuples instead of dictionary-like objects. This prompt forces the implementation of `sqlite3.Row` across the connection layer.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 11. In your Architecture Audit, you noted a discrepancy regarding database connection factories. We need to fix this.
+> 
+> **Tasks:**
+> 1. Update `db_init.py` (and any other files that establish a database connection, like `main.py`, `sync_engine.py`, or `llm_engine.py`).
+> 2. Immediately after establishing `sqlite3.connect()`, you MUST set `conn.row_factory = sqlite3.Row`.
+> 3. Refactor any existing `SELECT` queries in the codebase that rely on tuple indexing (e.g., `row[0]`) to use dictionary key indexing (e.g., `row['artifact_id']`).
+> 
+> **Post-Execution Documentation:** Append this fix to `PROMPT_AUDIT.md`."
+
+## Stage 12: Visual Branding & Color Sync Engine
+**Internal Simulation & Correction:** *The agent missed Section 2.2. It must be forced to write the algorithm that limits colors to the strict Gmail API hex palette and syncs them to Google Drive.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 12 based on Section 2.2 of ARCHITECTURE.md. We need to build the Programmatic Color Management system. Write a new Python module: `branding_engine.py`.
+> 
+> **Strict Constraints:**
+> 1. The script must contain a hardcoded list/dictionary of the 35 specific background/text hex color pairs allowed by the Gmail API.
+> 2. Write an algorithm that takes a requested brand color (e.g., from the `Taxonomy_Entities` table) and finds the closest matching allowed Gmail color pair using simple Euclidean distance in RGB color space.
+> 3. Write a function `sync_workspace_colors()`. It must use the `google-api-python-client` to apply the matched color pair to the corresponding nested Label in Gmail.
+> 4. It must then take that exact same hex color and apply it to the `folderColorRgb` property of the matching Google Drive nested folder.
+> 
+> **Post-Execution Documentation:** Append updates to PROMPT_AUDIT.md and README.md."
+
+## Stage 13: Feature Audit & Regression Check
+**Internal Simulation & Correction:** *When refactoring database logic (Stage 11), agents frequently miss isolated tuple indexes (e.g., `row[0]`) buried inside try/except blocks. For Stage 12, they often format the Drive API `folderColorRgb` payload incorrectly. This forces a surgical scan of those specific implementations.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 13: The Feature & Regression Audit. You must act as the Lead QA Engineer to verify the fixes implemented in Stages 11 and 12.
+> 
+> **Tasks:**
+> 1. **Scan Database Logic:** Search the entire codebase (`db_init.py`, `main.py`, `sync_engine.py`, `llm_engine.py`, `diagnostics.py`) for any remaining instances of tuple-based indexing (e.g., `row[0]`, `row[1]`). Confirm `conn.row_factory = sqlite3.Row` is applied to ALL connections.
+> 2. **Scan Branding Logic:** Review `branding_engine.py`. Confirm the 35 Gmail hex pairs are explicitly defined. Confirm the Drive API payload correctly targets the `folderColorRgb` metadata field, and the Gmail API targets the `color` object for labels.
+> 
+> **Output:**
+> Append a new section titled '## 6. V1.1 Feature Audit' to the bottom of the existing `ARCHITECTURE_AUDIT.md` file. 
+> 
+> In this section, report:
+> - **Row Factory Compliance:** Pass/Fail (List any files that were missed).
+> - **Tuple Purge:** Pass/Fail (List any lines of code that still incorrectly use integer indexing for database rows).
+> - **Branding API Payload Check:** Pass/Fail (Confirm the exact JSON/Dict payload structure used for the Drive and Gmail API updates).
+> 
+> If you discover any remaining tuple bugs during this scan, automatically fix them in the source code before generating the audit report."
+
+## Stage 14: Internal Documentation & Tooltip Generation
+**Internal Simulation & Correction:** *The agent will likely write a generic, surface-level readme. It must be forced to act as a Technical Writer, creating a granular, module-by-module breakdown, extracting a structured JSON for the UI tooltips, and leaving explicit placeholders for the Lead Architect to insert visual diagrams.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 14 based on Section 7.4 of ARCHITECTURE.md. We need to generate the internal 'How It Works' documentation that will power the UI's Help Section and contextual tooltips. You must act as the Lead Technical Writer.
+> 
+> **Tasks:**
+> 1. Read the finalized codebase (`sync_engine.py`, `llm_engine.py`, `main.py`, `Code.gs`, etc.).
+> 2. Create a highly detailed `HOW_IT_WORKS.md` file explaining the exact lifecycle of a document from Google Drive ingestion to SQLite insertion, and the lifecycle of an email via Pub/Sub. 
+> 3. **CRITICAL:** Wherever a complex flow occurs, you must leave an explicit placeholder for the Lead Architect to add a graphic. Format it exactly like this: `[MERMAID_DIAGRAM_PLACEHOLDER: Name of specific system flow]`.
+> 4. Create a new file named `tooltips.json`. Extract every configurable parameter from the `Config_System` table and the UI Settings module. Write a concise, 1-2 sentence user-friendly explanation for each parameter to be used as a UI tooltip.
+> 
+> **Post-Execution Documentation:** Append this phase to `PROMPT_AUDIT.md`. Do not write any Mermaid code; leave the placeholders intact."
+
+## Stage 15: Documentation Expansion & Correction
+**Internal Simulation & Correction:** *The agent provided a highly summarized HOW_IT_WORKS.md and entirely skipped the tooltips.json requirement. This prompt acts as a Lead Architect reprimand, forcing deep technical expansion and completion of missing tasks.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 15. I have reviewed your `HOW_IT_WORKS.md` and you missed several critical architectural requirements from Section 7.4. 
+> 
+> **Tasks & Corrections:**
+> 1. **You forgot `tooltips.json`.** You must extract every configurable parameter from the UI Settings and `Config_System` table and write a 1-2 sentence technical explanation for each in a new `tooltips.json` file.
+> 2. **Expand `HOW_IT_WORKS.md`.** Your current draft is too high-level. You must append three entirely new sections to the document:
+>    - **Section 3: The Exception Queue & Manual UI Overrides:** Explain exactly what happens when a document is flagged as 'Purpose/Review', how the Apps Script UI fetches it, how the HMAC cryptographic handshake secures the user's manual correction, and how that correction is appended to the `Artifact_History` timeline.
+>    - **Section 4: The Tuning Loop (AI Self-Correction):** Explain how a user's manual override triggers the Bulk AI Correction loop to generate a new routing rule.
+>    - **Section 5: Programmatic Color Management:** Explain how the dual-snapping Euclidean algorithm ensures WCAG contrast compliance and syncs hex codes between Gmail labels and Drive folders.
+> 3. Leave `[MERMAID_DIAGRAM_PLACEHOLDER: The UI Cryptographic Handshake]` under Section 3.
+> 
+> **Post-Execution Documentation:** Ensure these expansions reflect the depth of our actual python/GS implementation."

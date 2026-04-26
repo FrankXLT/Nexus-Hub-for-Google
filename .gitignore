@@ -1,0 +1,16 @@
+# Nexus Hub - Security & State Exclusions
+nexus.db
+nexus_backup_*.db
+.env
+.clasprc.json
+credentials.json
+token.json
+
+# Dependencies & Cache
+__pycache__/
+node_modules/
+*.pyc
+
+# OS Generated Files
+.DS_Store
+Thumbs.db
