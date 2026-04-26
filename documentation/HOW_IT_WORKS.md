@@ -56,7 +56,7 @@ sequenceDiagram
         SE->>DB: Route to Error_Logs (Dead-Letter Queue)
     end
     end
-    ```
+```
 
 ### Phase 1: Ingestion & OCR Strip-down
 1. **Delta Synchronization:** To avoid the prohibitive latency of full polling, the `sync_engine.py` background process maintains a persistent `pageToken` in the `Sync_State` SQLite table. Upon execution, it queries the Google Drive API (`changes().list`) using this token to fetch only the files modified since the last check.
