@@ -43,6 +43,25 @@ Nexus Hub operates on a hybrid architecture:
 2. **Backend (GCP e2-micro VM):** A persistent stateful engine running Python (FastAPI/Sync Engine), Docker, and a centralized SQLite index (`nexus.db`).
 3. **AI Pipeline:** Uses Document AI for OCR and Gemini API for complex RAG/Semantic categorization.
 
+```mermaid
+flowchart LR
+    User([User]) --> UI[Apps Script UI]
+    UI -- "HMAC Secured" --> VM[GCP Python Engine]
+    
+    subgraph Google Workspace
+        Drive[Google Drive]
+        Gmail[Gmail]
+    end
+    
+    Workspace -- "Pub/Sub & Polling" --> VM
+    VM <--> DB[(SQLite Core)]
+    VM -- "RAG & OCR" --> AI[Gemini API]
+    
+    style VM fill:#e6f4ea,stroke:#1e8e3e,stroke-width:2px
+    style AI fill:#fce8e6,stroke:#d93025,stroke-width:2px
+    style DB fill:#fef7e0,stroke:#f9ab00,stroke-width:2px
+```
+
 ## Documentation
 
 - [Master Architecture Specification](documentation/ARCHITECTURE.md)
