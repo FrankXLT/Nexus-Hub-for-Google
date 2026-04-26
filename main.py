@@ -9,13 +9,15 @@ import hashlib
 import time
 import json
 import sqlite3
+import asyncio
 from typing import Callable, Awaitable
 from fastapi import FastAPI, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 
 from db_init import DB_PATH
-from llm_engine import generate_tuning_rule, run_sandbox_prompt
+from llm_engine import generate_tuning_rule, run_sandbox_prompt, ask_rag
+from sync_engine import run_sync
 
 # Load environment variables from .env file
 load_dotenv()
@@ -23,6 +25,74 @@ load_dotenv()
 NEXUS_HMAC_SECRET = os.getenv("NEXUS_HMAC_SECRET", "")
 
 app = FastAPI(title="Nexus Hub Webhook Receiver", description="Receives secure webhook events from Google Apps Script.")
+
+@app.on_event("startup")
+async def start_cron_jobs():
+    """
+    Initializes background cron tasks upon server startup.
+    """
+    async def periodic_sync():
+        while True:
+            try:
+                # Run sync in a separate thread to avoid blocking the event loop
+                await asyncio.to_thread(run_sync)
+            except Exception as e:
+                print(f"Background sync error: {e}")
+            await asyncio.sleep(3600)  # Run every hour
+
+    async def daily_digest():
+        while True:
+            try:
+                await asyncio.sleep(86400)  # Run every 24 hours
+                notifier = NexusNotifier()
+                conn = sqlite3.connect(DB_PATH)
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                # Query DLQ
+                cursor.execute("SELECT module_name, error_message FROM Error_Logs ORDER BY timestamp DESC LIMIT 50")
+                errors = cursor.fetchall()
+                
+                # Query Zero-Trust Quarantine
+                # Items where purpose or correspondent is disabled. Since Workspace_Artifacts points to purpose_id
+                cursor.execute("""
+                    SELECT w.artifact_id, w.summary, tp.name as purpose_name, tc.name as correspondent_name
+                    FROM Workspace_Artifacts w
+                    JOIN Taxonomy_Purposes tp ON w.purpose_id = tp.id
+                    JOIN Taxonomy_Correspondents tc ON tp.correspondent_id = tc.id
+                    WHERE tp.is_gmail_enabled = 0 AND tp.is_drive_enabled = 0
+                """)
+                quarantined = cursor.fetchall()
+                conn.close()
+                
+                html_body = "<h2>Nexus Hub Daily Digest</h2>"
+                
+                html_body += "<h3>Zero-Trust Quarantine Queue</h3>"
+                if quarantined:
+                    html_body += "<ul>"
+                    for q in quarantined:
+                        html_body += f"<li><strong>{q['correspondent_name']} / {q['purpose_name']}</strong>: {q['summary']} (Artifact: {q['artifact_id']})</li>"
+                    html_body += "</ul>"
+                else:
+                    html_body += "<p>No items in quarantine.</p>"
+                
+                html_body += "<h3>Dead-Letter Queue (Recent Errors)</h3>"
+                if errors:
+                    html_body += "<ul>"
+                    for err in errors:
+                        html_body += f"<li><strong>{err['module_name']}</strong>: {err['error_message']}</li>"
+                    html_body += "</ul>"
+                else:
+                    html_body += "<p>No recent errors.</p>"
+                
+                # Run the digest sending in a thread
+                await asyncio.to_thread(notifier.send_daily_digest, html_body)
+                
+            except Exception as e:
+                print(f"Daily digest error: {e}")
+
+    asyncio.create_task(periodic_sync())
+    asyncio.create_task(daily_digest())
 
 @app.middleware("http")
 async def verify_nexus_signature(request: Request, call_next: Callable[[Request], Awaitable[JSONResponse]]) -> JSONResponse:
@@ -123,6 +193,22 @@ async def sandbox_endpoint(request: Request):
             
         result = run_sandbox_prompt(artifact_id, prompt_string)
         return JSONResponse(content={"status": "success", "result": result})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+@app.post("/api/ask")
+async def ask_endpoint(request: Request):
+    """
+    Endpoint for asking questions using RAG over the database.
+    """
+    try:
+        body = await request.json()
+        question = body.get("question")
+        if not question:
+            return JSONResponse(status_code=400, content={"detail": "Missing question"})
+            
+        answer = ask_rag(question)
+        return JSONResponse(content={"status": "success", "answer": answer})
     except Exception as e:
         return JSONResponse(status_code=500, content={"detail": str(e)})
 

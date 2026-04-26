@@ -271,8 +271,14 @@ def process_drive_document(artifact_id: str, ocr_text: str, correspondent_whitel
     correspondent = normalize_taxonomy(correspondent, correspondent_whitelist)
     
     if correspondent == "UNKNOWN" or correspondent == "Purpose/Review":
-        update_artifact_status(artifact_id, "UNKNOWN_CORRESPONDENT")
-        print(f"Unknown correspondent for {artifact_id}")
+        discovered = result_s1.get("discovered_correspondent")
+        if discovered:
+            custom_data = {"pending_discovery": discovered}
+            persist_llm_results(artifact_id, "Pending Discovery", custom_data, "Correspondent/Review")
+            print(f"Unknown correspondent for {artifact_id}, routed to Correspondent/Review with discovery: {discovered}")
+        else:
+            update_artifact_status(artifact_id, "UNKNOWN_CORRESPONDENT")
+            print(f"Unknown correspondent for {artifact_id}")
         return
         
     print(f"Correspondent identified as '{correspondent}'. Proceeding to Stage 2...")
@@ -298,16 +304,79 @@ def process_drive_document(artifact_id: str, ocr_text: str, correspondent_whitel
         custom_data["purpose"] = result_s2.get("purpose")
         custom_data["correspondent"] = correspondent
         
+        discovered_purpose = result_s2.get("discovered_purpose")
+        if discovered_purpose and normalized_purpose == "Purpose/Review":
+            custom_data["pending_discovery"] = discovered_purpose
+            status = "Purpose/Review"
+        elif normalized_purpose == "Purpose/Review":
+            status = "Purpose/Review"
+        else:
+            status = "PROCESSED"
+        
         persist_llm_results(
             artifact_id=artifact_id,
             summary=result_s2.get("title", ""),
             custom_data=custom_data,
-            status="PROCESSED"
+            status=status
         )
         print(f"Successfully processed {artifact_id}")
     else:
         update_artifact_status(artifact_id, "ERROR_STAGE_2_FAILED")
         print(f"Stage 2 failed for {artifact_id}")
+
+def ask_rag(question: str) -> str:
+    """
+    Converts natural language to SQL, fetches from Workspace_Artifacts, and summarizes.
+    """
+    prompt_sql = f"""You are a SQLite expert. Convert the user's question into a safe SQLite query targeting the `Workspace_Artifacts` table.
+Table Schema:
+- artifact_id (TEXT PRIMARY KEY)
+- taxonomy_id (INTEGER)
+- raw_text (TEXT)
+- summary (TEXT)
+- custom_data (TEXT JSON)
+- status (TEXT)
+
+Question: {question}
+
+Return ONLY valid JSON containing the SQL query. Do not return anything else. Limit results to 10.
+{{ "sql": "SELECT ... LIMIT 10" }}"""
+
+    sql_json = call_gemini(prompt_sql, "")
+    if not sql_json or "sql" not in sql_json:
+        return "Sorry, I couldn't generate a query for that."
+        
+    sql = sql_json["sql"]
+    
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        cursor = conn.cursor()
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+    except Exception as e:
+        conn.close()
+        return f"Database error: {e}"
+    conn.close()
+    
+    if not rows:
+        return "No relevant artifacts found in the database."
+        
+    fetched_data = [dict(row) for row in rows]
+    
+    prompt_summary = f"""You are an AI Assistant. Answer the user's question based ONLY on the provided database rows.
+
+Question: {question}
+Database Rows: {json.dumps(fetched_data, indent=2)}
+
+Return ONLY valid JSON containing the answer.
+{{ "answer": "Your human-readable summary" }}"""
+
+    summary_json = call_gemini(prompt_summary, "")
+    if summary_json and "answer" in summary_json:
+        return summary_json["answer"]
+    
+    return "Sorry, I couldn't generate a summary."
 
 if __name__ == "__main__":
     print("Nexus Hub LLM Engine initialized.")

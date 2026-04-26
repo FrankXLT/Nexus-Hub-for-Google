@@ -2,7 +2,7 @@
 
 ## System Overview
 
-Nexus Hub operates on a robust hybrid architecture, bridging the serverless convenience of Google Apps Script with the computational power of a dedicated Python Virtual Machine (VM). The Python VM acts as the centralized brain, utilizing a strict, WAL-enabled SQLite database (`nexus.db`) for high-concurrency state management, metadata storage, and immutable audit logging. The Apps Script environment serves as a zero-dependency, Material Design frontend, communicating with the backend VM via a cryptographically secured (HMAC-SHA256), replay-protected webhook bridge. 
+Nexus Hub operates on a robust hybrid architecture, bridging the serverless convenience of Google Apps Script with the computational power of a dedicated Python Virtual Machine (VM). Acting as the spiritual successor to "Google Inbox," it utilizes a zero-inbox philosophy to transform unstructured chaos into a highly organized, task-oriented knowledge graph. The Python VM acts as the centralized brain, utilizing a strict, WAL-enabled SQLite database (`nexus.db`) for high-concurrency state management, metadata storage, and immutable audit logging. The Apps Script environment serves as a zero-dependency, Material Design frontend, communicating with the backend VM via a cryptographically secured (HMAC-SHA256), replay-protected webhook bridge. 
 
 ---
 
@@ -24,7 +24,14 @@ graph TD
 ```
 
 ### Zero-Trust Toggles
-Every node in this hierarchy contains is_gmail_enabled and is_drive_enabled booleans. If both are false, the entity is considered "Quarantined" or "Blacklisted." The AI is physically forbidden from routing documents to disabled paths, ensuring total human control over the taxonomy.
+Every node in this hierarchy contains `is_gmail_enabled` and `is_drive_enabled` booleans. The default state for any new insertion is `FALSE` (Zero-Trust). If both are false, the entity is considered "Quarantined" or "Blacklisted." The AI is physically forbidden from routing documents to disabled paths, ensuring total human control over the taxonomy.
+
+### Entity Profiles
+To support robust data extraction, each Correspondent and Purpose is enriched with an Entity Profile. This includes:
+- **Sending Subdomains:** JSON arrays of recognized email domains to authenticate senders.
+- **Physical Addresses:** JSON arrays of known company addresses to improve document matching.
+- **Brand Colors:** JSON arrays of hex pairs to automatically sync visual identity across Google Workspace.
+- **Frequency & Confidence Weights:** Integers and floats used to refine the routing algorithm based on historical accuracy.
 
 ## 2. Intelligent Quota Governor
 Google API quotas and Apps Script execution timeouts are the silent killers of enterprise automation. Nexus Hub implements a "Priority Lane" Governor to defend the system.
@@ -40,7 +47,12 @@ flowchart LR
     F -.-> B
 ```
 
-By artificially capping the processing of old historical documents, the system guarantees that new, urgent emails are always processed immediately, even during massive inbox migrations.
+By artificially capping the processing of old historical documents, the system guarantees that new, urgent emails are always processed immediately, even during massive inbox migrations. The system tracks daily API calls inside `Config_System` and attributes operation costs to specific Taxonomy Purposes and Correspondents to evaluate expensive taxonomy rules.
+
+### Seed Ingestion & Zero-Trust Defaults
+A background cron task embedded inside the FastAPI engine runs the `sync_engine.py` pipeline periodically. The very first action of this pipeline is to check Google Drive for a `taxonomy_seed.json` file. If found, the Python engine passively ingests this multi-dimensional file into the SQLite database, extracting categories, correspondents, purposes, schemas, and frequency weights.
+
+To protect the system against malicious or misconfigured routing paths, every newly ingested node automatically defaults to `is_gmail_enabled = FALSE` and `is_drive_enabled = FALSE`. These Zero-Trust toggles quarantine newly discovered taxonomy strings until a human administrator reviews and enables them in the UI.
 
 ## 3. The Google Drive Pipeline (Deep Dive)
 

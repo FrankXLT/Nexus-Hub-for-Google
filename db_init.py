@@ -53,14 +53,46 @@ def init_db(db_path: str = DB_PATH) -> None:
         ) STRICT;
     """)
     
-    # 4. Taxonomy_Entities
+    # 4. Taxonomy_Categories
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS Taxonomy_Entities (
+        CREATE TABLE IF NOT EXISTS Taxonomy_Categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            category TEXT NOT NULL,
-            correspondent TEXT NOT NULL,
-            purpose TEXT NOT NULL,
-            custom_field_schema TEXT NOT NULL CHECK(json_valid(custom_field_schema))
+            name TEXT NOT NULL UNIQUE,
+            is_gmail_enabled INTEGER DEFAULT 0,
+            is_drive_enabled INTEGER DEFAULT 0
+        ) STRICT;
+    """)
+
+    # 4b. Taxonomy_Correspondents
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Taxonomy_Correspondents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            division TEXT,
+            sending_subdomains TEXT CHECK(json_valid(sending_subdomains)),
+            physical_addresses TEXT CHECK(json_valid(physical_addresses)),
+            brand_colors TEXT CHECK(json_valid(brand_colors)),
+            operation_cost INTEGER DEFAULT 0,
+            is_gmail_enabled INTEGER DEFAULT 0,
+            is_drive_enabled INTEGER DEFAULT 0,
+            FOREIGN KEY (category_id) REFERENCES Taxonomy_Categories (id) ON DELETE CASCADE
+        ) STRICT;
+    """)
+
+    # 4c. Taxonomy_Purposes
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Taxonomy_Purposes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            correspondent_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            custom_field_schema TEXT NOT NULL CHECK(json_valid(custom_field_schema)),
+            frequency_weight INTEGER DEFAULT 0,
+            confidence_weight REAL DEFAULT 0.0,
+            operation_cost INTEGER DEFAULT 0,
+            is_gmail_enabled INTEGER DEFAULT 0,
+            is_drive_enabled INTEGER DEFAULT 0,
+            FOREIGN KEY (correspondent_id) REFERENCES Taxonomy_Correspondents (id) ON DELETE CASCADE
         ) STRICT;
     """)
     
@@ -68,13 +100,13 @@ def init_db(db_path: str = DB_PATH) -> None:
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Workspace_Artifacts (
             artifact_id TEXT PRIMARY KEY,
-            taxonomy_id INTEGER,
+            purpose_id INTEGER,
             raw_text TEXT,
             summary TEXT,
             custom_data TEXT CHECK(json_valid(custom_data)),
             status TEXT,
             locked_by_system INTEGER DEFAULT 0,
-            FOREIGN KEY (taxonomy_id) REFERENCES Taxonomy_Entities (id) ON DELETE CASCADE
+            FOREIGN KEY (purpose_id) REFERENCES Taxonomy_Purposes (id) ON DELETE CASCADE
         ) STRICT;
     """)
     
@@ -123,6 +155,7 @@ def seed_default_prompts(conn: sqlite3.Connection) -> None:
 2. **Summary:** Generate a concise, 1-sentence summary of the thread's current state.
 3. **Action State:** Determine if this email requires human action (true/false).
 4. **Custom Fields:** Based on the mapped Purpose, extract the following fields: [DYNAMIC_ARRAY]. Return null if not found.
+5. **Discovery:** If the LLM cannot match a whitelist, suggest a `discovered_purpose`.
 
 **Rules:** Hallucinating new categories is strictly forbidden. 
 **Output:** ONLY valid JSON.
@@ -130,7 +163,8 @@ def seed_default_prompts(conn: sqlite3.Connection) -> None:
   "taxonomy_path": "string",
   "summary": "string",
   "requires_action": boolean,
-  "custom_fields": { "Field1": "value" }
+  "custom_fields": { "Field1": "value" },
+  "discovered_purpose": "string"
 }"""
 
     PROMPT_DRIVE_STAGE_1 = """You are an intelligent document routing engine. Review the following raw OCR text. It may contain scanning errors.
@@ -140,7 +174,8 @@ def seed_default_prompts(conn: sqlite3.Connection) -> None:
 **Rules:**
 - Ignore generic payment processors (e.g., PayPal, Stripe) if the actual vendor is mentioned.
 - If the correspondent is completely unknown or the document is unreadable, output 'UNKNOWN'.
-**Output:** ONLY valid JSON: { "correspondent": "string" }"""
+- If the LLM cannot match a whitelist, suggest a `discovered_correspondent`.
+**Output:** ONLY valid JSON: { "correspondent": "string", "discovered_correspondent": "string" }"""
 
     PROMPT_DRIVE_STAGE_2 = """You are a precise metadata extraction agent. Review the OCR text for this document belonging to the correspondent: [CORRESPONDENT].
 
@@ -149,13 +184,15 @@ def seed_default_prompts(conn: sqlite3.Connection) -> None:
 2. **Document Title:** Generate a concise, highly descriptive title for this document (e.g., 'Q3 Auto Insurance Renewal Policy').
 3. **Document Date:** Extract the primary creation or effective date of the document in YYYY-MM-DD format.
 4. **Custom Fields:** Extract the following specific fields for this purpose: [DYNAMIC_ARRAY]. Return null if not found.
+5. **Discovery:** If the LLM cannot match a whitelist, suggest a `discovered_purpose`.
 
 **Output:** ONLY valid JSON.
 {
   "purpose": "string",
   "title": "string",
   "document_date": "YYYY-MM-DD",
-  "custom_fields": { "Field1": "value" }
+  "custom_fields": { "Field1": "value" },
+  "discovered_purpose": "string"
 }"""
 
     cursor = conn.cursor()

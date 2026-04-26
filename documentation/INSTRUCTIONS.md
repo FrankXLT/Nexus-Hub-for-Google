@@ -299,8 +299,10 @@ To receive immediate mobile alerts for critical system failures (like SQLite dat
 1. Create an account at [Pushover.net](https://pushover.net/) and install the mobile app.
 2. Copy your **User Key** from the main dashboard.
 3. Click **Create an Application/API Token**, name it "Nexus Hub", and copy the generated **API Token/Key**.
-4. Construct your webhook URL and add it to your `.env` file:
-   `https://api.pushover.net/1/messages.json?user=YOUR_USER_KEY&token=YOUR_APP_TOKEN`
+4. Construct your webhook URL and add it to your `.env` file as `NEXUS_WEBHOOK_URL`:
+   ```env
+   NEXUS_WEBHOOK_URL=https://api.pushover.net/1/messages.json?user=YOUR_USER_KEY&token=YOUR_APP_TOKEN
+   ```
 
 ### 2. Configure the Drive Seeder Folder (Taxonomy Bootstrapping)
 To enable the backend Python VM to automatically ingest new correspondents and purposes from your external Nexus for Gmail worker:

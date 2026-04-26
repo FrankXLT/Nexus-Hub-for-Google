@@ -25,6 +25,8 @@ By leveraging Google's Gemini Large Language Models (LLMs) and a strictly govern
 
 ## Version History
 
+- **v1.3.0:** Phase 28 - Telemetry & Alerting Matrix with Pushover webhook notifications and Gmail Daily Digests.
+- **v1.2.0:** Phase 22-26 - Added Three-Tier Taxonomy Hierarchy, Zero-Trust UI Review Queues, RAG Query engine, and Quota Governor.
 - **v1.0.0:** Phase 19-21 - Decoupled hardcoded LLM prompts to SQLite, implemented FastAPI BackgroundTasks for the AI Self-Tuning loop, and finalized documentation.
 - **v0.11.0:** Phase 16-18 - Containerized the Python backend via Docker Compose, added the Dead-Letter Queue, and implemented taxonomy normalization.
 - **v0.10.0:** Phase 11-15 - Refactored database row factories, implemented programmatic visual branding, and deployed the Help Center tooltips.

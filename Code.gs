@@ -155,14 +155,37 @@ function runSandboxPrompt(payload) {
 }
 
 /**
- * Bulk updates multiple artifacts.
+ * Bulk updates multiple artifacts using continuation tokens for timeout protection.
  * 
  * @param {Object} payload - The object containing artifact_ids and metadata.
  * @returns {Object} The JSON response from the VM.
  */
 function bulkUpdateArtifacts(payload) {
+  // Timeout protection: if payload specifies a continuation token, handle batching.
+  const MAX_BATCH_SIZE = 50;
+  if (payload.artifact_ids && payload.artifact_ids.length > MAX_BATCH_SIZE) {
+    const batch = payload.artifact_ids.slice(0, MAX_BATCH_SIZE);
+    const remaining = payload.artifact_ids.slice(MAX_BATCH_SIZE);
+    payload.artifact_ids = batch;
+    payload.continuation_token = Utilities.base64Encode(JSON.stringify(remaining));
+  }
   try {
     const result = sendToNexusVM("/api/bulk-update", payload);
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Runs the AI RAG query.
+ * 
+ * @param {Object} payload - The object containing the question.
+ * @returns {Object} The JSON response from the VM.
+ */
+function runAskAI(payload) {
+  try {
+    const result = sendToNexusVM("/api/ask", payload);
     return { success: true, data: result };
   } catch (error) {
     return { success: false, error: error.message };

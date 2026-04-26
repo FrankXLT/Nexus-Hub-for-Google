@@ -29,23 +29,29 @@ const appActions = {
       const mockArtifacts = [
         {
           artifact_id: 'doc_12345',
+          category: 'Finance', correspondent: 'AWS', purpose: 'Invoice',
           taxonomy: 'Finance / AWS / Invoice',
           summary: 'AWS Monthly Billing - October 2026',
           status: 'PROCESSED',
+          operation_cost: 15,
           custom_data: { title: 'AWS Oct 2026', total_amount: '$145.20', due_date: '2026-11-01' }
         },
         {
           artifact_id: 'mail_67890',
+          category: 'HR', correspondent: 'Stripe', purpose: 'Update',
           taxonomy: 'HR / Stripe / Update',
           summary: 'Stripe API Terms of Service Update',
           status: 'PROCESSED',
+          operation_cost: 8,
           custom_data: { requires_action: false, impact: 'Low' }
         },
         {
           artifact_id: 'doc_55555',
+          category: '', correspondent: '', purpose: '',
           taxonomy: 'UNKNOWN',
           summary: 'Scanned Image 001',
           status: 'ERROR_STAGE_1_FAILED',
+          operation_cost: 3,
           custom_data: { error: 'Illegible OCR' }
         }
       ];
@@ -62,11 +68,141 @@ const appActions = {
         }
       ];
 
+      const mockTaxonomy = {
+        "Finance": { "AWS": ["Invoice", "Receipt"] },
+        "HR": { "Stripe": ["Update"] }
+      };
+
+      const mockZeroTrust = [
+        { id: 1, type: 'Purpose', path: 'Finance / UnknownVendor / Receipt', is_gmail_enabled: false, is_drive_enabled: false },
+        { id: 2, type: 'Correspondent', path: 'Operations / NewCorp', is_gmail_enabled: false, is_drive_enabled: false }
+      ];
+
+      appState.taxonomyTree = mockTaxonomy;
+      appState.zeroTrustQueue = mockZeroTrust;
       appState.setArtifacts(mockArtifacts);
       appState.setHistory(mockHistory);
+      
+      this.populateCategoryDropdown();
+      this.renderZeroTrustQueue();
       this.renderGrid();
+      this.updateBulkEstimate();
       this.showToast("Data Refreshed", 2000);
     }, 800);
+  },
+
+  populateCategoryDropdown: function() {
+    const catSelect = document.getElementById('filter-category');
+    catSelect.innerHTML = '<option value="">All Categories</option>';
+    Object.keys(appState.taxonomyTree).forEach(cat => {
+      catSelect.innerHTML += `<option value="${cat}">${cat}</option>`;
+    });
+  },
+
+  onCategoryChange: function() {
+    const catSelect = document.getElementById('filter-category');
+    const corrSelect = document.getElementById('filter-correspondent');
+    const purpSelect = document.getElementById('filter-purpose');
+    
+    corrSelect.innerHTML = '<option value="">All Correspondents</option>';
+    purpSelect.innerHTML = '<option value="">All Purposes</option>';
+    purpSelect.disabled = true;
+
+    const cat = catSelect.value;
+    if (cat && appState.taxonomyTree[cat]) {
+      corrSelect.disabled = false;
+      Object.keys(appState.taxonomyTree[cat]).forEach(corr => {
+        corrSelect.innerHTML += `<option value="${corr}">${corr}</option>`;
+      });
+    } else {
+      corrSelect.disabled = true;
+    }
+    this.applyFilters();
+  },
+
+  onCorrespondentChange: function() {
+    const catSelect = document.getElementById('filter-category');
+    const corrSelect = document.getElementById('filter-correspondent');
+    const purpSelect = document.getElementById('filter-purpose');
+    
+    purpSelect.innerHTML = '<option value="">All Purposes</option>';
+
+    const cat = catSelect.value;
+    const corr = corrSelect.value;
+    
+    if (cat && corr && appState.taxonomyTree[cat][corr]) {
+      purpSelect.disabled = false;
+      appState.taxonomyTree[cat][corr].forEach(purp => {
+        purpSelect.innerHTML += `<option value="${purp}">${purp}</option>`;
+      });
+    } else {
+      purpSelect.disabled = true;
+    }
+    this.applyFilters();
+  },
+
+  renderZeroTrustQueue: function() {
+    const container = document.getElementById('zero-trust-queue');
+    container.innerHTML = '';
+    
+    if (appState.zeroTrustQueue.length === 0) {
+      container.innerHTML = '<p class="placeholder-text">Queue is empty. No quarantined items.</p>';
+      return;
+    }
+
+    let html = '<table class="data-grid" style="width: 100%;"><thead><tr><th>Type</th><th>Path</th><th>Gmail Enabled</th><th>Drive Enabled</th><th>Action</th></tr></thead><tbody>';
+    
+    appState.zeroTrustQueue.forEach(item => {
+      html += `
+        <tr>
+          <td>${item.type}</td>
+          <td>${item.path}</td>
+          <td style="text-align: center;"><input type="checkbox" ${item.is_gmail_enabled ? 'checked' : ''} onchange="appActions.toggleEcosystem(${item.id}, 'gmail', this.checked)"></td>
+          <td style="text-align: center;"><input type="checkbox" ${item.is_drive_enabled ? 'checked' : ''} onchange="appActions.toggleEcosystem(${item.id}, 'drive', this.checked)"></td>
+          <td><button class="btn btn-primary" onclick="appActions.approveZeroTrust(${item.id})" style="padding: 4px 8px; font-size: 0.8rem;">Save</button></td>
+        </tr>
+      `;
+    });
+    
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  },
+
+  toggleEcosystem: function(id, system, isChecked) {
+    const item = appState.zeroTrustQueue.find(i => i.id === id);
+    if (item) {
+      if (system === 'gmail') item.is_gmail_enabled = isChecked;
+      if (system === 'drive') item.is_drive_enabled = isChecked;
+    }
+  },
+
+  approveZeroTrust: function(id) {
+    const item = appState.zeroTrustQueue.find(i => i.id === id);
+    if (item) {
+      this.showToast(`Saved toggles for ${item.path}`);
+      // In a real app, this would call google.script.run to update the DB
+      appState.zeroTrustQueue = appState.zeroTrustQueue.filter(i => i.id !== id);
+      this.renderZeroTrustQueue();
+    }
+  },
+
+  updateBulkEstimate: function() {
+    const estimateSpan = document.getElementById('bulk-estimate');
+    const valueSpan = document.getElementById('bulk-cost-value');
+    
+    if (appState.selectedIds.size === 0) {
+      estimateSpan.style.display = 'none';
+      return;
+    }
+
+    let totalCost = 0;
+    appState.selectedIds.forEach(id => {
+      const art = appState.getArtifact(id);
+      if (art && art.operation_cost) totalCost += art.operation_cost;
+    });
+
+    valueSpan.textContent = totalCost;
+    estimateSpan.style.display = 'inline';
   },
 
   applyFilters: function() {
@@ -77,19 +213,17 @@ const appActions = {
     const tbody = document.getElementById('grid-body');
     tbody.innerHTML = '';
     
-    const filterApp = (document.getElementById('filter-app').value || '').toLowerCase();
-    const filterCat = (document.getElementById('filter-category').value || '').toLowerCase();
+    const filterCat = document.getElementById('filter-category').value;
+    const filterCorr = document.getElementById('filter-correspondent').value;
+    const filterPurp = document.getElementById('filter-purpose').value;
     const filterJson = (document.getElementById('filter-json').value || '').toLowerCase();
 
     appState.artifacts.forEach(artifact => {
       
       // Filter Logic
-      const isDoc = artifact.artifact_id.startsWith('doc_');
-      const isMail = artifact.artifact_id.startsWith('mail_');
-      const appType = isDoc ? 'drive' : (isMail ? 'gmail' : '');
-      
-      if (filterApp && !appType.includes(filterApp)) return;
-      if (filterCat && !(artifact.taxonomy || '').toLowerCase().includes(filterCat)) return;
+      if (filterCat && artifact.category !== filterCat) return;
+      if (filterCorr && artifact.correspondent !== filterCorr) return;
+      if (filterPurp && artifact.purpose !== filterPurp) return;
       
       if (filterJson) {
         let matchJson = false;
@@ -123,7 +257,7 @@ const appActions = {
           // Truncate long values
           let val = artifact.custom_data[key];
           if(typeof val === 'string' && val.length > 20) val = val.substring(0, 20) + '...';
-          customDataHtml += `<span class="json-chip">${key}: ${val}</span>`;
+          customDataHtml += `<span class="json-chip" style="margin-right: 4px; display: inline-block;">${key}: ${val}</span>`;
         });
       }
 
@@ -133,7 +267,7 @@ const appActions = {
         <td>${artifact.taxonomy}</td>
         <td>${artifact.summary}</td>
         <td><span class="status-badge ${statusClass}">${artifact.status}</span></td>
-        <td>${customDataHtml}</td>
+        <td>${artifact.operation_cost || 0}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -142,11 +276,13 @@ const appActions = {
   toggleSelectAll: function(checkbox) {
     appState.selectAll(checkbox.checked);
     this.renderGrid();
+    this.updateBulkEstimate();
   },
 
   toggleRowSelection: function(id, event) {
     event.stopPropagation();
     appState.toggleSelection(id);
+    this.updateBulkEstimate();
   },
 
   bulkEdit: function() {
@@ -219,6 +355,59 @@ const appActions = {
         outputElement.textContent = "Error: " + error.message;
       })
       .runSandboxPrompt(payload);
+  },
+
+  askAI: function() {
+    const inputEl = document.getElementById('chat-input');
+    const historyEl = document.getElementById('chat-history');
+    const question = inputEl.value.trim();
+    if (!question) return;
+
+    // Remove placeholder
+    const placeholder = historyEl.querySelector('.placeholder-text');
+    if (placeholder) placeholder.remove();
+
+    // Add User Message
+    const userMsg = document.createElement('div');
+    userMsg.style.cssText = "align-self: flex-end; background: #e3f2fd; padding: 8px 12px; border-radius: 12px; margin-bottom: 8px; max-width: 80%;";
+    userMsg.textContent = "You: " + question;
+    historyEl.appendChild(userMsg);
+
+    inputEl.value = '';
+    historyEl.scrollTop = historyEl.scrollHeight;
+
+    // Add Loading Indicator
+    const aiLoading = document.createElement('div');
+    aiLoading.style.cssText = "align-self: flex-start; background: #f5f5f5; padding: 8px 12px; border-radius: 12px; margin-bottom: 8px; max-width: 80%; color: #666;";
+    aiLoading.textContent = "AI is thinking...";
+    historyEl.appendChild(aiLoading);
+    historyEl.scrollTop = historyEl.scrollHeight;
+
+    const payload = { question: question };
+    
+    google.script.run
+      .withSuccessHandler((result) => {
+        aiLoading.remove();
+        const aiMsg = document.createElement('div');
+        aiMsg.style.cssText = "align-self: flex-start; background: #f5f5f5; padding: 8px 12px; border-radius: 12px; margin-bottom: 8px; max-width: 80%;";
+        if(result.success) {
+          aiMsg.textContent = "AI: " + result.data.answer;
+        } else {
+          aiMsg.textContent = "Error: " + result.error;
+          aiMsg.style.color = "red";
+        }
+        historyEl.appendChild(aiMsg);
+        historyEl.scrollTop = historyEl.scrollHeight;
+      })
+      .withFailureHandler((error) => {
+        aiLoading.remove();
+        const aiMsg = document.createElement('div');
+        aiMsg.style.cssText = "align-self: flex-start; background: #ffebee; padding: 8px 12px; border-radius: 12px; margin-bottom: 8px; max-width: 80%; color: red;";
+        aiMsg.textContent = "Apps Script Error: " + error.message;
+        historyEl.appendChild(aiMsg);
+        historyEl.scrollTop = historyEl.scrollHeight;
+      })
+      .runAskAI(payload);
   },
 
   renderDetailsPane: function() {

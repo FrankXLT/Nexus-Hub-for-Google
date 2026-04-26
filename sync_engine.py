@@ -1,19 +1,71 @@
 """
 Sync Engine for Nexus Hub.
 Fetches delta changes from Google Drive and Gmail to strictly avoid full polling.
+Includes Quota Governor and Seed Ingestion logic.
 """
 
 import sqlite3
 import time
+import json
+import io
+import datetime
 from typing import Optional, Dict, Any, Tuple
 
 from googleapiclient.discovery import build, Resource
+from googleapiclient.http import MediaIoBaseDownload
 from google.oauth2.credentials import Credentials
 from tenacity import retry, wait_exponential, stop_after_attempt
 
 # Local imports
 from auth import authenticate
 from db_init import DB_PATH
+from notifier import NexusNotifier
+
+DAILY_QUOTA_LIMIT = 10000
+PRIORITY_RESERVE_RATIO = 0.30
+
+class QuotaGovernor:
+    def __init__(self, conn: sqlite3.Connection):
+        self.conn = conn
+        self.cursor = conn.cursor()
+        self.conn.execute("PRAGMA journal_mode=WAL;")
+        self._init_quota_tracker()
+
+    def _init_quota_tracker(self):
+        self.cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES ('api_quota', '{\"date\": \"\", \"calls\": 0}', 'Daily API call tracking')")
+        self.conn.commit()
+
+    def record_api_call(self, cost: int = 1, entity_id: Optional[int] = None, entity_type: str = 'purpose'):
+        today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+        self.cursor.execute("SELECT value FROM Config_System WHERE key = 'api_quota'")
+        row = self.cursor.fetchone()
+        quota_data = json.loads(row['value'])
+        
+        if quota_data.get('date') != today:
+            quota_data = {'date': today, 'calls': 0}
+            
+        quota_data['calls'] += cost
+        self.cursor.execute("UPDATE Config_System SET value = ? WHERE key = 'api_quota'", (json.dumps(quota_data),))
+        
+        # Track cost per entity
+        if entity_id:
+            if entity_type == 'purpose':
+                self.cursor.execute("UPDATE Taxonomy_Purposes SET operation_cost = operation_cost + ? WHERE id = ?", (cost, entity_id))
+            elif entity_type == 'correspondent':
+                self.cursor.execute("UPDATE Taxonomy_Correspondents SET operation_cost = operation_cost + ? WHERE id = ?", (cost, entity_id))
+                
+        self.conn.commit()
+
+    def can_process_historical(self) -> bool:
+        today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+        self.cursor.execute("SELECT value FROM Config_System WHERE key = 'api_quota'")
+        row = self.cursor.fetchone()
+        quota_data = json.loads(row['value'])
+        if quota_data.get('date') != today:
+            return True
+        
+        calls = quota_data.get('calls', 0)
+        return calls < (DAILY_QUOTA_LIMIT * (1.0 - PRIORITY_RESERVE_RATIO))
 
 @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3))
 def fetch_drive_changes(service: Resource, page_token: str) -> Tuple[Dict[str, Any], Optional[str]]:
@@ -70,7 +122,86 @@ def update_sync_state(cursor: sqlite3.Cursor, app_name: str, sync_token: str) ->
             last_updated = excluded.last_updated
     """, (app_name, sync_token, now))
 
-def sync_drive(creds: Credentials, conn: sqlite3.Connection) -> None:
+def ingest_taxonomy_seed(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGovernor) -> None:
+    """
+    Checks Google Drive for taxonomy_seed.json. If found, parses and updates the schema.
+    """
+    service = build('drive', 'v3', credentials=creds)
+    governor.record_api_call()
+    
+    results = service.files().list(q="name='taxonomy_seed.json' and trashed=false", spaces='drive', fields='files(id, name)').execute()
+    items = results.get('files', [])
+    if not items:
+        return
+        
+    print("Found taxonomy_seed.json in Drive. Ingesting...")
+    file_id = items[0]['id']
+    request = service.files().get_media(fileId=file_id)
+    fh = io.BytesIO()
+    downloader = MediaIoBaseDownload(fh, request)
+    done = False
+    while not done:
+        status, done = downloader.next_chunk()
+        governor.record_api_call()
+        
+    seed_data = json.loads(fh.getvalue().decode('utf-8'))
+    
+    cursor = conn.cursor()
+    
+    categories = seed_data.get('categories', [])
+    for cat in categories:
+        cat_name = cat.get('name')
+        cursor.execute("INSERT OR IGNORE INTO Taxonomy_Categories (name, is_gmail_enabled, is_drive_enabled) VALUES (?, 0, 0)", (cat_name,))
+        cursor.execute("SELECT id FROM Taxonomy_Categories WHERE name = ?", (cat_name,))
+        cat_id = cursor.fetchone()['id']
+        
+        for corr in cat.get('correspondents', []):
+            corr_name = corr.get('name')
+            division = corr.get('division', '')
+            sending_subdomains = json.dumps(corr.get('sending_subdomains', []))
+            physical_addresses = json.dumps(corr.get('physical_addresses', []))
+            brand_colors = json.dumps(corr.get('brand_colors', []))
+            
+            cursor.execute("""
+                INSERT OR IGNORE INTO Taxonomy_Correspondents (category_id, name, division, sending_subdomains, physical_addresses, brand_colors, is_gmail_enabled, is_drive_enabled)
+                VALUES (?, ?, ?, ?, ?, ?, 0, 0)
+            """, (cat_id, corr_name, division, sending_subdomains, physical_addresses, brand_colors))
+            
+            cursor.execute("SELECT id FROM Taxonomy_Correspondents WHERE category_id = ? AND name = ? AND division = ?", (cat_id, corr_name, division))
+            corr_id_row = cursor.fetchone()
+            if not corr_id_row: continue
+            corr_id = corr_id_row['id']
+            
+            for purp in corr.get('purposes', []):
+                purp_name = purp.get('name')
+                schema = json.dumps(purp.get('custom_field_schema', {}))
+                freq = purp.get('frequency_weight', 0)
+                conf = purp.get('confidence_weight', 0.0)
+                
+                cursor.execute("""
+                    INSERT OR IGNORE INTO Taxonomy_Purposes (correspondent_id, name, custom_field_schema, frequency_weight, confidence_weight, is_gmail_enabled, is_drive_enabled)
+                    VALUES (?, ?, ?, ?, ?, 0, 0)
+                """, (corr_id, purp_name, schema, freq, conf))
+                
+    conn.commit()
+    print("Ingestion of taxonomy_seed.json complete.")
+
+def process_file_with_governor(file_time: float, governor: QuotaGovernor) -> bool:
+    """
+    72-Hour Priority Lane check. Returns True if the file can be processed.
+    """
+    now = time.time()
+    age_hours = (now - file_time) / 3600
+    if age_hours < 72:
+        return True # Priority Lane
+    else:
+        # Historical Backlog
+        if not governor.can_process_historical():
+            print("Governor: Historical quota limit reached. Throttling.")
+            return False
+        return True
+
+def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGovernor) -> None:
     """
     Synchronizes Google Drive changes via delta fetching.
     """
@@ -80,6 +211,7 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection) -> None:
     page_token = get_sync_state(cursor, 'drive')
     if not page_token:
         print("No Drive pageToken found in DB. Initializing new token...")
+        governor.record_api_call()
         page_token = init_drive_page_token(service)
         update_sync_state(cursor, 'drive', page_token)
         conn.commit()
@@ -87,13 +219,19 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection) -> None:
         return
 
     print(f"Fetching Drive changes since token: {page_token}")
+    governor.record_api_call()
     changes, new_page_token = fetch_drive_changes(service, page_token)
     
     if 'changes' in changes:
         print(f"Found {len(changes['changes'])} Drive changes.")
-        # Logging changes (processing logic will go here in future phases)
         for change in changes['changes']:
+            # Example timestamp extraction if available, defaulting to now for simplicity
+            file_time = time.time() 
+            if not process_file_with_governor(file_time, governor):
+                continue
+            
             print(f" - Drive Change: File ID {change.get('fileId')}")
+            governor.record_api_call(cost=1)
     else:
         print("No new Drive changes.")
     
@@ -102,7 +240,7 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection) -> None:
         conn.commit()
         print(f"Updated Drive token to: {new_page_token}")
 
-def sync_gmail(creds: Credentials, conn: sqlite3.Connection) -> None:
+def sync_gmail(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGovernor) -> None:
     """
     Synchronizes Gmail changes via history delta fetching.
     """
@@ -112,6 +250,7 @@ def sync_gmail(creds: Credentials, conn: sqlite3.Connection) -> None:
     history_id = get_sync_state(cursor, 'gmail')
     if not history_id:
         print("No Gmail historyId found in DB. Initializing new historyId...")
+        governor.record_api_call()
         history_id = init_gmail_history_id(service)
         update_sync_state(cursor, 'gmail', history_id)
         conn.commit()
@@ -119,13 +258,18 @@ def sync_gmail(creds: Credentials, conn: sqlite3.Connection) -> None:
         return
 
     print(f"Fetching Gmail history since ID: {history_id}")
+    governor.record_api_call()
     history, new_history_id = fetch_gmail_history(service, history_id)
     
     if 'history' in history:
         print(f"Found {len(history['history'])} Gmail history records.")
-        # Logging history records (processing logic will go here in future phases)
         for record in history['history']:
+            file_time = time.time()
+            if not process_file_with_governor(file_time, governor):
+                continue
+                
             print(f" - Gmail History Record: {record.get('id')}")
+            governor.record_api_call(cost=1)
     else:
         print("No new Gmail history.")
             
@@ -148,13 +292,31 @@ def run_sync() -> None:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL;")
     
+    governor = QuotaGovernor(conn)
+    
     try:
-        sync_drive(creds, conn)
-        sync_gmail(creds, conn)
+        ingest_taxonomy_seed(creds, conn, governor)
+        sync_drive(creds, conn, governor)
+        sync_gmail(creds, conn, governor)
     except Exception as e:
         print(f"Synchronization error occurred: {e}")
     finally:
         conn.close()
+        print("Synchronization engine completed.")
+
+if __name__ == "__main__":
+    run_sync()
+te3.OperationalError as e:
+        error_msg = f"Database Lock or Operational Error: {e}"
+        print(error_msg)
+        notifier.send_urgent_webhook({"title": "Nexus Hub: Database Lock", "message": error_msg, "priority": 1})
+    except Exception as e:
+        error_msg = f"Synchronization error occurred: {e}"
+        print(error_msg)
+        notifier.send_urgent_webhook({"title": "Nexus Hub: Sync Error", "message": error_msg, "priority": 0})
+    finally:
+        if 'conn' in locals():
+            conn.close()
         print("Synchronization engine completed.")
 
 if __name__ == "__main__":

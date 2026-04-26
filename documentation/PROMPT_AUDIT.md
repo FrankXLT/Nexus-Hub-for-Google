@@ -361,3 +361,149 @@ Executed a final audit of the Python codebase to ensure late-stage architectural
 
 **Files Altered/Created:**
 - `documentation/PROMPT_AUDIT.md` (Updated)
+
+## Phase 22: UI Expansion & Sandbox
+**Date:** April 26, 2026
+
+**Summary:**
+Expanded the UI and API capabilities based on Sections 7.5 and 7.6 of the architecture documentation, introducing bulk edit functionality and a prompt sandbox.
+
+**Decisions Made:**
+- Developed `POST /api/sandbox` in `main.py` and `run_sandbox_prompt` in `llm_engine.py` to fetch raw text and query Gemini using a temporary prompt without affecting database state.
+- Developed `POST /api/bulk-update` in `main.py` to accept an array of artifact IDs and apply metadata payload updates simultaneously.
+- Modified `Code.gs` to expose `runSandboxPrompt` and `bulkUpdateArtifacts` endpoints to the client.
+- Redesigned `Index.html` to add 'Correspondent Review' and 'Purpose Review' tabs, an advanced cross-ecosystem filter bar, a 'Bulk Edit' action bar, and the 'Prompt Sandbox' tab.
+- Updated `JS_State.html` to support multiselect `Set` states.
+- Rewrote `JS_Actions.html` to add logic for filtering the grid, bulk selecting checkboxes, executing bulk edits, and running temporary AI prompts inside the Sandbox UI.
+
+**Files Altered/Created:**
+- `llm_engine.py` (Updated)
+- `main.py` (Updated)
+- `Code.gs` (Updated)
+- `JS_State.html` (Updated)
+- `Index.html` (Updated)
+- `JS_Actions.html` (Updated)
+- `documentation/PROMPT_AUDIT.md` (Updated)
+
+## Phase 23: Discovery & RAG
+**Date:** April 26, 2026
+
+**Summary:**
+Implemented Discovery Mode to identify unknown correspondents or purposes, saving suggestions under pending_discovery custom data. Also added RAG querying capabilities allowing natural language searches over workspace artifacts.
+
+**Decisions Made:**
+- Updated master prompts in db_init.py for dynamic suggestion extraction (discovered_purpose, discovered_correspondent).
+- Upgraded llm_engine.py processing pipelines to interpret discovery values and accurately route artifacts to Correspondent/Review or Purpose/Review queues.
+- Created sk_rag() function in llm_engine.py to handle the LLM transformation of natural language into safe SQLite queries, fetching relevant rows, and summarizing them dynamically.
+- Created POST /api/ask endpoint in main.py to serve the new query engine securely.
+- Updated the Apps Script frontend (Code.gs, Index.html, JS_Actions.html) to include a fully featured AI Assistant chat tab leveraging the webhook.
+
+**Files Altered/Created:**
+- db_init.py (Updated)
+- llm_engine.py (Updated)
+- main.py (Updated)
+- Code.gs (Updated)
+- Index.html (Updated)
+- JS_Actions.html (Updated)
+- documentation/PROMPT_AUDIT.md (Updated)
+
+
+## Phase 24: Database Schema Refactor
+**Date:** April 26, 2026
+
+**Summary:**
+Implemented the Multi-Dimensional Entity Schema and Three-Tier Hierarchy to organize categories, correspondents/divisions, and purposes in the taxonomy system, with an added focus on Entity Profiles and zero-trust defaults.
+
+**Decisions Made:**
+- Refactored db_init.py to break Taxonomy_Entities into Taxonomy_Categories, Taxonomy_Correspondents, and Taxonomy_Purposes tables.
+- Updated Workspace_Artifacts to point to purpose_id with cascading deletes.
+- Added Entity Profile fields: sending_subdomains, physical_addresses, and rand_colors to Correspondents, as well as requency_weight and confidence_weight to Purposes.
+- Implemented zero-trust is_gmail_enabled and is_drive_enabled booleans on all hierarchy tables, defaulting to 0 (FALSE).
+- Updated HOW_IT_WORKS.md to document the Entity Profile columns and the default zero-trust state.
+
+**Files Altered/Created:**
+- db_init.py (Updated)
+- documentation/HOW_IT_WORKS.md (Updated)
+- documentation/PROMPT_AUDIT.md (Updated)
+
+## Phase 25: Quota Governor & Ingestion
+**Date:** April 26, 2026
+
+**Summary:**
+Implemented the 72-Hour Priority Lane Quota Governor and the passive JSON taxonomy seeder to safely ingest configurations while protecting API limits.
+
+**Decisions Made:**
+- Added `operation_cost` columns to `Taxonomy_Correspondents` and `Taxonomy_Purposes` in `db_init.py`.
+- Refactored `sync_engine.py` to include a `QuotaGovernor` class that tracks daily Google API calls and throttles historical batch processing if it exceeds the 70% limit.
+- Created an `ingest_taxonomy_seed` function in `sync_engine.py` that checks Drive for `taxonomy_seed.json`, parses it, and populates the multi-dimensional schema, enforcing zero-trust defaults (`is_gmail_enabled = 0`, `is_drive_enabled = 0`).
+- Attached a background `asyncio` task to the FastAPI `main.py` `@app.on_event("startup")` hook, creating a cron-like schedule that runs the sync engine loop hourly.
+- Updated `HOW_IT_WORKS.md` to document the Quota Governor tracking system and the passive Zero-Trust Seed Ingestion flow.
+
+**Files Altered/Created:**
+- `db_init.py` (Updated)
+- `sync_engine.py` (Updated)
+- `main.py` (Updated)
+- `documentation/HOW_IT_WORKS.md` (Updated)
+- `documentation/PROMPT_AUDIT.md` (Updated)
+
+
+## Phase 26: UI Hierarchy & Zero-Trust
+**Date:** April 26, 2026
+
+**Summary:**
+Updated the Google Apps Script frontend to match the new database schema, introducing cascading taxonomy selectors and a Zero-Trust Review Queue.
+
+**Decisions Made:**
+- Upgraded Index.html to replace flat text inputs with cascading dropdowns (ilter-category, ilter-correspondent, ilter-purpose) in the data grid filter bar.
+- Repurposed the Review tabs in Index.html into a new Zero-Trust Review Queue that displays items where is_gmail_enabled and is_drive_enabled are both false.
+- Updated JS_State.html to hold 	axonomyTree and zeroTrustQueue data structures.
+- Updated JS_Actions.html to populate dropdowns conditionally (onCategoryChange, onCorrespondentChange), render the Zero-Trust table with ecosystem toggles, and dynamically calculate and display a bulk edit API quota cost estimate (updateBulkEstimate).
+- Updated README.md version history to reflect v1.2.0 features.
+
+**Files Altered/Created:**
+- Index.html (Updated)
+- JS_State.html (Updated)
+- JS_Actions.html (Updated)
+- README.md (Updated)
+- documentation/PROMPT_AUDIT.md (Updated)
+
+## Phase 28: Telemetry & Alerting Matrix
+**Date:** April 26, 2026
+
+**Summary:**
+Implemented the Telemetry and Alerting Matrix based on Section 8.6 of ARCHITECTURE.md to provide critical system monitoring and daily summaries.
+
+**Decisions Made:**
+- Created `notifier.py` with `NexusNotifier` class to handle both urgent webhooks via HTTP POST and daily digest emails via the Gmail API.
+- Updated `sync_engine.py` exception handling to catch fatal OAuth errors and `sqlite3.OperationalError` (database locks) and broadcast them via `send_urgent_webhook()`.
+- Added a `daily_digest` background task in `main.py` that queries `Error_Logs` (DLQ) and `Workspace_Artifacts` linked to zero-trust purposes, compiling an HTML report and sending it via `send_daily_digest()`.
+- Updated `README.md` to highlight the Telemetry & Push Alerts feature.
+- Updated `INSTRUCTIONS.md` to guide users on configuring `NEXUS_WEBHOOK_URL` via Pushover.
+
+**Files Altered/Created:**
+- `notifier.py` (Created)
+- `sync_engine.py` (Updated)
+- `main.py` (Updated)
+- `README.md` (Updated)
+- `documentation/INSTRUCTIONS.md` (Updated)
+- `documentation/PROMPT_AUDIT.md` (Updated)
+
+
+## Phase 27: Final V1.1 Master Audit
+**Date:** April 26, 2026
+
+**Summary:**
+Conducted the V1.1 Master Project Audit acting as the Lead QA Engineer, verifying all recent architectural pivots against the master constraints and syncing documentation.
+
+**Decisions Made:**
+- Verified Three-Tier Hierarchy, 72-Hour Priority Lane, and Zero-Trust defaults are present in the codebase.
+- Added Apps Script timeout protection (continuation tokens) logic to ulkUpdateArtifacts in Code.gs to handle heavy frontend routing functions.
+- Updated HOW_IT_WORKS.md System Overview to explicitly reflect the 'Google Inbox' zero-inbox design philosophy.
+- Confirmed INSTRUCTIONS.md details the DRIVE_SEED_FOLDER_ID configuration for 	axonomy_seed.json.
+- Appended the V1.1 Phase 22-26 Pass/Fail checklist to ARCHITECTURE_AUDIT.md.
+
+**Files Altered/Created:**
+- Code.gs (Updated)
+- documentation/HOW_IT_WORKS.md (Updated)
+- documentation/ARCHITECTURE_AUDIT.md (Updated)
+- documentation/PROMPT_AUDIT.md (Updated)
