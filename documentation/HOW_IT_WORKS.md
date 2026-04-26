@@ -291,7 +291,7 @@ Nexus Hub employs a fully database-driven prompt architecture, eliminating hardc
 2. **Real-time Injection:** Immediately before triggering an external call to the Gemini API, the LLM extraction engine queries the database in real-time to fetch the active instructions.
 3. **Frontend Modification:** The backend exposes secured `GET /api/prompts` and `POST /api/prompts` endpoints, allowing the Google Apps Script frontend to seamlessly read and apply updates to these core instructions.
 
-## 11. Telemetry & Alerting Matrix
+## **12. Telemetry & Alerting Matrix**
 
 Because the engine runs headlessly, Nexus Hub employs a robust notification matrix to alert the user of critical failures via Pushover, and emails daily digests of quarantined items.
 

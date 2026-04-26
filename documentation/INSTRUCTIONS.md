@@ -225,7 +225,7 @@ NEXUS_HMAC_SECRET=your_super_secret_random_string_here
 GEMINI_API_KEY=your_gemini_api_key_here
 
 # Pushover API for Critical System Alerts (Phase 28)
-```NEXUS_WEBHOOK_URL=https://api.pushover.net/1/messages.json?user=YOUR_USER_KEY&token=YOUR_APP_TOKEN```
+NEXUS_WEBHOOK_URL=https://api.pushover.net/1/messages.json?user=YOUR_USER_KEY&token=YOUR_APP_TOKEN
 
 # Google Drive Folder ID for taxonomy_seed.json ingest (Phase 25)
 DRIVE_SEED_FOLDER_ID=your_google_drive_folder_id_here

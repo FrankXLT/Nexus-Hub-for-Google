@@ -490,7 +490,7 @@
 **Internal Simulation & Correction:** *The background synchronization engine needs a way to alert the user of critical failures or items requiring human review without forcing them to constantly check the UI. We must build a tiered notification engine.*
 
 **Copy/Paste this to Gemini Code Assist:**
-> "Let's execute Phase 28 based on Section 8.6 of ARCHITECTURE.md. We are building the Telemetry & Alerting Matrix.
+> "Let's execute Phase 27 based on Section 8.6 of ARCHITECTURE.md. We are building the Telemetry & Alerting Matrix.
 > 
 > **Tasks:**
 > 1. **The Notifier Module (`notifier.py`):** Create a new file with a class `NexusNotifier`. It must support two methods: `send_urgent_webhook(payload)` (which POSTs to a URL found in `os.environ.get('NEXUS_WEBHOOK_URL')`) and `send_daily_digest(email_body)` (which uses the existing Google API service to send an email to the authenticated user).
@@ -509,7 +509,7 @@
 **Internal Simulation & Correction:** *This is the final QA sweep. The agent must verify its own codebase against the architectural constraints and guarantee all user-facing documentation is perfectly aligned.*
 
 **Copy/Paste this to Gemini Code Assist:**
-> "Let's execute Phase 27: The V1.1 Master Project Audit. You are acting as the Lead QA Engineer. 
+> "Let's execute Phase 28: The V1.1 Master Project Audit. You are acting as the Lead QA Engineer. 
 > 
 > **Tasks:**
 > 1. **Codebase Verification:** Scan the `.py`, `.sh`, and `.gs` files. Ensure the Three-Tier Hierarchy, 72-Hour Priority Lane, and Zero-Trust defaults are physically present in the code. Ensure the Apps Script timeout protection (continuation tokens) is implemented in any heavy frontend routing functions.

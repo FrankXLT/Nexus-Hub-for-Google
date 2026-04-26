@@ -94,6 +94,72 @@ The core of the system relies on a unified labeling convention acting as a relat
 
 ## **3\. Infrastructure, CI/CD & Migration Lifecycle**
 
+```mermaid
+flowchart TB
+    %% Styling Classes
+    classDef workspace fill:#e8eaed,stroke:#5f6368,stroke-width:2px;
+    classDef appsScript fill:#e8f0fe,stroke:#1a73e8,stroke-width:2px;
+    classDef gcp fill:#e6f4ea,stroke:#1e8e3e,stroke-width:2px;
+    classDef external fill:#fce8e6,stroke:#d93025,stroke-width:2px;
+    classDef database fill:#fef7e0,stroke:#f9ab00,stroke-width:2px;
+
+    subgraph User Browser
+        UI[Material Design UI Shell]
+    end
+
+    subgraph Google Apps Script Environment
+        GS[Code.gs Server Router]
+    end
+    class GS appsScript
+
+    subgraph Google Workspace Ecosystem
+        Gmail[Gmail API]
+        Drive[Google Drive API]
+    end
+    class Gmail,Drive workspace
+
+    subgraph "Google Cloud Platform (GCP)"
+        PubSub[Cloud Pub/Sub]
+        DocAI[Document AI API]
+        
+        subgraph Compute Engine
+            VM[e2-micro VM: Python Sync Engine]
+            WH[FastAPI / Nginx Reverse Proxy]
+            DB[(SQLite nexus.db)]
+            
+            WH <--> VM
+            VM <--> DB
+        end
+    end
+    class PubSub,DocAI,VM,WH gcp
+    class DB database
+
+    subgraph External Public Internet
+        Gemini[Google Gemini API]
+        Pushover[Pushover API Webhook]
+    end
+    class Gemini,Pushover external
+
+    %% Connections
+    UI -- "google.script.run (Async JS)" <--> GS
+    
+    GS -- "HMAC-Secured REST (GET/POST)" <--> WH
+    
+    Gmail -- "Real-time Push Notification" --> PubSub
+    PubSub -- "Webhook POST (/api/pubsub)" --> WH
+    
+    VM -- "Fetch Changes / Apply Metadata" <--> Drive
+    VM -- "Apply Nested Labels / Colors" --> Gmail
+    
+    VM -- "Send Raw PDF/Images" --> DocAI
+    DocAI -- "Return OCR Text" --> VM
+    
+    VM -- "Send Context & Prompts" --> Gemini
+    Gemini -- "Return Structured JSON" --> VM
+    
+    VM -- "CRITICAL Alert Webhook POST" --> Pushover
+```
+
 ### **3.1 Persistent VM Environment**
 
 The synchronization engine is hosted on a persistent Google Compute Engine VM (e2-micro). This stateful environment prevents Apps Script execution timeouts and houses the SQLite index.
@@ -200,58 +266,14 @@ flowchart TD
 
 | Table Name | Description & Fields |
 | :--- | :--- |
-| **Config_System** | Global preferences and throttling limits (interval, batch sizes). |
-| **Sync_State** | Stores app_name, sync_token (historyId/pageToken), and last_updated timestamp. |
-| **Config_Prompts** | Stores user-defined AI instructions by target app. |
-| **Taxonomy_Entities** | Rules engine. Fields: id, category_id, name, type (Correspondent/Purpose), is_gmail_enabled, is_drive_enabled, subdomains, addresses, brand_colors, frequency_weights. |
-| **Workspace_Artifacts**| Master index. Fields: artifact_id, taxonomy_id, raw_text, summary, status, `custom_data` (JSON), and `locked_by_system` (Boolean). |
-| **Artifact_History** | Immutable audit log. Fields: log_id, artifact_id, timestamp, actor, action_type, previous_state (JSON), new_state (JSON). |
-| **Error_Logs** | Dead-Letter Queue. Fields: log_id, timestamp, module_name, artifact_id (nullable), error_message, stack_trace (JSON). |
-
-```mermaid
-erDiagram
-    Taxonomy_Entities ||--o{ Workspace_Artifacts : "categorizes"
-    Workspace_Artifacts ||--o{ Artifact_History : "tracks changes"
-
-    Config_System {
-        string key PK
-        string value
-        string description
-    }
-
-    Sync_State {
-        string app_name PK
-        string sync_token
-        int last_updated
-    }
-
-    Taxonomy_Entities {
-        int id PK
-        string category
-        string correspondent
-        string purpose
-        json custom_field_schema
-    }
-
-    Workspace_Artifacts {
-        string artifact_id PK
-        int taxonomy_id FK
-        string raw_text
-        string summary
-        json custom_data
-        string status
-    }
-
-    Artifact_History {
-        int log_id PK
-        string artifact_id FK
-        int timestamp
-        string actor
-        string action_type
-        json previous_state
-        json new_state
-    }
-```
+| **Config_System** | Global preferences and throttling limits. |
+| **Sync_State** | Stores app_name, sync_token, and last_updated timestamp. |
+| **Taxonomy_Categories** | Tier 1 Hierarchy. Fields: `id`, `name`. |
+| **Taxonomy_Correspondents** | Tier 2 Hierarchy. Fields: `id`, `category_id`, `name`, `division`, `is_gmail_enabled`, `is_drive_enabled`, `subdomains`, `addresses`, `brand_colors`, `frequency_weights`. |
+| **Taxonomy_Purposes** | Tier 3 Hierarchy. Fields: `id`, `name`, `is_gmail_enabled`, `is_drive_enabled`, `frequency_weights`. |
+| **Workspace_Artifacts**| Master index. Fields: `artifact_id`, `category_id`, `correspondent_id`, `purpose_id`, `raw_text`, `summary`, `status`, `custom_data`, `locked_by_system`. |
+| **Artifact_History** | Immutable audit log. Fields: `log_id`, `artifact_id`, `timestamp`, `actor`, `action_type`, `previous_state`, `new_state`. |
+| **Error_Logs** | Dead-Letter Queue. |
 
 #### **5.2.1 SQLite Schema Constraints**
 When generating the SQL creation scripts, the following constraints are mandatory:
@@ -259,6 +281,55 @@ When generating the SQL creation scripts, the following constraints are mandator
 * Use `JSON` native functions for querying the `custom_data`, `previous_state`, and `new_state` columns.
 * Enforce Foreign Key constraints (e.g., `Artifact_History.artifact_id` referencing `Workspace_Artifacts.id`) and implement `ON DELETE CASCADE` where appropriate to prevent orphaned data.
 * Implement database connection pooling or strict `PRAGMA journal_mode=WAL;` to handle concurrent reads from the UI and writes from the background processor without database lock (`database is locked`) exceptions.
+
+### **5.3 Relational Entity Diagram**
+
+```mermaid
+erDiagram
+    Taxonomy_Categories ||--o{ Taxonomy_Correspondents : "contains"
+    Taxonomy_Categories ||--o{ Workspace_Artifacts : "groups"
+    Taxonomy_Correspondents ||--o{ Workspace_Artifacts : "sends/owns"
+    Taxonomy_Purposes ||--o{ Workspace_Artifacts : "defines"
+    Workspace_Artifacts ||--o{ Artifact_History : "logs"
+
+    Taxonomy_Categories {
+        int id PK
+        string name
+    }
+
+    Taxonomy_Correspondents {
+        int id PK
+        int category_id FK
+        string name
+        string division
+        boolean is_gmail_enabled
+        boolean is_drive_enabled
+        string subdomains
+    }
+
+    Taxonomy_Purposes {
+        int id PK
+        string name
+        boolean is_gmail_enabled
+        boolean is_drive_enabled
+    }
+
+    Workspace_Artifacts {
+        string artifact_id PK
+        int category_id FK
+        int correspondent_id FK
+        int purpose_id FK
+        string status
+        string locked_by_system
+    }
+
+    Artifact_History {
+        int log_id PK
+        string artifact_id FK
+        string actor
+        string action_type
+    }
+```
 
 ## **6\. Security & Access Control**
 
