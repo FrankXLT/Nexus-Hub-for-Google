@@ -8,6 +8,7 @@
 
 ---
 
+<a id="stage-0"></a>
 ## Stage 0: The Context Anchor
 **Goal:** Prevent the agent from generating unsolicited code while forcing it to digest the master architecture and the continuous documentation rules.
 
@@ -23,6 +24,7 @@
 
 ---
 
+<a id="stage-1"></a>
 ## Stage 1: Infrastructure & CI/CD
 **Internal Simulation & Correction:** *Left to its own devices, the agent will write generic bash scripts, forget to install `clasp`, and write a destructive `update.sh` that wipes the SQLite database. The prompt below explicitly forces idempotency and safe Git pulling.*
 
@@ -41,6 +43,7 @@
 > - Update `INSTRUCTIONS.md` with any required setup steps for this specific phase (e.g., if we just wrote the webhook, add the Nginx setup instructions; if we wrote the Delta Sync, add the instructions for enabling the Drive/Gmail APIs in GCP).
 ---
 
+<a id="stage-2"></a>
 ## Stage 2: Centralized SQLite Index 
 **Internal Simulation & Correction:** *The agent will default to using SQLAlchemy (bloat) and standard SQLite tables. It will also likely format the `custom_data` columns as TEXT instead of JSON. The prompt below forces lightweight standard libraries and strict SQLite 3.37+ constraints.*
 
@@ -63,6 +66,7 @@
 
 ---
 
+<a id="stage-3"></a>
 ## Stage 3: Python Webhook & HMAC Security Bridge
 **Internal Simulation & Correction:** *The agent will frequently forget replay-attack protection, or it might hardcode secrets. It must be forced to use `python-dotenv` and explicit timestamp math.*
 
@@ -85,6 +89,7 @@
 
 ---
 
+<a id="stage-4"></a>
 ## Stage 4: Google Apps Script Backend (The Secure Router)
 **Internal Simulation & Correction:** *The agent might hardcode the HMAC secret. This prompt forces the creation of a secure setup utility.*
 
@@ -101,6 +106,7 @@
 
 ---
 
+<a id="stage-5"></a>
 ## Stage 5: Python Headless OAuth Bootstrapper
 **Internal Simulation & Correction:** *The agent will assume it can open a local web browser to authenticate. It must be forced to write a headless-compatible OAuth flow.*
 
@@ -118,6 +124,7 @@
 
 ---
 
+<a id="stage-6"></a>
 ## Stage 6: Isolated Health Checks & Diagnostic Logging
 **Internal Simulation & Correction:** *The agent might try to log diagnostics into the main SQLite database, which defeats the purpose if the database is down. It must be forced to use Google Drive for isolated logging.*
 
@@ -136,6 +143,7 @@
 
 ---
 
+<a id="stage-7"></a>
 ## Stage 7: Delta Sync & Tenacity Backoff
 **Internal Simulation & Correction:** *The agent will likely try to write a script that does a full folder scan `drive.files().list()`. It must be forced to use the `Changes.list` endpoint and the `tenacity` library for error handling.*
 
@@ -155,6 +163,7 @@
 > - Update `README.md` to reflect these new features.
 > - Update `INSTRUCTIONS.md` with any required setup steps for this specific phase (e.g., if we just wrote the webhook, add the Nginx setup instructions; if we wrote the Delta Sync, add the instructions for enabling the Drive/Gmail APIs in GCP).
 
+<a id="stage-8"></a>
 ## Stage 8: The LLM Processing Engine
 **Internal Simulation & Correction:** *The agent might try to use outdated Gemini SDKs or fail to parse the JSON outputs safely. It must be forced to use the latest `google-genai` SDK and implement structured output parsing.*
 
@@ -172,6 +181,7 @@
 
 ---
 
+<a id="stage-9"></a>
 ## Stage 9: Frontend UI (Material Design & State)
 **Internal Simulation & Correction:** *The agent might try to write a monolithic HTML file or use heavy external frameworks. It must be forced to use the separated Apps Script architecture and lightweight vanilla JS/CSS.*
 
@@ -189,6 +199,7 @@
 
 ---
 
+<a id="stage-10"></a>
 ## Stage 10: Final Codebase & Architecture Audit
 **Internal Simulation & Correction:** *Agents often suffer from 'context drift' by Stage 9 and may have silently dropped a constraint from Stage 2. This forces a complete retrospective sweep of the local directory against the master spec.*
 
@@ -211,6 +222,7 @@
 > 
 > Do not write any new application code during this stage. Only generate the `ARCHITECTURE_AUDIT.md` file."
 
+<a id="stage-11"></a>
 ## Stage 11: Database Utility Refactor (Audit Fix)
 **Internal Simulation & Correction:** *The audit revealed the DB is returning tuples instead of dictionary-like objects. This prompt forces the implementation of `sqlite3.Row` across the connection layer.*
 
@@ -224,6 +236,7 @@
 > 
 > **Post-Execution Documentation:** Append this fix to `PROMPT_AUDIT.md`."
 
+<a id="stage-12"></a>
 ## Stage 12: Visual Branding & Color Sync Engine
 **Internal Simulation & Correction:** *The agent missed Section 2.2. It must be forced to write the algorithm that limits colors to the strict Gmail API hex palette and syncs them to Google Drive.*
 
@@ -238,6 +251,7 @@
 > 
 > **Post-Execution Documentation:** Append updates to PROMPT_AUDIT.md and README.md."
 
+<a id="stage-13"></a>
 ## Stage 13: Feature Audit & Regression Check
 **Internal Simulation & Correction:** *When refactoring database logic (Stage 11), agents frequently miss isolated tuple indexes (e.g., `row[0]`) buried inside try/except blocks. For Stage 12, they often format the Drive API `folderColorRgb` payload incorrectly. This forces a surgical scan of those specific implementations.*
 
@@ -258,6 +272,7 @@
 > 
 > If you discover any remaining tuple bugs during this scan, automatically fix them in the source code before generating the audit report."
 
+<a id="stage-14"></a>
 ## Stage 14: Internal Documentation & Tooltip Generation
 **Internal Simulation & Correction:** *The agent will likely write a generic, surface-level readme. It must be forced to act as a Technical Writer, creating a granular, module-by-module breakdown, extracting a structured JSON for the UI tooltips, and leaving explicit placeholders for the Lead Architect to insert visual diagrams.*
 
@@ -272,6 +287,7 @@
 > 
 > **Post-Execution Documentation:** Append this phase to `PROMPT_AUDIT.md`. Do not write any Mermaid code; leave the placeholders intact."
 
+<a id="stage-15"></a>
 ## Stage 15: Documentation Expansion & Correction
 **Internal Simulation & Correction:** *The agent provided a highly summarized HOW_IT_WORKS.md and entirely skipped the tooltips.json requirement. This prompt acts as a Lead Architect reprimand, forcing deep technical expansion and completion of missing tasks.*
 
@@ -288,6 +304,7 @@
 > 
 > **Post-Execution Documentation:** Ensure these expansions reflect the depth of our actual python/GS implementation."
 
+<a id="stage-16"></a>
 ## Stage 16: Telemetry, Normalization & Compose Hardening
 **Internal Simulation & Correction:** *The agent needs to augment existing files (`db_init.py`, `llm_engine.py`) and create a new one (`docker-compose.yml`). We must ensure it doesn't accidentally wipe out the existing logic in those Python files, but strictly augments them.*
 
@@ -303,6 +320,7 @@
 > 
 > **Post-Execution Documentation:** Append these hardening updates to `PROMPT_AUDIT.md` and summarize the new telemetry architecture in `README.md`."
 
+<a id="stage-17"></a>
 ## Stage 17: The Master Documentation Rewrite
 **Internal Simulation & Correction:** *The agent previously generated a superficial HOW_IT_WORKS.md. This prompt forces a complete rewrite, demanding extreme technical depth, procedural step-by-step lifecycles, and the inclusion of the UI data retrieval flow.*
 
@@ -318,6 +336,7 @@
 > 
 > **Formatting:** Use bolding, numbered lists, and sub-headers. Do not summarize. Explain the *why* and *how* for every step. Do not write Mermaid code, only leave the exact placeholders requested."
 
+<a id="stage-18"></a>
 ## Stage 18: Container Dependency & Dockerfile Fix
 **Internal Simulation & Correction:** *The agent documented a manual `pip install` on the host VM, violating the containerization architecture. It must generate a Dockerfile and requirements.txt to isolate the Python environment.*
 
@@ -332,6 +351,7 @@
 > 
 > **Post-Execution Documentation:** Append this containerization fix to `PROMPT_AUDIT.md`."
 
+<a id="stage-19"></a>
 ## Stage 19: Dynamic Prompt Extraction & Seeding
 **Internal Simulation & Correction:** *The AI likely hardcoded the master prompts directly into `llm_engine.py` during Phase 8. This violates the goal of allowing users to update prompts via the UI. We must refactor the engine to fetch prompts dynamically from the `Config_Prompts` table and ensure this architectural shift is documented.*
 
@@ -349,6 +369,7 @@
 
 ---
 
+<a id="stage-20"></a>
 ## Stage 20: The AI Self-Tuning Engine (Feedback Loop)
 **Internal Simulation & Correction:** *The system currently accepts manual UI corrections but does not use them to tune the LLM. We must build an asynchronous tuning loop that analyzes the error and updates the `Config_Prompts` table without blocking the UI's HTTP response, and document this technical mechanism.*
 
@@ -365,6 +386,7 @@
 > 
 > **Post-Execution Documentation:** Append this self-learning engine implementation to `PROMPT_AUDIT.md`."
 
+<a id="stage-21"></a>
 ## Stage 21: The Master Project Audit & Documentation Alignment
 **Internal Simulation & Correction:** *By this stage, the agent has generated thousands of lines of code and documentation. It may have orphaned features or out-of-sync documents. This prompt forces a holistic reconciliation, demanding that it verify the implementation of the hardest features (dynamic prompts, tuning loop, containerization) and ensure the user manuals reflect the absolute final state.*
 
@@ -386,6 +408,7 @@
 > 2. Generate a final section at the bottom of `ARCHITECTURE_AUDIT.md` titled '## 7. V1.0 Master Release Audit'.
 > 3. In this section, provide a Pass/Fail checklist for the 20 Stages, confirm the documentation is fully synced, and declare the codebase Ready for Production."
 
+<a id="stage-21"></a>
 ## Revised Stage 21: The Final Codebase Verification
 **Internal Simulation & Correction:** *By this stage, the AI has generated extensive code, but the Lead Architect has manually taken over the documentation. This prompt restricts the agent strictly to a codebase audit to ensure the late-stage features (dynamic prompts, async webhook, and containerized migrations) actually exist in the `.py` and `.sh` files without risking further documentation corruption.*
 
@@ -401,6 +424,7 @@
 > 1. If you find any missing logic, silently patch the respective `.py` or `.sh` files now.
 > 2. Append 'Phase 21: Final Codebase Verification' to `PROMPT_AUDIT.md`, logging that you verified the dynamic prompts, async webhook, and dockerized execution. Do not alter any other markdown files."
 
+<a id="stage-22"></a>
 ## Stage 22: UI Expansion, Bulk Edits, and Prompt Sandbox
 **Internal Simulation & Correction:** *The current UI lacks bulk editing, distinct exception queues, and a safe testing environment. We must expand the Apps Script frontend and FastAPI backend to support these missing enterprise features.*
 
@@ -418,6 +442,7 @@
 > 
 > **Output:** Silently update the `.py`, `.html`, and `.gs` files. Append 'Phase 22: UI Expansion & Sandbox' to `PROMPT_AUDIT.md`."
 
+<a id="stage-23"></a>
 ## Stage 23: Discovery Mode & RAG Knowledge Retrieval
 **Internal Simulation & Correction:** *The current AI strictly uses whitelists. We must add a 'Discovery' fallback to suggest new correspondents, and implement a natural language chat interface to query the extracted SQLite metadata.*
 
@@ -435,6 +460,7 @@
 > 
 > **Output:** Silently update the codebase. Append 'Phase 23: Discovery & RAG' to `PROMPT_AUDIT.md`."
 
+<a id="stage-24"></a>
 ## Stage 24: Database Refactor & Three-Tier Taxonomy
 **Internal Simulation & Correction:** *We are transitioning to a multi-dimensional, three-tier entity schema with frequency tracking and zero-trust ecosystem toggles. The database must be completely refactored to support this.*
 
@@ -452,6 +478,7 @@
 
 ---
 
+<a id="stage-25"></a>
 ## Stage 25: Quota Governor & Drive Seed Ingestion
 **Internal Simulation & Correction:** *The backend requires protection from API quota exhaustion and the ability to passively ingest the `taxonomy_seed.json` file from Drive.*
 
@@ -468,6 +495,7 @@
 
 ---
 
+<a id="stage-26"></a>
 ## Stage 26: UI Hierarchy & Blacklist Toggles
 **Internal Simulation & Correction:** *The frontend must be upgraded to support cascading dropdowns for the three-tier hierarchy and ecosystem toggles for the Zero-Trust blacklist.*
 
@@ -486,6 +514,7 @@
 
 ---
 
+<a id="stage-27"></a>
 ## Stage 27: Telemetry & Alerting Matrix
 **Internal Simulation & Correction:** *The background synchronization engine needs a way to alert the user of critical failures or items requiring human review without forcing them to constantly check the UI. We must build a tiered notification engine.*
 
@@ -505,6 +534,7 @@
 
 ---
 
+<a id="stage-28"></a>
 ## Stage 28: The V1.1 Master Project Audit & Doc Alignment
 **Internal Simulation & Correction:** *This is the final QA sweep. The agent must verify its own codebase against the architectural constraints and guarantee all user-facing documentation is perfectly aligned.*
 
@@ -524,6 +554,7 @@
 
 ---
 
+<a id="stage-24b"></a>
 ## Stage 24b: Database Schema Documentation Polish
 **Internal Simulation & Correction:** *The `db_init.py` file has excellent relational structure but lacks inline documentation explaining the 'why' behind the schema design for future maintainers.*
 
@@ -540,6 +571,7 @@
 
 ---
 
+<a id="stage-24c"></a>
 ## Stage 24c: LLM Multi-Dimensional Context Injection
 **Internal Simulation & Correction:** *We successfully built the database architecture to store multi-dimensional profiles (subdomains, addresses, weights), but the AI prompts were never updated to ingest this data. We need to modify the master prompts and the Python string-injection logic so the LLM can use these profiles for deterministic routing.*
 
@@ -555,6 +587,7 @@
 
 ---
 
+<a id="stage-29"></a>
 ## Stage 29: Google Contacts API Integration (Entity Bootstrapping)
 **Internal Simulation & Correction:** *The user realized that Google Contacts contains a wealth of pre-verified entity data (names, emails, physical addresses). We need to leverage the Google People API to automatically ingest these contacts into our multi-dimensional `Taxonomy_Correspondents` table to bootstrap the system.*
 
@@ -577,6 +610,7 @@
 
 ---
 
+<a id="stage-30"></a>
 ## Stage 30: Codebase Inline Documentation Polish
 **Internal Simulation & Correction:** *The backend Python engines (`sync_engine.py` and `llm_engine.py`) execute flawless logic, but they are missing the comprehensive Google-style docstrings and inline architectural comments mandated by Section 9.4 of the architecture. If a future developer modifies the Quota Governor or Two-Stage Triage without understanding the 'why', they could break the system. We need to enforce strict code-level documentation without altering any functional logic.*
 
@@ -596,6 +630,7 @@
 
 ---
 
+<a id="stage-31"></a>
 ## Stage 31: Docker Hardening (Multi-Stage & Healthchecks)
 **Internal Simulation & Correction:** *The current Docker setup lacks health monitoring and leaves potentially dangerous build dependencies inside the final image. We need to implement a Multi-Stage build to reduce the attack surface (per Architecture Section 10.4) and inject Docker Compose healthchecks to catch silent database locks or hung web servers.*
 
@@ -613,6 +648,7 @@
 > **Output:** > 1. Silently update `Dockerfile`, `docker-compose.yml`, and `main.py`.
 > 2. Append 'Phase 31: Docker Hardening & Healthchecks' to `PROMPT_AUDIT.md`."
 
+<a id="stage-32"></a>
 ## Stage 32: The Diagnostic Watchdog & Health Notifications
 **Internal Simulation & Correction:** *Docker healthchecks lack native push notifications. We need to bridge our infrastructure layer to our telemetry layer by wiring `diagnostics.py` into `notifier.py` and automating its execution via a VM cron job.*
 
@@ -630,3 +666,422 @@
 > 
 > **Output:** > 1. Silently update `diagnostics.py` and `setup.sh`.
 > 2. Append 'Phase 32: Diagnostic Watchdog & Health Notifications' to `PROMPT_AUDIT.md`."
+
+<a id="stage-33"></a>
+## Stage 33: AI-Assisted Development CONOPS & Governance
+
+<a id="stage-34"></a>
+## Stage 34: Pre-AI Gmail Filtering
+**Internal Simulation & Correction:** *The sync engine currently pulls all emails, which wastes expensive LLM quota on spam, drafts, and promotions. We need to implement hard-coded pre-AI filtering using native Gmail `labelIds` to drop this junk before it ever reaches the Two-Stage Triage.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (`sync_engine.py`)**
+> We need to prevent the Gmail sync engine from wasting LLM quota on useless emails. 
+> * At the top of `sync_engine.py`, add a new hard-coded set: `IGNORED_GMAIL_LABELS = {'SPAM', 'TRASH', 'DRAFT', 'CATEGORY_PROMOTIONS', 'CATEGORY_SOCIAL', 'CATEGORY_FORUMS'}`
+> * Inside the `sync_gmail()` function, locate the loop where individual message details are fetched (`service.users().messages().get(...)`). 
+> * Extract the `labelIds` from the message payload. Add an intersection check: If the message's labels intersect with `IGNORED_GMAIL_LABELS`, explicitly skip the message (using `continue`). Do NOT pass it to `process_gmail_thread`.
+> 
+> **Task 2: Continuous Documentation (`README.md`)**
+> * **Location:** Section 5. The Synchronization Engine (under the 'The Gmail Pipeline' subsection).
+> * **Action:** Append a new paragraph explaining 'Pre-AI Filtering & Label Exclusion'.
+> * **Content:** Explain that before any email is passed to the AI pipeline, `[sync_engine.py](./sync_engine.py)` natively inspects the Gmail `labelIds`. Messages flagged as Spam, Trash, Drafts, Promotions, Social, or Forums are hard-dropped to protect the Quota Governor.
+> 
+> **Task 3: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add a new bullet to the top of the 'Version History' section: `- **v1.5.1:** [Phase 34](./PROMPT_ROADMAP.md#stage-34) - Implemented hard-coded Pre-AI filtering in the Gmail Sync Engine to drop junk mail before LLM processing.`
+> 
+> **Output Actions:**
+> 1. Silently update `sync_engine.py`.
+> 2. Silently update `README.md` exactly as instructed above."
+
+<a id="stage-35"></a>
+## Stage 35: Drive Topology & Folder Nomenclature
+**Internal Simulation & Correction:** *We never officially documented how Nexus Hub tracks Drive files (via SQLite, not complex folders). We need to codify this "Anti-Folder" philosophy and establish the official names for the two operational folders: 'Nexus Dropbox' and 'Nexus Diagnostic Logs'.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Define Folder Nomenclature (Documentation Only)**
+> We are officially defining the Google Drive operational topology in the documentation.
+> 
+> **Task 2: Continuous Documentation (`README.md`)**
+> * **Location:** Insert a new subsection directly under '4. Database Schema' named `### 4.1 The Anti-Folder Philosophy & Drive Topology`. 
+> * **Action:** Insert the following explanations.
+> * **Content:** >   - **The Anti-Folder Philosophy:** Explain that Nexus Hub avoids complex, nested folders to prevent 'directory sprawl.' SQLite tracks immutable File IDs, meaning files can live anywhere in the user's Drive.
+>   - **Operational Topology:** Note that the system only uses two folders: `Nexus Dropbox` (for ingestion/seed files) and `Nexus Diagnostic Logs` (where `[diagnostics.py](./diagnostics.py)` uploads health reports).
+> * **Constraint - Tables:** Update the **Table of Contents** at the top of the file to include `4.1 The Anti-Folder Philosophy & Drive Topology` with a working HTML anchor.
+> 
+> **Task 3: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add a new bullet to the top of the 'Version History' section: `- **v1.5.2:** [Phase 35](./PROMPT_ROADMAP.md#stage-35) - Defined the Anti-Folder philosophy and established standard nomenclature for the two operational Drive folders.`
+> 
+> **Output Actions:**
+> 1. Silently update `README.md` exactly as instructed above."
+
+<a id="stage-36"></a>
+## Stage 36: UI Pipeline Orchestrator (Backend Bridge)
+**Internal Simulation & Correction:** *Hard-coded variables prevent the user from adjusting pipeline settings on the fly. We need to build FastAPI endpoints and SQLite configurations to act as a bridge between the frontend UI and the Python worker.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (The Backend Bridge)**
+> We are shifting the UI into a dynamic 'Pipeline Orchestrator.' 
+> 1. **Update `db_init.py`:** Inject three new default JSON key-value pairs into `Config_System`:
+>    - `ui_gmail_filters`: `["CATEGORY_PROMOTIONS", "CATEGORY_SOCIAL", "CATEGORY_FORUMS"]`
+>    - `ui_ai_config`: `{"drive_model": "gemini-1.5-pro", "gmail_model": "gemini-1.5-flash"}`
+>    - `ui_post_processing`: `{"auto_archive_gmail": false, "quarantine_unconfident": true}`
+> 2. **Update `main.py`:** Create two endpoints (`GET /api/settings/pipeline` and `POST /api/settings/pipeline`) to read/write these specific keys in `Config_System`.
+> 3. **Update `sync_engine.py`:** Remove the hard-coded `IGNORED_GMAIL_LABELS`. Inside `sync_gmail()`, dynamically query `Config_System` for `ui_gmail_filters`. **Safety Fallback:** Always append `'SPAM', 'TRASH', 'DRAFT'` to the user's list before evaluating the intersection.
+> 
+> **Task 2: Continuous Documentation (`README.md`)**
+> * **Location:** Section 3. The Frontend User Interface (UI)
+> * **Action:** Insert a new subsection: `### 3.1 The Pipeline Orchestrator (Backend UI Bridge)`
+> * **Content:** Explain how `[main.py](./main.py)` exposes endpoints that save UI configurations directly into SQLite. Explain that `[sync_engine.py](./sync_engine.py)` dynamically reads these at runtime, replacing hard-coded logic.
+> * **Constraint - Tables:** Update the **Table of Contents** at the top of the file to include `3.1 The Pipeline Orchestrator (Backend UI Bridge)`.
+> 
+> **Task 3: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add a new bullet to the top of the 'Version History' section: `- **v1.6.0:** [Phase 36](./PROMPT_ROADMAP.md#stage-36) - Built the Backend Bridge for the UI Pipeline Orchestrator, dynamically linking UI configs to the Python engines.`
+> 
+> **Output Actions:**
+> 1. Silently update `db_init.py`, `main.py`, and `sync_engine.py`.
+> 2. Silently update `README.md` exactly as instructed above."
+
+---
+
+<a id="stage-37"></a>
+## Stage 37: UI Pipeline Orchestrator (Frontend Vertical Stepper)
+**Internal Simulation & Correction:** *With the backend bridge active, the Google Apps Script UI needs a visual layout to control it. A Material Design Vertical Stepper or Accordion is required to cleanly segment the pipeline into 3 logical phases for the user.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (Apps Script UI)**
+> We need to build the visual interface for the Pipeline Orchestrator in our Google Apps Script frontend.
+> 1. **Update the Apps Script HTML (`index.html` or equivalent):** Implement a Material Design Vertical Stepper (or Accordions) with three sections:
+>    - **Phase 1: Ingestion Filters:** Checkboxes bound to the Gmail labels (`CATEGORY_PROMOTIONS`, etc.).
+>    - **Phase 2: AI Config:** Dropdowns to select LLM models for Gmail and Drive.
+>    - **Phase 3: Post-Processing:** Checkboxes for Auto-Archive and Quarantine holds.
+> 2. **Update the Frontend JS/GS Logic:** Add an initialization function that fetches the current state from `GET /api/settings/pipeline` via our webhook bridge to populate the UI. Add a 'Save Pipeline Config' button that bundles the UI state into JSON and sends it to `POST /api/settings/pipeline`.
+> 
+> **Task 2: Continuous Documentation (`README.md`)**
+> * **Location:** Section 3.1 The Pipeline Orchestrator (Backend UI Bridge)
+> * **Action:** Rename the header to `### 3.1 The Pipeline Orchestrator`. Append a new paragraph detailing the Frontend UI.
+> * **Content:** Explain the 3-Phase Material Design layout (Ingestion Filters, AI Config, Post-Processing) built into the Apps Script UI, and how it empowers the user to visually dictate the AI's behavior and routing logic.
+> * **Constraint - Tables:** Update the **Table of Contents** to reflect the renamed header.
+> 
+> **Task 3: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add a new bullet to the top of the 'Version History' section: `- **v1.6.1:** [Phase 37](./PROMPT_ROADMAP.md#stage-37) - Built the Material Design 3-Phase Vertical Stepper in the Apps Script UI to control the pipeline.`
+> 
+> **Output Actions:**
+> 1. Silently update the relevant Apps Script `.html` and `.gs` files.
+> 2. Silently update `README.md` exactly as instructed above."
+
+<a id="stage-38"></a>
+## Stage 38: Taxonomy Upgrade & AI Tuning Hooks (Backend)
+**Internal Simulation & Correction:** *To prevent purpose duplication and allow user-defined extraction rules, the SQLite schema needs upgrading. We must add `is_global` and `custom_extraction_rules` columns, and instruct the Python LLM engine to dynamically inject these rules into the Stage 2 prompt.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (Database & LLM Engine)**
+> 1. **Update `db_init.py`:** Modify the SQLite schema creation. 
+>    - In `Taxonomy_Purposes`, add `is_global BOOLEAN DEFAULT 0` and `custom_extraction_rules TEXT`. 
+>    - In `Taxonomy_Correspondents`, add `custom_extraction_rules TEXT`.
+>    - Update the seed data logic to insert the Universal Purposes (e.g., 'Receipt / Invoice', 'Bill / Statement', 'Policy / Terms Update') with `is_global = 1`.
+> 2. **Update `llm_engine.py`:** Modify the Stage 2 Extraction logic. Before finalizing the prompt sent to Gemini, query the database for the identified Correspondent and Purpose. If `custom_extraction_rules` exist for either, explicitly append those instructions to the prompt's extraction constraints.
+> 
+> **Task 2: Continuous Documentation (`README.md`)**
+> * **Location:** Section 4. Database Schema
+> * **Action:** Insert a new subsection: `### 4.2 Global Purposes & AI Tuning Hooks`
+> * **Content:** Explain the difference between Global and Domain-Specific Purposes to prevent taxonomy bloat. Explain how `custom_extraction_rules` allow users to inject rule-based constraints directly into the `[llm_engine.py](./llm_engine.py)` prompt at runtime without modifying code.
+> * **Constraint - Tables:** Update the **Table of Contents** at the top of the file to include `4.2 Global Purposes & AI Tuning Hooks`.
+> 
+> **Task 3: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add a new bullet to the top of the 'Version History' section: `- **v1.7.0:** [Phase 38](./PROMPT_ROADMAP.md#stage-38) - Upgraded SQLite schema to support Global Purposes and dynamic AI Tuning Hooks.`
+> 
+> **Output Actions:**
+> 1. Silently update `db_init.py` and `llm_engine.py`.
+> 2. Silently update `README.md` exactly as instructed above."
+
+---
+
+<a id="stage-39"></a>
+## Stage 39: Taxonomy Upgrade & AI Tuning Hooks (Frontend UI)
+**Internal Simulation & Correction:** *Now that the backend supports global purposes and custom AI rules, the Apps Script UI needs to display them properly using HTML `<optgroup>` tags and provide text areas for users to write their custom LLM extraction instructions.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (Apps Script UI & API Bridge)**
+> 1. **Update `main.py` (FastAPI):** Ensure there are endpoints (e.g., `PUT /api/entities/correspondents/{id}`) to accept and save `custom_extraction_rules` strings to the database.
+> 2. **Update Apps Script HTML/JS:** >    - **Dropdowns:** When rendering the 'Purpose' dropdown in the manual review modal, parse the `is_global` boolean. Group universal purposes under an `<optgroup label="Global Purposes">` at the top, and specific purposes under `<optgroup label="Category-Specific">` below a divider.
+>    - **Rule Editors:** Add a Text Area labeled 'Custom AI Extraction Rules' to the Correspondent and Purpose profile edit views. Wire the Save button to transmit this text to the FastAPI backend.
+> 
+> **Task 2: Continuous Documentation (`README.md`)**
+> * **Location:** Section 3. The Frontend User Interface (UI)
+> * **Action:** Insert a new subsection: `### 3.2 Entity Management & Prompt Tuning UI`
+> * **Content:** Detail how the UI groups Global vs. Specific Purposes using Material dropdowns. Explain that the text areas in the profile views act as a direct, no-code pipeline for users to tune the AI's extraction behavior for specific vendors.
+> * **Constraint - Tables:** Update the **Table of Contents** at the top of the file to include this new subsection.
+> 
+> **Task 3: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add a new bullet to the top of the 'Version History' section: `- **v1.7.1:** [Phase 39](./PROMPT_ROADMAP.md#stage-39) - Built the Entity Management UI, introducing grouped taxonomy dropdowns and no-code AI prompt tuning text areas.`
+> 
+> **Output Actions:**
+> 1. Silently update `main.py` and the Apps Script UI files.
+> 2. Silently update `README.md` exactly as instructed above."
+
+<a id="stage-40"></a>
+## Stage 40: The Privacy Guarantee (Walled Garden)
+**Internal Simulation & Correction:** *Nexus Hub handles highly sensitive personal data. We need to explicitly state the 'Walled Garden' privacy philosophy in the executive summary so users understand their data never leaves their personal Google ecosystem and is not used to train public AI models.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Continuous Documentation (`README.md`)**
+> * **Location:** Section 1. Executive Summary & Core Features.
+> * **Action:** Insert a new subsection titled `### The Privacy Guarantee: Your Data, Your Walled Garden`.
+> * **Content:** Explain that Nexus Hub is built on absolute data sovereignty. Because it is self-hosted entirely within the user's Google Workspace and GCP environment, data never transits a third-party server. Emphasize that the Gemini API is used under Google Cloud's enterprise terms, meaning private documents and emails are **never** used to train public foundation models. 
+> * **Constraint - Tables:** Update the **Table of Contents** at the top of the file to include this new subsection.
+> 
+> **Task 2: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add a new bullet to the top of the 'Version History' section: `- **v1.8.0:** [Phase 40](./PROMPT_ROADMAP.md#stage-40) - Documented the 'Walled Garden' Privacy Guarantee and enterprise AI data protection policies.`
+> 
+> **Output Actions:**
+> 1. Silently update `README.md` exactly as instructed above."
+
+---
+
+<a id="stage-41"></a>
+## Stage 41: Security Architecture & Network Boundaries
+**Internal Simulation & Correction:** *Instead of a separate SECURITY.md file, we need a dedicated section within the master README that explains the technical security implementations, specifically the Webhook HMAC signatures and VM network boundaries.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Continuous Documentation (`README.md`)**
+> * **Location:** We are creating a new Level 1 Section. Insert `## 10. Security Architecture & Network Boundaries` immediately before the 'AI-Assisted Development CONOPS' section. (You must renumber the CONOPS section to 11, and the Glossary to 12).
+> * **Action:** Add technical explanations for how the system is secured against outside access.
+> * **Content:** >   - **Webhook Authentication:** Explain the HMAC-SHA256 protocol. The FastAPI backend silently drops any incoming requests that do not possess a cryptographic signature matching the shared secret, making the API immune to unauthorized web scraping or execution.
+>   - **VM Firewalls & Containerization:** Note that the Python backend runs inside an isolated Docker network on the GCP VM, further reducing the attack surface. 
+> * **Constraint - Tables:** Update the **Table of Contents** to include Section 10 and renumber Sections 11 and 12 accordingly. 
+> 
+> **Task 2: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add a new bullet to the top of the 'Version History' section: `- **v1.8.1:** [Phase 41](./PROMPT_ROADMAP.md#stage-41) - Added a dedicated Security Architecture section detailing HMAC webhook verification and VM network isolation.`
+> 
+> **Output Actions:**
+> 1. Silently update `README.md` exactly as instructed above."
+
+---
+
+<a id="stage-42"></a>
+## Stage 42: OAuth Boundaries & Scope Justification
+**Internal Simulation & Correction:** *During installation, users are prompted to grant broad Google permissions. We must transparently document exactly why each OAuth scope is required and how the tokens are securely managed on the headless VM.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Continuous Documentation (`README.md`)**
+> * **Location:** Section 10. Security Architecture & Network Boundaries (which was created in the previous stage).
+> * **Action:** Insert a new subsection: `### 10.1 OAuth Boundaries & Scope Justification`.
+> * **Content:** Transparently document the required Google Workspace permissions and their explicit purposes to reassure users:
+>   - `gmail.modify`: Required to read incoming emails, extract payloads, and subsequently apply the 'ARCHIVED' or processed labels to achieve the Zero-Inbox state.
+>   - `drive`: Required to download newly uploaded PDFs for Document AI OCR, and to move files between the 'Nexus Dropbox' and permanent storage.
+>   - `contacts.readonly`: Required solely for the Entity Bootstrapping phase to securely transform personal contacts into taxonomy correspondents.
+>   - **Token Management:** Explicitly state that the `token.json` resides exclusively inside the headless, firewalled VM and is never exposed to the frontend Apps Script UI.
+> * **Constraint - Tables:** Update the **Table of Contents** to include this new subsection.
+> 
+> **Task 2: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add a new bullet to the top of the 'Version History' section: `- **v1.8.2:** [Phase 42](./PROMPT_ROADMAP.md#stage-42) - Documented OAuth scope justifications and token management security protocols.`
+> 
+> **Output Actions:**
+> 1. Silently update `README.md` exactly as instructed above."
+
+<a id="stage-43"></a>
+## Stage 43: UI Tooltip Sweep & Continuous UX Protocol
+**Internal Simulation & Correction:** *Recent UI additions (Pipeline Orchestrator, AI Tuning Hooks) lack inline documentation. We must sweep the Apps Script UI to add tooltips to all new elements, and update our CONOPS to mandate that UI text is always maintained alongside the master documentation.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (Apps Script UI Tooltips)**
+> We must ensure our complex AI UI is self-documenting for the end-user. Sweep the Apps Script HTML/JS files and inject Material Design tooltips (or standard title/help-text attributes) for the following new elements:
+> * **Phase 1 Ingestion Filters:** Add tooltips explaining that toggling these drops the emails *before* they consume expensive AI quota.
+> * **Phase 2 AI Models:** Add tooltips explaining the tradeoff (e.g., Gemini 1.5 Flash for speed/cost, Pro for complex reasoning).
+> * **Taxonomy Dropdowns:** Add tooltips explaining the difference between Global Purposes and Category-Specific Purposes.
+> * **Custom AI Extraction Rules:** Add a detailed tooltip to this text area explaining that this text is dynamically injected into the LLM prompt to force specific data extraction (e.g., 'Extract the invoice total').
+> 
+> **Task 2: Continuous Documentation (`README.md` CONOPS Update)**
+> * **Location:** Section 10.2 The Continuous Documentation Protocol.
+> * **Action:** Update the blockquote for the **Standard Prompt Footer**.
+> * **Content:** Add a new bullet point to the standard footer that says: `* If modifying the UI, ensure all new interactive elements include inline user education (tooltips or help text) explaining their function.`
+> * **Constraint - Hotlinks:** Maintain any existing relative Markdown links in this section.
+> 
+> **Task 3: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add a new bullet to the top of the 'Version History' section: `- **v1.8.3:** [Phase 43](./PROMPT_ROADMAP.md#stage-43) - Performed a UI tooltip sweep on all AI pipeline controls and updated the AI CONOPS to mandate the Continuous UX Protocol.`
+> 
+> **Output Actions:**
+> 1. Silently update the Apps Script UI files with the new tooltips.
+> 2. Silently update `README.md` exactly as instructed above."
+
+<a id="stage-44"></a>
+## Stage 44: Fail-Fast Installation Scripts & Traceability
+**Internal Simulation & Correction:** *The setup scripts are currently blind execution chains. We need to refactor `setup.sh` and `update.sh` into a Fail-Fast architecture. If a step fails, it must explicitly reference the exact section in `INSTRUCTIONS.md` to fix it, write to a local log, and attempt to fire a Pushover mobile alert.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (Bash Scripts)**
+> Refactor `setup.sh` and `update.sh` to use an assert-driven, fail-fast sequence.
+> 1. **Checkpoints:** Break the script into discrete checks (e.g., Docker installed, `.env` exists, `credentials.json` exists, `token.json` generation successful, Docker containers return 200 OK).
+> 2. **Traceability:** If any check fails, the script must `exit 1` and print a highly visible error message that points the user to the exact Phase and Step in `[INSTRUCTIONS.md](./INSTRUCTIONS.md)`. Example: `[!] FAILURE: credentials.json not found. Please review INSTRUCTIONS.md -> Phase 0, Step 3.`
+> 3. **Error Handling:** Create an error trap function. If the script fails, it must:
+>    - Append the failure reason to a local file named `setup_diagnostics.log` in the root directory.
+>    - Check if `NEXUS_WEBHOOK_URL` is populated in the `.env` file. If yes, execute a `curl` POST to send the error message to the Pushover API.
+> 
+> **Task 2: Continuous Documentation (`README.md`)**
+> * **Location:** Section 8. VM Lifecycle & Containerization.
+> * **Action:** Insert a new subsection: `### 8.1 Fail-Fast Provisioning`.
+> * **Content:** Explain that `[setup.sh](./setup.sh)` and `[update.sh](./update.sh)` utilize a fail-fast architecture. If a dependency or configuration is missing, the script halts immediately, references the exact fix in `INSTRUCTIONS.md`, and pushes a notification to the user's mobile device via the Pushover webhook while saving a local `setup_diagnostics.log`.
+> * **Constraint - Tables:** Update the **Table of Contents** at the top of the file to include this new subsection.
+> 
+> **Task 3: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add a new bullet to the top of the 'Version History' section: `- **v1.9.0:** [Phase 44](./PROMPT_ROADMAP.md#stage-44) - Refactored installation scripts into a Fail-Fast architecture with direct documentation traceability and mobile webhook alerts.`
+> * Ensure all UI/CLI additions include standard user education/tooltips per the Continuous UX Protocol.
+> 
+> **Output Actions:**
+> 1. Silently update `setup.sh` and `update.sh`.
+> 2. Silently update `README.md` exactly as instructed above."
+
+<a id="stage-45"></a>
+## Stage 45: Quota Governor Dashboard (API Burn Rate UI)
+**Internal Simulation & Correction:** *The Intelligent Quota Governor throttles background processing when daily limits are approached, but the user currently has no visibility into this. We need to build a FastAPI endpoint to expose the current `operation_cost` and a visual progress bar in the Apps Script UI.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (API & UI)**
+> 1. **Update `main.py` (FastAPI):** Create a new endpoint `GET /api/health/quota` that queries the database for today's current API burn rate (operation cost) and returns it alongside the maximum daily limit.
+> 2. **Update Apps Script HTML/JS:** Build a 'Quota Governor' metric card in the UI dashboard. It should display a visual progress bar representing the daily API usage and explicitly state if the system is currently in a 'Throttled' state.
+> 3. **Continuous UX Protocol:** Add a tooltip to the progress bar explaining that historical batches are automatically throttled at 70% capacity to reserve bandwidth for real-time incoming Gmail webhooks.
+> 
+> **Task 2: Continuous Documentation (`README.md`)**
+> * **Location:** Section 6. The Intelligent Quota Governor.
+> * **Action:** Append a new paragraph at the end of the section.
+> * **Content:** Explain that the frontend UI features a live Quota Governor dashboard that visualizes the daily API burn rate. Mention that this allows the user to see exactly when the system enters a protective throttled state without needing to check backend logs.
+> * **Constraint - Hotlinks:** Wrap `[main.py](./main.py)` in a relative Markdown link.
+> 
+> **Task 3: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add a new bullet point to the top of the 'Version History' section: `- **v1.9.1:** [Phase 45](./PROMPT_ROADMAP.md#stage-45) - Built the Quota Governor Dashboard in the Apps Script UI to visualize daily API burn rates and throttling status.`
+> 
+> **Output Actions:**
+> 1. Silently update `main.py` and the Apps Script UI files.
+> 2. Silently update `README.md` exactly as instructed above."
+
+---
+
+<a id="stage-46"></a>
+## Stage 46: System Health Status Indicator
+**Internal Simulation & Correction:** *If the OAuth token expires or the SQLite database locks, the user won't know until they try to click something in the UI. We need a persistent, global status indicator in the UI header that polls the backend health.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (API & UI)**
+> 1. **Update Apps Script HTML/JS:** Add a global System Health badge to the top header of the UI (e.g., a colored dot or chip). 
+> 2. **Update Apps Script Logic:** Configure the frontend to ping the existing backend `/health` or `/api/diagnostics` endpoint every 60 seconds. Update the UI badge color dynamically: Green for Online, Yellow for Degraded (e.g., DB locks), Red for Offline/OAuth Expired.
+> 3. **Continuous UX Protocol:** Add dynamic tooltips to this status badge. If hovering over a Red/Yellow badge, the tooltip must display the specific error string returned by the API (e.g., 'OAuth Token Expired - Please re-authenticate on the VM').
+> 
+> **Task 2: Continuous Documentation (`README.md`)**
+> * **Location:** Section 9. Telemetry, Diagnostics & Notifications.
+> * **Action:** Insert a new subsection: `### 9.1 Real-Time UI Observability`.
+> * **Content:** Detail how the Apps Script frontend continuously polls the Python backend's diagnostic endpoints. Explain that the global status badge provides immediate visual feedback on the health of the SQLite database and OAuth credentials, preventing 'silent failures' from the user's perspective.
+> * **Constraint - Tables:** Update the **Table of Contents** to include this new subsection.
+> 
+> **Task 3: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add a new bullet point to the top of the 'Version History' section: `- **v1.9.2:** [Phase 46](./PROMPT_ROADMAP.md#stage-47) - Implemented a real-time System Health Status indicator in the UI header to monitor DB and OAuth integrity.`
+> 
+> **Output Actions:**
+> 1. Silently update the Apps Script UI files.
+> 2. Silently update `README.md` exactly as instructed above."
+
+<a id="stage-47"></a>
+## Stage 47: Gmail Post-Processing & Tier 3 Auto-Archive
+**Internal Simulation & Correction:** *The AI determines categorization, but the emails currently stay in the inbox. We need to add an `auto_archive` boolean to the Tier 3 Purposes, default it to false, and build the Gmail API logic to strip the 'INBOX' label when triggered.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (Backend & Frontend)**
+> 1. **Update `db_init.py`:** In the `Taxonomy_Purposes` schema, add a new column: `auto_archive BOOLEAN DEFAULT 0`. Ensure no default seed purposes have this enabled.
+> 2. **Update `sync_engine.py`:** Inside the Gmail processing loop, after the LLM returns the categorization, query the DB for the matched Purpose. If `auto_archive == 1`, execute a Google Workspace API call to remove the `INBOX` label from the thread.
+> 3. **Update Apps Script UI:** In the Taxonomy Management view, add a toggle switch next to each Tier 3 Purpose labeled 'Auto-Archive on Match'. Wire this to update the DB.
+> 4. **Continuous UX Protocol:** Add a tooltip to the toggle explaining: 'If enabled, any email categorized with this purpose will bypass your inbox and go straight to the archive.'
+> 
+> **Task 2: Continuous Documentation (`README.md`)**
+> * **Location:** Section 5. The Synchronization Engine
+> * **Action:** Insert a new subsection: `### 5.1 Post-Processing & Auto-Archive`
+> * **Content:** Explain how the system physically interacts with the Gmail API post-categorization. Detail that users can configure specific Tier 3 Purposes to automatically drop the `INBOX` label, allowing high-noise/low-priority categories to be sorted silently.
+> * **Constraint - Tables:** Update the **Table of Contents** at the top of the file to include this new subsection.
+> 
+> **Task 3: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add a new bullet to the top of the 'Version History' section: `- **v1.10.0:** [Phase 47](./PROMPT_ROADMAP.md#stage-47) - Built Gmail API post-processing to support immediate, user-defined Tier 3 Auto-Archiving.`
+> 
+> **Output Actions:**
+> 1. Silently update `db_init.py`, `sync_engine.py`, and the Apps Script UI files.
+> 2. Silently update `README.md` exactly as instructed above."
+
+---
+
+<a id="stage-48"></a>
+## Stage 48: Advanced Inbox Retention & Cleanup Engine
+**Internal Simulation & Correction:** *Users need scheduled or on-demand inbox cleanup based on hard rules (age) or AI rules (categories). We must build a Retention Engine that sweeps the inbox independent of the real-time sync.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (Retention Engine & UI)**
+> 1. **Update `db_init.py`:** Add a new table `Config_Retention_Rules` with columns: `id`, `target_category` (Tier 1/2/3 or 'ALL'), `action` ('ARCHIVE' or 'TRASH'), `days_old` (INTEGER), and `is_active` (BOOLEAN).
+> 2. **Create `retention_worker.py`:** Build a new Python script that queries this table, searches Gmail for threads matching the age/category constraints, and executes the batch Archive/Trash API commands.
+> 3. **Update Apps Script UI:** Create a new 'Inbox Cleanup Rules' tab. Allow users to create rules (e.g., 'Trash all Marketing/Promo older than 30 days'). Include a 'Run Cleanup Now' button to trigger the worker manually via FastAPI.
+> 4. **Continuous UX Protocol:** Add tooltips explaining the difference between 'Archive' (keeps data for search) and 'Trash' (permanent deletion after 30 days).
+> 
+> **Task 2: Continuous Documentation (`README.md`)**
+> * **Location:** Section 5.1 Post-Processing & Auto-Archive
+> * **Action:** Rename to `### 5.1 Post-Processing & Retention Rules`. Append a paragraph about the Retention Engine.
+> * **Content:** Explain the batch sweeping capability of `[retention_worker.py](./retention_worker.py)`, detailing how users can set chronological or category-based hard rules to automatically prune their inbox.
+> * **Constraint - Tables:** Update the **Table of Contents** to reflect the new header name.
+> 
+> **Task 3: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add a new bullet to the top of the 'Version History' section: `- **v1.10.1:** [Phase 48](./PROMPT_ROADMAP.md#stage-48) - Engineered the Advanced Inbox Retention Engine for age and category-based batch cleanups.`
+> 
+> **Output Actions:**
+> 1. Silently update the DB, UI, and create `retention_worker.py`.
+> 2. Silently update `README.md` exactly as instructed above."
+
+---
+
+<a id="stage-49"></a>
+## Stage 49: The Drive Relocation Engine
+**Internal Simulation & Correction:** *Files currently sit in the 'Nexus Dropbox' indefinitely after extraction. To fulfill the Anti-Folder philosophy, the system must programmatically move processed files out of the staging ground to a permanent Google Drive location.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (Drive API Execution)**
+> 1. **Update `db_init.py`:** In the `Config_System` table, add a new default JSON key: `drive_permanent_archive_id` (leaving the value blank initially).
+> 2. **Update `sync_engine.py`:** In the Drive processing block, after successful AI extraction and SQLite commit, check if `drive_permanent_archive_id` is populated. If yes, use the Google Drive API `files().update` method to remove the file from the `Nexus Dropbox` parent ID and add it to the permanent archive parent ID.
+> 3. **Update Apps Script UI:** In the Pipeline Orchestrator settings, add an input field for the user to define their Permanent Archive Folder ID.
+> 4. **Continuous UX Protocol:** Add a tooltip explaining that files are physically moved out of the Nexus Dropbox to this target folder, but the database will still track their exact location via immutable File IDs.
+> 
+> **Task 2: Continuous Documentation (`README.md`)**
+> * **Location:** Section 4.1 The Anti-Folder Philosophy & Drive Topology
+> * **Action:** Append a new paragraph regarding the Relocation Engine.
+> * **Content:** Explain that once files are processed in the staging dropzone, the system programmatically rewrites the Google Drive parent directories to shift the file to a designated permanent archive, keeping the ingestion zone clean without losing DB tracking.
+> 
+> **Task 3: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add a new bullet to the top of the 'Version History' section: `- **v1.10.2:** [Phase 49](./PROMPT_ROADMAP.md#stage-49) - Built the Drive Relocation Engine to automatically clear the Nexus Dropbox post-extraction.`
+> 
+> **Output Actions:**
+> 1. Silently update `db_init.py`, `sync_engine.py`, and the UI.
+> 2. Silently update `README.md` exactly as instructed above."

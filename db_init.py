@@ -84,6 +84,7 @@ def init_db(db_path: str = DB_PATH) -> None:
             sending_subdomains TEXT CHECK(json_valid(sending_subdomains)),
             physical_addresses TEXT CHECK(json_valid(physical_addresses)),
             brand_colors TEXT CHECK(json_valid(brand_colors)),
+            custom_extraction_rules TEXT,
             operation_cost INTEGER DEFAULT 0,
             is_gmail_enabled INTEGER DEFAULT 0,
             is_drive_enabled INTEGER DEFAULT 0,
@@ -100,6 +101,8 @@ def init_db(db_path: str = DB_PATH) -> None:
             correspondent_id INTEGER NOT NULL,
             name TEXT NOT NULL,
             custom_field_schema TEXT NOT NULL CHECK(json_valid(custom_field_schema)),
+            is_global INTEGER DEFAULT 0,
+            custom_extraction_rules TEXT,
             frequency_weight INTEGER DEFAULT 0,
             confidence_weight REAL DEFAULT 0.0,
             operation_cost INTEGER DEFAULT 0,
@@ -156,11 +159,44 @@ def init_db(db_path: str = DB_PATH) -> None:
         ) STRICT;
     """)
     
+    seed_default_configs(conn)
     seed_default_prompts(conn)
+    seed_universal_purposes(conn)
     
     conn.commit()
     conn.close()
     print(f"Database initialization complete: {db_path} with STRICT tables and WAL mode enabled.")
+
+def seed_default_configs(conn: sqlite3.Connection) -> None:
+    """
+    Seeds default JSON settings into Config_System for UI Pipeline Orchestrator.
+    """
+    cursor = conn.cursor()
+    cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)",
+        ('ui_gmail_filters', '["CATEGORY_PROMOTIONS", "CATEGORY_SOCIAL", "CATEGORY_FORUMS"]', 'Ignored Gmail labels'))
+    cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)",
+        ('ui_ai_config', '{"drive_model": "gemini-1.5-pro", "gmail_model": "gemini-1.5-flash"}', 'LLM model selection'))
+    cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)",
+        ('ui_post_processing', '{"auto_archive_gmail": false, "quarantine_unconfident": true}', 'Post-processing actions'))
+
+
+def seed_universal_purposes(conn):
+    cursor = conn.cursor()
+    # Create a dummy category and correspondent for global purposes if they don't exist
+    cursor.execute("INSERT OR IGNORE INTO Taxonomy_Categories (name, is_gmail_enabled, is_drive_enabled) VALUES ('System', 1, 1)")
+    cursor.execute("SELECT id FROM Taxonomy_Categories WHERE name = 'System'")
+    cat_id = cursor.fetchone()['id']
+    
+    cursor.execute("INSERT OR IGNORE INTO Taxonomy_Correspondents (category_id, name, is_gmail_enabled, is_drive_enabled) VALUES (?, 'Global', 1, 1)", (cat_id,))
+    cursor.execute("SELECT id FROM Taxonomy_Correspondents WHERE name = 'Global'")
+    corr_id = cursor.fetchone()['id']
+    
+    global_purposes = ['Receipt / Invoice', 'Bill / Statement', 'Policy / Terms Update']
+    for p in global_purposes:
+        cursor.execute("""
+            INSERT OR IGNORE INTO Taxonomy_Purposes (correspondent_id, name, custom_field_schema, is_global, is_gmail_enabled, is_drive_enabled)
+            VALUES (?, ?, '{}', 1, 1, 1)
+        """, (corr_id, p))
 
 def seed_default_prompts(conn: sqlite3.Connection) -> None:
     """

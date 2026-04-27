@@ -69,7 +69,7 @@ function generateHMACSignature_(secret, payloadString) {
  * @param {Object} payload - The JavaScript object containing the data to send.
  * @returns {Object} The JSON response from the VM, parsed as an object.
  */
-function sendToNexusVM(endpoint, payload) {
+function sendToNexusVM(endpoint, payload, method = 'post') {
   const scriptProperties = PropertiesService.getScriptProperties();
   const secret = scriptProperties.getProperty('NEXUS_HMAC_SECRET');
   
@@ -91,7 +91,7 @@ function sendToNexusVM(endpoint, payload) {
   const targetUrl = vmUrl + endpoint;
   
   const options = {
-    'method': 'post',
+    'method': method,
     'contentType': 'application/json',
     'payload': payloadString,
     'headers': {
@@ -192,3 +192,88 @@ function runAskAI(payload) {
   }
 }
 
+/**
+ * Fetches pipeline settings from the VM.
+ * @returns {Object} The JSON response containing settings.
+ */
+function getPipelineSettings() {
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const vmUrl = scriptProperties.getProperty('NEXUS_VM_URL') || "http://localhost:8000"; 
+  const targetUrl = vmUrl + "/api/settings/pipeline";
+  
+  const options = {
+    'method': 'get',
+    'muteHttpExceptions': true
+  };
+  
+  try {
+    const response = UrlFetchApp.fetch(targetUrl, options);
+    const responseCode = response.getResponseCode();
+    if (responseCode >= 200 && responseCode < 300) {
+      return JSON.parse(response.getContentText());
+    } else {
+      throw new Error("VM Error (" + responseCode + "): " + response.getContentText());
+    }
+  } catch (error) {
+    return { status: "error", detail: error.message };
+  }
+}
+
+/**
+ * Saves pipeline settings to the VM.
+ * @param {Object} payload - The settings payload.
+ * @returns {Object} The JSON response.
+ */
+function savePipelineSettings(payload) {
+  try {
+    const result = sendToNexusVM("/api/settings/pipeline", payload);
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+
+/**
+ * Updates custom extraction rules for a specific entity.
+ * @param {string} entityType - "correspondents" or "purposes"
+ * @param {string} id - The entity ID
+ * @param {string} rules - The custom extraction rules
+ * @returns {Object} The JSON response.
+ */
+function updateEntityRules(entityType, id, rules) {
+  try {
+    const payload = { custom_extraction_rules: rules };
+    const result = sendToNexusVM(`/api/entities/${entityType}/${id}`, payload, 'put');
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Fetches Quota Governor stats from the VM.
+ * @returns {Object} The JSON response containing quota stats.
+ */
+function getQuotaGovernor() {
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const vmUrl = scriptProperties.getProperty('NEXUS_VM_URL') || "http://localhost:8000"; 
+  const targetUrl = vmUrl + "/api/health/quota";
+  
+  const options = {
+    'method': 'get',
+    'muteHttpExceptions': true
+  };
+  
+  try {
+    const response = UrlFetchApp.fetch(targetUrl, options);
+    const responseCode = response.getResponseCode();
+    if (responseCode >= 200 && responseCode < 300) {
+      return JSON.parse(response.getContentText());
+    } else {
+      throw new Error("VM Error (" + responseCode + "): " + response.getContentText());
+    }
+  } catch (error) {
+    return { status: "error", detail: error.message };
+  }
+}

@@ -350,6 +350,19 @@ def sync_gmail(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
     service = build('gmail', 'v1', credentials=creds)
     cursor = conn.cursor()
     
+    # Fetch dynamic Gmail filters from UI settings
+    cursor.execute("SELECT value FROM Config_System WHERE key = 'ui_gmail_filters'")
+    row = cursor.fetchone()
+    ui_filters = []
+    if row and row['value']:
+        try:
+            ui_filters = json.loads(row['value'])
+        except json.JSONDecodeError:
+            pass
+            
+    # Safety Fallback: always append core system labels
+    ignored_labels_set = set(ui_filters) | {'SPAM', 'TRASH', 'DRAFT'}
+    
     history_id = get_sync_state(cursor, 'gmail')
     if not history_id:
         print("No Gmail historyId found in DB. Initializing new historyId...")
@@ -373,6 +386,35 @@ def sync_gmail(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
                 
             print(f" - Gmail History Record: {record.get('id')}")
             governor.record_api_call(cost=1)
+            
+            if 'messagesAdded' in record:
+                for msg_added in record['messagesAdded']:
+                    msg_id = msg_added['message']['id']
+                    try:
+                        msg_detail = service.users().messages().get(userId='me', id=msg_id, format='metadata', metadataHeaders=['Subject', 'From']).execute()
+                        governor.record_api_call(cost=1)
+                        
+                        label_ids = set(msg_detail.get('labelIds', []))
+                        if IGNORED_GMAIL_LABELS.intersection(label_ids):
+                            print(f"Skipping message {msg_id} due to ignored labels.")
+                            continue
+                            
+                        # Extract basic context
+                        headers = msg_detail.get('payload', {}).get('headers', [])
+                        subject = next((h['value'] for h in headers if h['name'] == 'Subject'), "No Subject")
+                        sender = next((h['value'] for h in headers if h['name'] == 'From'), "Unknown Sender")
+                        snippet = msg_detail.get('snippet', '')
+                        
+                        email_context = {
+                            "subject": subject,
+                            "sender": sender,
+                            "snippet": snippet
+                        }
+                        
+                        # Process the thread
+                        process_gmail_thread(f"mail_{msg_id}", email_context, "[]")
+                    except Exception as e:
+                        print(f"Error fetching message {msg_id}: {e}")
     else:
         print("No new Gmail history.")
             

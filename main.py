@@ -316,6 +316,121 @@ async def update_prompts(request: Request):
     except Exception as e:
         return JSONResponse(status_code=500, content={"detail": str(e)})
 
+@app.get("/api/settings/pipeline")
+async def get_pipeline_settings():
+    """
+    Retrieves the UI pipeline settings from Config_System.
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        keys = ('ui_gmail_filters', 'ui_ai_config', 'ui_post_processing')
+        placeholders = ','.join(['?'] * len(keys))
+        cursor.execute(f"SELECT key, value FROM Config_System WHERE key IN ({placeholders})", keys)
+        rows = cursor.fetchall()
+        conn.close()
+        
+        settings = {}
+        for row in rows:
+            try:
+                settings[row["key"]] = json.loads(row["value"])
+            except json.JSONDecodeError:
+                settings[row["key"]] = row["value"]
+                
+        return JSONResponse(content={"status": "success", "settings": settings})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+@app.post("/api/settings/pipeline")
+async def update_pipeline_settings(request: Request):
+    """
+    Updates the UI pipeline settings in Config_System.
+    """
+    try:
+        body = await request.json()
+        settings = body.get("settings", {})
+        
+        if not settings:
+            return JSONResponse(status_code=400, content={"detail": "Missing settings"})
+            
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("PRAGMA journal_mode=WAL;")
+        cursor = conn.cursor()
+        
+        valid_keys = {'ui_gmail_filters', 'ui_ai_config', 'ui_post_processing'}
+        for key, value in settings.items():
+            if key in valid_keys:
+                cursor.execute(
+                    "UPDATE Config_System SET value = ? WHERE key = ?",
+                    (json.dumps(value), key)
+                )
+                
+        conn.commit()
+        conn.close()
+        
+        return JSONResponse(content={"status": "success", "message": "Pipeline settings updated."})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+
+@app.put("/api/entities/correspondents/{id}")
+async def update_correspondent(id: int, request: Request):
+    try:
+        body = await request.json()
+        rules = body.get("custom_extraction_rules", "")
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("PRAGMA journal_mode=WAL;")
+        cursor = conn.cursor()
+        cursor.execute("UPDATE Taxonomy_Correspondents SET custom_extraction_rules = ? WHERE id = ?", (rules, id))
+        conn.commit()
+        conn.close()
+        return JSONResponse(content={"status": "success", "message": "Correspondent rules updated."})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+@app.put("/api/entities/purposes/{id}")
+async def update_purpose(id: int, request: Request):
+    try:
+        body = await request.json()
+        rules = body.get("custom_extraction_rules", "")
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("PRAGMA journal_mode=WAL;")
+        cursor = conn.cursor()
+        cursor.execute("UPDATE Taxonomy_Purposes SET custom_extraction_rules = ? WHERE id = ?", (rules, id))
+        conn.commit()
+        conn.close()
+        return JSONResponse(content={"status": "success", "message": "Purpose rules updated."})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+
+@app.get("/api/health/quota")
+async def get_health_quota():
+    try:
+        from sync_engine import DAILY_QUOTA_LIMIT
+        import datetime
+        import json
+        
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+        cursor.execute("SELECT value FROM Config_System WHERE key = 'api_quota'")
+        row = cursor.fetchone()
+        conn.close()
+        
+        calls = 0
+        if row and row['value']:
+            quota_data = json.loads(row['value'])
+            if quota_data.get('date') == today:
+                calls = quota_data.get('calls', 0)
+                
+        return JSONResponse(content={"status": "success", "quota": {"used": calls, "limit": DAILY_QUOTA_LIMIT}})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
 @app.post("/api/health")
 async def health_check_post(request: Request):
     """

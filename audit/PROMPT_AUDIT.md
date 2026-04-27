@@ -611,3 +611,184 @@ Bridged the diagnostic and healthcheck systems into the telemetry and notificati
 - `diagnostics.py` (Updated)
 - `setup.sh` (Updated)
 - `documentation/PROMPT_AUDIT.md` (Updated)
+
+
+## Phase 36: The Pipeline Orchestrator (Backend UI Bridge)
+**Date:** April 26, 2026
+
+**Summary:**
+Built the Backend Bridge for the UI Pipeline Orchestrator, dynamically linking UI configs to the Python engines.
+
+**Decisions Made:**
+- Injected new default keys ui_gmail_filters, ui_ai_config, and ui_post_processing into Config_System in db_init.py.
+- Added GET and POST endpoints /api/settings/pipeline in main.py.
+- Updated sync_engine.py to read ui_gmail_filters dynamically, removing the hardcoded IGNORED_GMAIL_LABELS while preserving safety fallbacks (SPAM, TRASH, DRAFT).
+- Added documentation to README.md and updated Version History and Table of Contents.
+
+**Files Altered/Created:**
+- db_init.py (Updated)
+- main.py (Updated)
+- sync_engine.py (Updated)
+- README.md (Updated)
+- udit/PROMPT_ROADMAP.md (Updated)
+- udit/PROMPT_AUDIT.md (Updated)
+
+## Phase 37: The Apps Script Pipeline Orchestrator
+**Date:** April 26, 2026
+
+**Summary:**
+Built the visual interface for the Pipeline Orchestrator in our Google Apps Script frontend.
+
+**Decisions Made:**
+- Updated `Index.html` to implement a Material Design 3-Phase vertical layout (Ingestion Filters, AI Config, Post-Processing).
+- Updated `JS_Actions.html` to add `loadPipelineSettings` and `savePipelineSettings` functions to sync state with the `nexus-api` backend.
+- Updated `Code.gs` to expose `getPipelineSettings()` and `savePipelineSettings()` which call the backend via `sendToNexusVM` and `UrlFetchApp.fetch`.
+- Renamed `3.1 The Pipeline Orchestrator (Backend UI Bridge)` to `3.1 The Pipeline Orchestrator` in `README.md` and added details explaining the frontend layout.
+- Updated `README.md` Version History and Table of Contents.
+
+**Files Altered/Created:**
+- `Index.html` (Updated)
+- `JS_Actions.html` (Updated)
+- `Code.gs` (Updated)
+- `README.md` (Updated)
+- `audit/PROMPT_ROADMAP.md` (Updated)
+- `audit/PROMPT_AUDIT.md` (Updated)
+
+
+## Phase 38: Global Purposes and Dynamic AI Tuning Hooks
+**Date:** April 26, 2026
+
+**Summary:**
+Upgraded SQLite schema to support Global Purposes and dynamic AI Tuning Hooks.
+
+**Decisions Made:**
+- In db_init.py, updated Taxonomy_Purposes to add is_global BOOLEAN DEFAULT 0 and custom_extraction_rules TEXT.
+- Added custom_extraction_rules TEXT to Taxonomy_Correspondents.
+- Updated db_init.py seed logic to insert Universal Purposes (Receipt / Invoice, Bill / Statement, Policy / Terms Update) with is_global = 1 under a system category.
+- In llm_engine.py (Stage 2 Extraction), updated the SQL query to fetch purposes matching the Correspondent OR marked as is_global = 1. Appended custom_extraction_rules from the Correspondent and specific Purposes to the final prompt payload.
+- In README.md, added section 4.2 Global Purposes & AI Tuning Hooks.
+- Updated README.md Version History and Table of Contents.
+
+**Files Altered/Created:**
+- db_init.py (Updated)
+- llm_engine.py (Updated)
+- README.md (Updated)
+- udit/PROMPT_ROADMAP.md (Updated)
+- udit/PROMPT_AUDIT.md (Updated)
+
+## Phase 39: Entity Management & Prompt Tuning UI
+**Date:** April 26, 2026
+
+**Summary:**
+Built the Entity Management UI, introducing grouped taxonomy dropdowns and no-code AI prompt tuning text areas.
+
+**Decisions Made:**
+- Updated `main.py` to add `PUT /api/entities/correspondents/{id}` and `PUT /api/entities/purposes/{id}` endpoints to persist `custom_extraction_rules`.
+- Updated `Index.html` to add the `Entity Management` tab with text areas for Correspondent and Purpose rule editing, as well as a `Manual Review Modal` with a `review-purpose` dropdown.
+- Updated `JS_Actions.html` to populate the `review-purpose` dropdown, parsing the `is_global` flag to group universal purposes under `<optgroup label="Global Purposes">` and specific purposes under `<optgroup label="Category-Specific">`.
+- Updated `Code.gs` to dynamically support the `PUT` HTTP method in `sendToNexusVM` and exposed `updateEntityRules(entityType, id, rules)` to the frontend.
+- In `README.md`, added `3.2 Entity Management & Prompt Tuning UI` to explain the new no-code AI tuning behavior and updated the Version History.
+
+**Files Altered/Created:**
+- `main.py` (Updated)
+- `Index.html` (Updated)
+- `JS_Actions.html` (Updated)
+- `Code.gs` (Updated)
+- `README.md` (Updated)
+- `audit/PROMPT_ROADMAP.md` (Updated)
+- `audit/PROMPT_AUDIT.md` (Updated)
+
+## Phase 40: The Walled Garden Privacy Guarantee
+**Date:** April 26, 2026
+
+**Summary:**
+Documented the 'Walled Garden' Privacy Guarantee and enterprise AI data protection policies.
+
+**Decisions Made:**
+- Updated `README.md` to add `### The Privacy Guarantee: Your Data, Your Walled Garden` to explicitly outline the system's data sovereignty features, guaranteeing data never transits a third-party server and private data is not used to train Gemini models.
+- Updated `README.md` Version History and Table of Contents.
+- Appended to `audit/PROMPT_ROADMAP.md`.
+
+**Files Altered/Created:**
+- `README.md` (Updated)
+- `audit/PROMPT_ROADMAP.md` (Updated)
+- `audit/PROMPT_AUDIT.md` (Updated)
+
+## Phase 41: Security Architecture & Network Boundaries
+**Date:** April 26, 2026
+
+**Summary:**
+Added a dedicated Security Architecture section detailing HMAC webhook verification and VM network isolation.
+
+**Decisions Made:**
+- In `README.md`, inserted a new Level 1 Section `10. Security Architecture & Network Boundaries`.
+- Detailed the HMAC-SHA256 protocol logic used by FastAPI to silently drop unauthorized requests, preventing web scraping.
+- Detailed the VM Firewalls & Containerization, emphasizing that the Python backend runs inside an isolated Docker network on the GCP VM.
+- Renumbered the CONOPS section to `11` and Glossary to `12`, updating all nested sub-sections in the text and Table of Contents accordingly.
+- Added Version History entry and PROMPT_ROADMAP anchor.
+
+**Files Altered/Created:**
+- `README.md` (Updated)
+- `audit/PROMPT_ROADMAP.md` (Updated)
+- `audit/PROMPT_AUDIT.md` (Updated)
+
+## Phase 42: OAuth Scope Justifications
+**Date:** April 26, 2026
+
+**Summary:**
+Documented OAuth scope justifications and token management security protocols.
+
+**Decisions Made:**
+- Updated `README.md` to add `### 10.1 OAuth Boundaries & Scope Justification` within the Security Architecture section.
+- Explicitly detailed the reason for requesting `gmail.modify`, `drive`, and `contacts.readonly` permissions, emphasizing that `token.json` is stored securely in the firewalled VM and never sent to the UI.
+- Updated `README.md` Version History and Table of Contents.
+- Appended to `audit/PROMPT_ROADMAP.md`.
+
+**Files Altered/Created:**
+- `README.md` (Updated)
+- `audit/PROMPT_ROADMAP.md` (Updated)
+- `audit/PROMPT_AUDIT.md` (Updated)
+
+## Phase 44: Fail-Fast Architecture for CLI Scripts
+**Date:** April 26, 2026
+
+**Summary:**
+Refactored installation scripts into a Fail-Fast architecture with direct documentation traceability and mobile webhook alerts.
+
+**Decisions Made:**
+- Updated `setup.sh` and `update.sh` to include a `trap_error()` function that checks for `NEXUS_WEBHOOK_URL` in `.env` and issues a `curl` push notification on script failure, while appending diagnostics to `setup_diagnostics.log`.
+- Refactored the scripts to check for required files (`.env`, `credentials.json`, `token.json`) and Docker health, providing direct references to `INSTRUCTIONS.md` (e.g., Phase 0, Step 3) when an error is caught.
+- Updated `README.md` to add `### 8.1 Fail-Fast Provisioning` documenting the new architecture.
+- Updated `README.md` Version History and Table of Contents.
+- Appended to `audit/PROMPT_ROADMAP.md`.
+
+**Files Altered/Created:**
+- `setup.sh` (Updated)
+- `update.sh` (Updated)
+- `README.md` (Updated)
+- `audit/PROMPT_ROADMAP.md` (Updated)
+- `audit/PROMPT_AUDIT.md` (Updated)
+
+## Phase 45: Quota Governor Dashboard
+**Date:** April 26, 2026
+
+**Summary:**
+Built the Quota Governor Dashboard in the Apps Script UI to visualize daily API burn rates and throttling status.
+
+**Decisions Made:**
+- Updated `main.py` with `GET /api/health/quota` to return the current day's API burn rate from `Config_System` along with the `DAILY_QUOTA_LIMIT`.
+- Added a visual progress bar metric card in `Index.html` above the data grid, including a tooltip per the Continuous UX Protocol.
+- Added `loadQuotaGovernor()` in `JS_Actions.html` to fetch the quota data on app initialization and explicitly display if the system is in a 'Throttled (Historical)' state (>= 70%).
+- Added `getQuotaGovernor()` to `Code.gs` to bridge the webhook.
+- Updated `README.md` Section 6 to explain the new UI dashboard and its integration with `main.py`.
+- Updated `README.md` Version History.
+- Appended to `audit/PROMPT_ROADMAP.md`.
+
+**Files Altered/Created:**
+- `main.py` (Updated)
+- `Index.html` (Updated)
+- `JS_Actions.html` (Updated)
+- `Code.gs` (Updated)
+- `README.md` (Updated)
+- `audit/PROMPT_ROADMAP.md` (Updated)
+- `audit/PROMPT_AUDIT.md` (Updated)

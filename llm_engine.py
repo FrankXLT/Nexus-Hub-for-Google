@@ -459,19 +459,42 @@ def process_drive_document(artifact_id: str, ocr_text: str, dynamic_array_str: s
     # Architectural Intent: We dynamically construct a tiny, hyper-focused prompt only containing
     # the valid Purposes for the successfully verified Stage 1 Correspondent.
     cursor.execute("""
-        SELECT tp.name as purpose_name
+        SELECT custom_extraction_rules 
+        FROM Taxonomy_Correspondents 
+        WHERE name = ?
+    """, (correspondent,))
+    c_row = cursor.fetchone()
+    c_rules = c_row['custom_extraction_rules'] if c_row and c_row['custom_extraction_rules'] else ""
+
+    cursor.execute("""
+        SELECT tp.name as purpose_name, tp.custom_extraction_rules as p_rules
         FROM Taxonomy_Purposes tp
-        JOIN Taxonomy_Correspondents tc ON tp.correspondent_id = tc.id
-        WHERE tc.name = ? AND tp.is_drive_enabled = 1
+        LEFT JOIN Taxonomy_Correspondents tc ON tp.correspondent_id = tc.id
+        WHERE (tc.name = ? OR tp.is_global = 1) AND tp.is_drive_enabled = 1
     """, (correspondent,))
     purp_rows = cursor.fetchall()
     conn.close()
     
-    purpose_whitelist = [row['purpose_name'] for row in purp_rows]
+    purpose_whitelist = []
+    p_rules_list = []
+    for row in purp_rows:
+        purpose_whitelist.append(row['purpose_name'])
+        if row['p_rules']:
+            p_rules_list.append(f"[{row['purpose_name']}]: {row['p_rules']}")
+            
     purpose_whitelist_str = "\n".join(purpose_whitelist)
+    
+    extra_rules = ""
+    if c_rules:
+        extra_rules += f"\n**Correspondent Rules ({correspondent}):**\n{c_rules}"
+    if p_rules_list:
+        extra_rules += "\n**Purpose-Specific Rules:**\n" + "\n".join(p_rules_list)
+
     
     # Stage 2: Enforce & Extract
     prompt_s2 = fetch_active_prompt('DRIVE_STAGE_2').replace("[CORRESPONDENT]", correspondent).replace("[DYNAMIC_ARRAY]", dynamic_array_str)
+    if extra_rules:
+        prompt_s2 += f"\n\n{extra_rules}"
     context_s2 = f"Purpose Whitelist:\n{purpose_whitelist_str}\n\nOCR Text:\n{ocr_text}"
     result_s2 = call_gemini(prompt_s2, context_s2)
     

@@ -6,6 +6,8 @@ const appActions = {
   
   init: function() {
     this.refreshData(); // Fetch initial data
+    this.loadPipelineSettings(); // Fetch UI configurations
+    this.loadQuotaGovernor();
   },
 
   showToast: function(message, duration = 3000) {
@@ -15,6 +17,106 @@ const appActions = {
     setTimeout(() => {
       toast.classList.remove('show');
     }, duration);
+  },
+
+  
+  loadQuotaGovernor: function() {
+    google.script.run
+      .withSuccessHandler((result) => {
+        if(result && result.status === 'success' && result.quota) {
+          const used = result.quota.used;
+          const limit = result.quota.limit;
+          const percent = Math.min((used / limit) * 100, 100);
+          
+          document.getElementById('quota-used').textContent = used;
+          document.getElementById('quota-limit').textContent = limit;
+          
+          const bar = document.getElementById('quota-bar');
+          bar.style.width = percent + '%';
+          
+          const statusEl = document.getElementById('quota-status');
+          if(percent >= 70) {
+            statusEl.textContent = 'Throttled (Historical)';
+            statusEl.style.color = '#d93025';
+            bar.style.background = '#d93025';
+          } else {
+            statusEl.textContent = 'Active (Priority & Historical)';
+            statusEl.style.color = '#1a73e8';
+            bar.style.background = '#1a73e8';
+          }
+        }
+      })
+      .getQuotaGovernor();
+  },
+  loadPipelineSettings: function() {
+    google.script.run
+      .withSuccessHandler((result) => {
+        if(result && result.status === 'success' && result.settings) {
+          const s = result.settings;
+          
+          // Phase 1
+          if(s.ui_gmail_filters) {
+            document.getElementById('filter-promotions').checked = s.ui_gmail_filters.includes('CATEGORY_PROMOTIONS');
+            document.getElementById('filter-social').checked = s.ui_gmail_filters.includes('CATEGORY_SOCIAL');
+            document.getElementById('filter-forums').checked = s.ui_gmail_filters.includes('CATEGORY_FORUMS');
+            document.getElementById('filter-updates').checked = s.ui_gmail_filters.includes('CATEGORY_UPDATES');
+          }
+          
+          // Phase 2
+          if(s.ui_ai_config) {
+            if(s.ui_ai_config.drive_model) document.getElementById('ai-drive-model').value = s.ui_ai_config.drive_model;
+            if(s.ui_ai_config.gmail_model) document.getElementById('ai-gmail-model').value = s.ui_ai_config.gmail_model;
+          }
+          
+          // Phase 3
+          if(s.ui_post_processing) {
+            document.getElementById('post-auto-archive').checked = !!s.ui_post_processing.auto_archive_gmail;
+            document.getElementById('post-quarantine').checked = !!s.ui_post_processing.quarantine_unconfident;
+          }
+        }
+      })
+      .getPipelineSettings();
+  },
+
+  savePipelineSettings: function() {
+    this.showToast("Saving Pipeline Config...");
+    
+    const ui_gmail_filters = [];
+    if(document.getElementById('filter-promotions').checked) ui_gmail_filters.push('CATEGORY_PROMOTIONS');
+    if(document.getElementById('filter-social').checked) ui_gmail_filters.push('CATEGORY_SOCIAL');
+    if(document.getElementById('filter-forums').checked) ui_gmail_filters.push('CATEGORY_FORUMS');
+    if(document.getElementById('filter-updates').checked) ui_gmail_filters.push('CATEGORY_UPDATES');
+
+    const ui_ai_config = {
+      drive_model: document.getElementById('ai-drive-model').value,
+      gmail_model: document.getElementById('ai-gmail-model').value
+    };
+
+    const ui_post_processing = {
+      auto_archive_gmail: document.getElementById('post-auto-archive').checked,
+      quarantine_unconfident: document.getElementById('post-quarantine').checked
+    };
+
+    const payload = {
+      settings: {
+        ui_gmail_filters: ui_gmail_filters,
+        ui_ai_config: ui_ai_config,
+        ui_post_processing: ui_post_processing
+      }
+    };
+
+    google.script.run
+      .withSuccessHandler((result) => {
+        if(result && result.success) {
+          this.showToast("Pipeline Config Saved.");
+        } else {
+          this.showToast("Failed to save: " + (result.error || result.data?.detail || "Unknown error"));
+        }
+      })
+      .withFailureHandler((error) => {
+        this.showToast("Apps Script Error: " + error.message);
+      })
+      .savePipelineSettings(payload);
   },
 
   /**
@@ -69,8 +171,9 @@ const appActions = {
       ];
 
       const mockTaxonomy = {
-        "Finance": { "AWS": ["Invoice", "Receipt"] },
-        "HR": { "Stripe": ["Update"] }
+        "Finance": { "AWS": [{name: "Invoice", is_global: false}, {name: "Receipt", is_global: true}] },
+        "HR": { "Stripe": [{name: "Update", is_global: false}] },
+        "System": { "Global": [{name: "Bill / Statement", is_global: true}, {name: "Policy / Terms Update", is_global: true}] }
       };
 
       const mockZeroTrust = [
@@ -133,7 +236,8 @@ const appActions = {
     if (cat && corr && appState.taxonomyTree[cat][corr]) {
       purpSelect.disabled = false;
       appState.taxonomyTree[cat][corr].forEach(purp => {
-        purpSelect.innerHTML += `<option value="${purp}">${purp}</option>`;
+        const purpName = typeof purp === 'object' ? purp.name : purp;
+        purpSelect.innerHTML += `<option value="${purpName}">${purpName}</option>`;
       });
     } else {
       purpSelect.disabled = true;
@@ -285,20 +389,92 @@ const appActions = {
     this.updateBulkEstimate();
   },
 
+
+  saveCorrespondentRules: function() {
+    const id = document.getElementById('edit-corr-id').value;
+    const rules = document.getElementById('corr-extraction-rules').value;
+    if(!id) return this.showToast("Please enter a Correspondent ID.");
+    
+    this.showToast("Saving rules...");
+    google.script.run
+      .withSuccessHandler((result) => {
+        if(result && result.success) this.showToast("Correspondent rules saved.");
+        else this.showToast("Failed to save rules: " + (result.error || "Unknown"));
+      })
+      .withFailureHandler((err) => this.showToast("Error: " + err.message))
+      .updateEntityRules('correspondents', id, rules);
+  },
+
+  savePurposeRules: function() {
+    const id = document.getElementById('edit-purp-id').value;
+    const rules = document.getElementById('purp-extraction-rules').value;
+    if(!id) return this.showToast("Please enter a Purpose ID.");
+    
+    this.showToast("Saving rules...");
+    google.script.run
+      .withSuccessHandler((result) => {
+        if(result && result.success) this.showToast("Purpose rules saved.");
+        else this.showToast("Failed to save rules: " + (result.error || "Unknown"));
+      })
+      .withFailureHandler((err) => this.showToast("Error: " + err.message))
+      .updateEntityRules('purposes', id, rules);
+  },
+
   bulkEdit: function() {
     if (appState.selectedIds.size === 0) {
       this.showToast("No artifacts selected for bulk edit.");
       return;
     }
     
-    // In a real app, this would open a modal to collect new metadata.
-    // For now, we simulate a status update to 'PROCESSED'
-    const newStatus = prompt("Enter new status for " + appState.selectedIds.size + " selected artifacts:", "PROCESSED");
-    if (!newStatus) return;
+    this.openManualReviewModal();
+  },
+
+  openManualReviewModal: function() {
+    const modal = document.getElementById('manual-review-modal');
+    const select = document.getElementById('review-purpose');
+    select.innerHTML = '';
+    
+    let globalHtml = '<optgroup label="Global Purposes">';
+    let specificHtml = '<optgroup label="Category-Specific">';
+    
+    // Parse taxonomy tree
+    Object.keys(appState.taxonomyTree).forEach(cat => {
+      Object.keys(appState.taxonomyTree[cat]).forEach(corr => {
+        appState.taxonomyTree[cat][corr].forEach(purp => {
+           if (typeof purp === 'object') {
+             if (purp.is_global) {
+               if(!globalHtml.includes('value="' + purp.name + '"')) {
+                 globalHtml += `<option value="${purp.name}">${purp.name}</option>`;
+               }
+             } else {
+               specificHtml += `<option value="${purp.name}">${purp.name} (${cat} / ${corr})</option>`;
+             }
+           } else {
+             specificHtml += `<option value="${purp}">${purp} (${cat} / ${corr})</option>`;
+           }
+        });
+      });
+    });
+    
+    globalHtml += '</optgroup>';
+    specificHtml += '</optgroup>';
+    
+    select.innerHTML = globalHtml + specificHtml;
+    modal.style.display = 'block';
+  },
+
+  submitManualReview: function() {
+    const modal = document.getElementById('manual-review-modal');
+    const select = document.getElementById('review-purpose');
+    const newPurpose = select.value;
+    
+    if (!newPurpose) return;
+
+    modal.style.display = 'none';
 
     const payload = {
       artifact_ids: Array.from(appState.selectedIds),
-      metadata: { status: newStatus }
+      metadata: { status: "PROCESSED", purpose: newPurpose }
     };
     
     this.showToast("Submitting bulk update...");

@@ -22,11 +22,14 @@
           <li class="nav-item" onclick="appState.switchTab('correspondent-review', event)">
             <i class="material-icons">fact_check</i> Correspondent Review
           </li>
-          <li class="nav-item" onclick="appState.switchTab('purpose-review', event)">
-            <i class="material-icons">rule_folder</i> Purpose Review
+          <li class="nav-item" onclick="appState.switchTab('entity-management', event)">
+            <i class="material-icons">account_tree</i> Entity Management
           </li>
           <li class="nav-item" onclick="appState.switchTab('prompt-sandbox', event)">
             <i class="material-icons">science</i> Prompt Sandbox
+          </li>
+          <li class="nav-item" onclick="appState.switchTab('pipeline-orchestrator', event)">
+            <i class="material-icons">tune</i> Pipeline Orchestrator
           </li>
           <li class="nav-item" onclick="appState.switchTab('audit', event)">
             <i class="material-icons">history</i> Audit Timeline
@@ -46,6 +49,22 @@
               <div class="pane-header">
                 <h3>Data Grid</h3>
                 <button class="btn btn-primary" onclick="appActions.refreshData()"><i class="material-icons">refresh</i> Refresh</button>
+              </div>
+              
+              <!-- Quota Governor Metric Card -->
+              <div style="padding: 0 16px; margin-bottom: 10px;">
+                <div style="border: 1px solid #ccc; border-radius: 4px; padding: 12px; background: #fff;" title="Historical batches are automatically throttled at 70% capacity to reserve bandwidth for real-time incoming Gmail webhooks.">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <strong style="font-size: 0.875rem;">Quota Governor</strong>
+                    <span id="quota-status" style="font-size: 0.875rem; color: #1a73e8; font-weight: bold;">Loading...</span>
+                  </div>
+                  <div style="background: #e8eaed; border-radius: 4px; height: 12px; width: 100%; overflow: hidden;">
+                    <div id="quota-bar" style="background: #1a73e8; height: 100%; width: 0%;"></div>
+                  </div>
+                  <div style="text-align: right; font-size: 0.75rem; color: #5f6368; margin-top: 4px;">
+                    <span id="quota-used">0</span> / <span id="quota-limit">10000</span> API Calls
+                  </div>
+                </div>
               </div>
               <div class="filter-bar" style="display:flex; gap:10px; margin-bottom: 10px; padding: 0 16px;">
                 <select id="filter-category" onchange="appActions.onCategoryChange()" style="padding: 5px; flex: 1;">
@@ -105,12 +124,35 @@
           </div>
         </div>
 
-        <div id="tab-purpose-review" class="tab-content">
+        <!-- Entity Management & Prompt Tuning Tab -->
+        <div id="tab-entity-management" class="tab-content">
           <div class="pane-header">
-            <h3>Legacy Purpose Review</h3>
+            <h3>Entity Management & Prompt Tuning UI</h3>
           </div>
-          <div style="padding: 16px;">
-            <p>Please use the Zero-Trust Review Queue tab for quarantined items.</p>
+          <div style="padding: 16px; display: flex; gap: 24px;">
+            <!-- Correspondent Profile Edit -->
+            <div style="flex: 1; border: 1px solid #ccc; border-radius: 4px; padding: 16px; background: #fff;">
+              <h4>Correspondent Profile Edit</h4>
+              <p style="font-size: 0.875rem; color: #666;">Tune extraction logic for specific vendors.</p>
+              <label for="edit-corr-id" style="display:block; margin-bottom:4px; font-weight:bold;">Correspondent ID</label>
+              <input type="text" id="edit-corr-id" placeholder="e.g., 12" style="width: 100%; padding: 8px; margin-bottom: 12px; box-sizing: border-box;">
+              
+              <label for="corr-extraction-rules" style="display:block; margin-bottom:4px; font-weight:bold;">Custom AI Extraction Rules</label>
+              <textarea id="corr-extraction-rules" placeholder="e.g., Always extract the total amount without the currency symbol" style="width: 100%; padding: 8px; font-family: monospace; resize: none; height: 100px; margin-bottom: 12px; box-sizing: border-box;" title="This text is dynamically injected into the LLM prompt to force specific data extraction (e.g., 'Extract the invoice total')."></textarea>
+              <button class="btn btn-primary" onclick="appActions.saveCorrespondentRules()">Save Correspondent Rules</button>
+            </div>
+
+            <!-- Purpose Profile Edit -->
+            <div style="flex: 1; border: 1px solid #ccc; border-radius: 4px; padding: 16px; background: #fff;">
+              <h4>Purpose Profile Edit</h4>
+              <p style="font-size: 0.875rem; color: #666;">Tune extraction logic for specific document types.</p>
+              <label for="edit-purp-id" style="display:block; margin-bottom:4px; font-weight:bold;">Purpose ID</label>
+              <input type="text" id="edit-purp-id" placeholder="e.g., 45" style="width: 100%; padding: 8px; margin-bottom: 12px; box-sizing: border-box;">
+              
+              <label for="purp-extraction-rules" style="display:block; margin-bottom:4px; font-weight:bold;">Custom AI Extraction Rules</label>
+              <textarea id="purp-extraction-rules" placeholder="e.g., Extract the Due Date in YYYY-MM-DD" style="width: 100%; padding: 8px; font-family: monospace; resize: none; height: 100px; margin-bottom: 12px; box-sizing: border-box;" title="This text is dynamically injected into the LLM prompt to force specific data extraction (e.g., 'Extract the invoice total')."></textarea>
+              <button class="btn btn-primary" onclick="appActions.savePurposeRules()">Save Purpose Rules</button>
+            </div>
           </div>
         </div>
 
@@ -135,6 +177,62 @@
                 <pre id="sandbox-output" style="flex: 1; padding: 8px; background: #f5f5f5; border: 1px solid #ccc; overflow: auto; margin: 0;"></pre>
               </div>
             </div>
+          </div>
+        </div>
+
+
+        <!-- Pipeline Orchestrator Tab -->
+        <div id="tab-pipeline-orchestrator" class="tab-content">
+          <div class="pane-header">
+            <h3>Pipeline Orchestrator</h3>
+            <button class="btn btn-primary" onclick="appActions.savePipelineSettings()"><i class="material-icons">save</i> Save Pipeline Config</button>
+          </div>
+          <div style="padding: 16px; display: flex; flex-direction: column; gap: 24px;">
+            
+            <!-- Phase 1: Ingestion Filters -->
+            <div style="border: 1px solid #ccc; border-radius: 4px; padding: 16px; background: #fff;" title="Toggling these drops the emails before they consume expensive AI quota.">
+              <h4 style="margin-top: 0;">Phase 1: Ingestion Filters</h4>
+              <p style="font-size: 0.875rem; color: #666;">Select which Gmail categories to silently drop before reaching the AI.</p>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label><input type="checkbox" id="filter-promotions" value="CATEGORY_PROMOTIONS"> Promotions</label>
+                <label><input type="checkbox" id="filter-social" value="CATEGORY_SOCIAL"> Social</label>
+                <label><input type="checkbox" id="filter-forums" value="CATEGORY_FORUMS"> Forums</label>
+                <label><input type="checkbox" id="filter-updates" value="CATEGORY_UPDATES"> Updates</label>
+              </div>
+            </div>
+
+            <!-- Phase 2: AI Config -->
+            <div style="border: 1px solid #ccc; border-radius: 4px; padding: 16px; background: #fff;" title="Gemini 1.5 Flash for speed/cost, Pro for complex reasoning.">
+              <h4 style="margin-top: 0;">Phase 2: AI Config</h4>
+              <p style="font-size: 0.875rem; color: #666;">Select the target LLM models for each pipeline.</p>
+              <div style="display: flex; gap: 16px;">
+                <div style="flex: 1;">
+                  <label for="ai-drive-model" style="display:block; margin-bottom:4px; font-weight:bold;">Drive Model</label>
+                  <select id="ai-drive-model" style="width: 100%; padding: 8px;">
+                    <option value="gemini-1.5-flash">Gemini 1.5 Flash (Fast/Cheap)</option>
+                    <option value="gemini-1.5-pro">Gemini 1.5 Pro (Deep Reasoning)</option>
+                  </select>
+                </div>
+                <div style="flex: 1;">
+                  <label for="ai-gmail-model" style="display:block; margin-bottom:4px; font-weight:bold;">Gmail Model</label>
+                  <select id="ai-gmail-model" style="width: 100%; padding: 8px;">
+                    <option value="gemini-1.5-flash">Gemini 1.5 Flash (Fast/Cheap)</option>
+                    <option value="gemini-1.5-pro">Gemini 1.5 Pro (Deep Reasoning)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Phase 3: Post-Processing -->
+            <div style="border: 1px solid #ccc; border-radius: 4px; padding: 16px; background: #fff;">
+              <h4 style="margin-top: 0;">Phase 3: Post-Processing</h4>
+              <p style="font-size: 0.875rem; color: #666;">Configure automated actions for processed artifacts.</p>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label><input type="checkbox" id="post-auto-archive"> Auto-Archive processed Gmail threads</label>
+                <label><input type="checkbox" id="post-quarantine"> Quarantine items with low LLM confidence</label>
+              </div>
+            </div>
+
           </div>
         </div>
 
@@ -166,6 +264,22 @@
           </div>
         </div>
       </main>
+    </div>
+
+    
+    <!-- Manual Review Modal -->
+    <div id="manual-review-modal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
+      <div style="background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 400px; border-radius: 8px;">
+        <h3>Manual Artifact Review</h3>
+        <label for="review-purpose" style="font-weight: bold; display: block; margin-bottom: 5px;">Select Purpose:</label>
+        <select id="review-purpose" style="width: 100%; padding: 8px; margin-bottom: 16px;" title="Global Purposes apply to all vendors. Category-Specific Purposes only apply to the identified correspondent.">
+          <!-- Dynamically populated by JS -->
+        </select>
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button class="btn btn-secondary" onclick="document.getElementById('manual-review-modal').style.display='none'">Cancel</button>
+          <button class="btn btn-primary" onclick="appActions.submitManualReview()">Save</button>
+        </div>
+      </div>
     </div>
 
     <!-- Notification Toast -->
