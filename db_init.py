@@ -170,7 +170,7 @@ def seed_default_prompts(conn: sqlite3.Connection) -> None:
     PROMPT_GMAIL = """You are a strict data extraction system for a centralized knowledge hub. Review the provided email thread. 
 
 **Tasks:**
-1. **Taxonomy Mapping:** Map the email to ONE exact `Category \\ Correspondent \\ Purpose` from the provided whitelist. If it does not match perfectly, output the purpose as 'Purpose/Review'.
+1. **Taxonomy Mapping:** Map the email to ONE exact `Category \\ Correspondent \\ Purpose` from the provided [ENTITY_PROFILES]. Cross-reference the document's sender email, sending domain, or physical address against the provided entity profiles to increase routing accuracy. If it does not match perfectly, output the purpose as 'Purpose/Review'.
 2. **Summary:** Generate a concise, 1-sentence summary of the thread's current state.
 3. **Action State:** Determine if this email requires human action (true/false).
 4. **Custom Fields:** Based on the mapped Purpose, extract the following fields: [DYNAMIC_ARRAY]. Return null if not found.
@@ -188,7 +188,7 @@ def seed_default_prompts(conn: sqlite3.Connection) -> None:
 
     PROMPT_DRIVE_STAGE_1 = """You are an intelligent document routing engine. Review the following raw OCR text. It may contain scanning errors.
 
-**Task:** Identify the primary organization, vendor, or sender of this document. Match it to ONE exact `Correspondent` string from the provided whitelist.
+**Task:** Identify the primary organization, vendor, or sender of this document. Match it to ONE exact `Correspondent` string from the provided [ENTITY_PROFILES]. Cross-reference the document's sender email, sending domain, or physical address against the provided entity profiles to increase routing accuracy.
 
 **Rules:**
 - Ignore generic payment processors (e.g., PayPal, Stripe) if the actual vendor is mentioned.

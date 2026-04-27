@@ -18,6 +18,7 @@ By leveraging Google's Gemini Large Language Models (LLMs) and a strictly govern
 * **Three-Tier Hierarchical Taxonomy:** Groups entities logically (`Category` -> `Correspondent` -> `Document Type`) to prevent directory sprawl and label bloat.
 * **Multi-Dimensional Entity Profiles:** Maps specific sending subdomains, addresses, and inferred purposes to specific vendors to create a deterministic knowledge graph.
 * **Zero-Trust Security & Quarantine:** newly discovered vendors and document types are quarantined in a disabled state until manually approved by the user.
+* **Google Contacts Bootstrapping:** Automatically transforms your personal Google Contacts (names, emails, physical addresses) into multi-dimensional entity profiles for deterministic AI routing.
 * **Intelligent Quota Governor:** Defends your daily Google API limits by prioritizing real-time emails (last 72 hours) and throttling historical batch processing.
 * **RAG Knowledge Retrieval:** Features a natural language AI Assistant that queries your extracted SQLite metadata to answer complex questions about your documents and spending.
 * **Cross-Ecosystem Visual Branding:** Synchronizes WCAG-compliant brand colors across both Gmail nested labels and Google Drive folders.
@@ -25,6 +26,8 @@ By leveraging Google's Gemini Large Language Models (LLMs) and a strictly govern
 
 ## Version History
 
+- **v1.4.0:** Phase 29 - Integrated Google People API for autonomous Contact Bootstrapping and multi-dimensional profile mapping.
+- **v1.3.0:** Phase 28 - Telemetry & Alerting Matrix with Pushover webhook notifications and Gmail Daily Digests.
 - **v1.3.0:** Phase 28 - Telemetry & Alerting Matrix with Pushover webhook notifications and Gmail Daily Digests.
 - **v1.2.0:** Phase 22-26 - Added Three-Tier Taxonomy Hierarchy, Zero-Trust UI Review Queues, RAG Query engine, and Quota Governor.
 - **v1.0.0:** Phase 19-21 - Decoupled hardcoded LLM prompts to SQLite, implemented FastAPI BackgroundTasks for the AI Self-Tuning loop, and finalized documentation.

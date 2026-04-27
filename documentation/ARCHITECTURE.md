@@ -255,6 +255,11 @@ flowchart TD
 * **429 and 5xx Handling:** If a 429 (Too Many Requests) or 5xx server error is encountered after the maximum retry threshold (e.g., 3 attempts), the script must NOT crash. It must flag the specific `artifact_id` as `status: ERROR_API_TIMEOUT` in the `Workspace_Artifacts` table, log the trace in the Telemetry HTML, and gracefully continue to the next batch.
 * **Idempotency:** All synchronization functions must be strictly idempotent. Running the sync script twice concurrently must not result in duplicate records or duplicated Drive folder creation.
 
+### **4.4 Context-Aware Prompt Injection (Multi-Dimensional Routing)**
+To achieve deterministic AI routing, the system is strictly forbidden from feeding the LLM a flat, contextless list of taxonomy names. 
+* **Runtime Assembly:** Before any artifact is sent to the Gemini API, the synchronization engine must query the SQLite database to assemble a "Multi-Dimensional Entity Context."
+* **Profile Injection:** The engine extracts the JSON payloads for `sending_subdomains`, `physical_addresses`, and `frequency_weights` mapped to each Correspondent. This structured dictionary is dynamically injected into the active prompt payload (replacing the `[ENTITY_PROFILES]` placeholder) so the LLM can cross-reference the raw document text against known historical footprints.
+
 ## **5\. Data Storage & Metadata Strategy**
 
 ### **5.1 Google Drive Metadata Bifurcation**
@@ -398,7 +403,13 @@ To prevent API exhaustion and ensure real-time responsiveness, `sync_engine.py` 
 ### **8.5 Drive Ingestion Seeder**
 The system includes a scheduled background task to look for `taxonomy_seed.json` in Google Drive. It imports the multi-dimensional entity profiles (subdomains, addresses, colors, frequency weights) into the SQLite knowledge graph, keeping them in a Zero-Trust `disabled` state until user review.
 
-### **8.6 Telemetry & Alerting Matrix (`notifier.py`)**
+### **8.6 Entity Bootstrapping (Google Contacts Integration)**
+To instantly populate the knowledge graph with verified, high-signal data, the system utilizes the Google People API (`contacts.readonly`).
+* **Automated Mapping:** The background synchronization engine must periodically fetch the user's connections. It maps display names to Correspondents, and aggregates all associated email addresses and physical addresses into the respective `sending_subdomains` and `physical_addresses` JSON columns.
+* **Default Categorization:** Bootstrapped contacts are automatically assigned to a Tier 1 category named `Personal Network`.
+* **Zero-Trust Enforcement:** Like Drive ingestion, all Contacts must be inserted with `is_gmail_enabled = 0` and `is_drive_enabled = 0` to prevent active routing until a human explicitly approves the entity.
+
+### **8.7 Telemetry & Alerting Matrix (`notifier.py`)**
 The backend must include a dedicated notification engine to proactively inform the user of system state, utilizing both native Gmail delivery and out-of-band webhooks.
 * **Severity Levels:** Events are categorized as CRITICAL (immediate delivery), WARNING/QUARANTINE (aggregated into a daily digest), or INFO (silent UI logging).
 * **Delivery Methods:** * *Email:* The engine uses the established Gmail OAuth credentials to send a daily digest of quarantined items and DLQ errors.

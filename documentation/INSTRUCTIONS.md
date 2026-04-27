@@ -10,6 +10,7 @@ Navigate to **APIs & Services > Library** in the GCP Console and enable the foll
 * Google Drive API
 * Cloud Pub/Sub API
 * Document AI API
+* **Google People API** (Required for contact bootstrapping)
 
 ![Enable APIs Screenshot](docs/img/gcp_enable_apis.png)
 
@@ -46,6 +47,7 @@ To set up the persistent e2-micro VM environment on Google Cloud Platform, follo
    chmod +x setup.sh
    ./setup.sh
    ```
+`setup.sh` will automatically configure a 15-minute diagnostic cron job on the host machine.
 
 ### 2. Google Apps Script Authentication
 The VM needs headless access to push code to your Google Apps Script environment.

@@ -58,6 +58,13 @@ else
     echo "Python3 is already installed."
 fi
 
+# 4. Install Diagnostic Watchdog Cron Job
+echo "Configuring Diagnostic Watchdog Cron Job..."
+PROJECT_DIR=$(pwd)
+CRON_JOB="*/15 * * * * cd $PROJECT_DIR && docker compose run --rm nexus-sync-engine python3 diagnostics.py"
+(crontab -l 2>/dev/null | grep -v "diagnostics.py"; echo "$CRON_JOB") | crontab -
+echo "Cron job installed: runs every 15 minutes."
+
 echo "======================================="
 echo "PROVISIONING COMPLETE"
 echo "======================================="

@@ -537,3 +537,96 @@
 > 4. Do not alter any of the actual SQL table definitions or Python logic. Only inject comments.
 > 
 > **Output:** Silently update `db_init.py`. Append 'Phase 24b: Database Documentation Polish' to `PROMPT_AUDIT.md`."
+
+---
+
+## Stage 24c: LLM Multi-Dimensional Context Injection
+**Internal Simulation & Correction:** *We successfully built the database architecture to store multi-dimensional profiles (subdomains, addresses, weights), but the AI prompts were never updated to ingest this data. We need to modify the master prompts and the Python string-injection logic so the LLM can use these profiles for deterministic routing.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 24c. We have a critical gap in our extraction pipeline. In Phase 24, we added `sending_subdomains`, `physical_addresses`, and `frequency_weights` to the `Taxonomy_Correspondents` table, but we never updated our AI prompts to actually use this data.
+> 
+> **Tasks:**
+> 1. **Update Prompts (`db_init.py`):** Modify `PROMPT_GMAIL` and `PROMPT_DRIVE_STAGE_1`. Instead of just providing a flat `[WHITELIST]` of names, change the placeholder to `[ENTITY_PROFILES]`. Instruct the AI to cross-reference the document's sender email, sending domain, or physical address against the provided entity profiles to increase routing accuracy.
+> 2. **Update Injection Logic (`llm_engine.py`):** Modify the `process_gmail_thread` and `process_drive_document` functions. When querying the database for the taxonomy whitelist, also pull the `sending_subdomains` and `physical_addresses` JSON columns. Format these into a dictionary (e.g., `{'Google Cloud': {'subdomains': ['cloud-noreply@google.com']}}`) and inject this into the `[ENTITY_PROFILES]` placeholder before calling the Gemini API.
+> 
+> **Output:** > 1. Silently update `db_init.py` and `llm_engine.py`.
+> 2. Append 'Phase 24c: LLM Multi-Dimensional Context Injection' to `PROMPT_AUDIT.md`."
+
+---
+
+## Stage 29: Google Contacts API Integration (Entity Bootstrapping)
+**Internal Simulation & Correction:** *The user realized that Google Contacts contains a wealth of pre-verified entity data (names, emails, physical addresses). We need to leverage the Google People API to automatically ingest these contacts into our multi-dimensional `Taxonomy_Correspondents` table to bootstrap the system.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 29. We had a breakthrough idea: we should use the user's existing Google Contacts to automatically populate our entity profiles. 
+> 
+> **Tasks:**
+> 1. **Add the Google People API:** Update `auth.py` to include the scope `https://www.googleapis.com/auth/contacts.readonly`. (Note: The user will manually enable the People API in GCP and re-auth).
+> 2. **Build Contact Ingestion:** In `sync_engine.py`, create a new function called `sync_contacts(creds, conn, governor)`. 
+>    - Use the `people().connections().list` endpoint to fetch the user's contacts.
+>    - Map the contact's Name to a Correspondent.
+>    - Map the contact's email addresses into the `sending_subdomains` JSON array.
+>    - Map the contact's physical addresses into the `physical_addresses` JSON array.
+>    - Assign them to a Default Category called 'Personal Network' (create this category if it doesn't exist).
+> 3. **Zero-Trust Enforcement:** Insert these contacts into `Taxonomy_Correspondents` with `is_gmail_enabled=0` and `is_drive_enabled=0` so they don't flood the active taxonomy until the user approves them in the UI.
+> 4. **Update Main Loop:** Call `sync_contacts()` inside the main `run_sync()` loop in `sync_engine.py` (run it just before `sync_drive`).
+> 
+> **Output:** > 1. Silently update `auth.py` and `sync_engine.py`. 
+> 2. Append 'Phase 29: Google Contacts Integration' to `PROMPT_AUDIT.md`."
+
+---
+
+## Stage 30: Codebase Inline Documentation Polish
+**Internal Simulation & Correction:** *The backend Python engines (`sync_engine.py` and `llm_engine.py`) execute flawless logic, but they are missing the comprehensive Google-style docstrings and inline architectural comments mandated by Section 9.4 of the architecture. If a future developer modifies the Quota Governor or Two-Stage Triage without understanding the 'why', they could break the system. We need to enforce strict code-level documentation without altering any functional logic.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 30. Your code logic is excellent, but it currently fails the documentation standards outlined in Section 9.4 of `ARCHITECTURE.md`. We need to polish the inline documentation for `sync_engine.py` and `llm_engine.py`.
+> 
+> **Tasks:**
+> 1. **Google-Style Docstrings:** Add comprehensive Google-style docstrings to every class and method. (e.g., The `QuotaGovernor` class and its methods currently have zero documentation. `process_gmail_thread` is too sparse).
+> 2. **Architectural Inline Comments:** Add inline comments (`#`) that explain the *intent* and *why* behind complex logic blocks. 
+>    - In `sync_engine.py`, explain *why* we force `is_gmail_enabled = 0` during seed and contact ingestion (Zero-Trust Quarantine).
+>    - In `sync_engine.py`, explain the math/logic behind the 72-Hour Priority Lane in the Governor.
+>    - In `llm_engine.py`, explain *why* we use a Two-Stage Triage for Drive vs. a Single-Pass for Gmail.
+> 3. **Strict Constraint:** You are strictly forbidden from altering any functional code, logic, or SQL queries. Your ONLY task is to inject docstrings and comments.
+> 
+> **Output:** > 1. Silently update `sync_engine.py` and `llm_engine.py`. 
+> 2. Append 'Phase 30: Codebase Inline Documentation Polish' to `PROMPT_AUDIT.md`."
+
+---
+
+## Stage 31: Docker Hardening (Multi-Stage & Healthchecks)
+**Internal Simulation & Correction:** *The current Docker setup lacks health monitoring and leaves potentially dangerous build dependencies inside the final image. We need to implement a Multi-Stage build to reduce the attack surface (per Architecture Section 10.4) and inject Docker Compose healthchecks to catch silent database locks or hung web servers.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 31. We need to harden our Docker infrastructure to enterprise standards.
+> 
+> **Tasks:**
+> 1. **Rewrite `Dockerfile` (Multi-Stage):** >    - Create a `builder` stage that installs `build-essential` and compiles our `requirements.txt` into wheels (`pip wheel --no-cache-dir --no-deps --wheel-dir /usr/src/app/wheels -r requirements.txt`).
+>    - Create the final `runner` stage using `python:3.11-slim`. Copy the compiled wheels from the builder and install them. Do NOT include any build tools in this final stage.
+> 2. **Update `docker-compose.yml` (Healthchecks):**
+>    - Add a `healthcheck` block to `nexus-api`. It should use `curl -f http://localhost:8000/api/health` (ensure curl is installed in the runner Dockerfile).
+>    - Add a `healthcheck` block to `nexus-sync-engine`. It should run a lightweight Python command to verify database access: `python3 -c "import sqlite3; sqlite3.connect('nexus.db').cursor().execute('SELECT 1')"`
+> 3. **Update `main.py`:** Add a simple `GET /api/health` endpoint that returns `{"status": "healthy"}` so the API healthcheck has a target to ping.
+> 
+> **Output:** > 1. Silently update `Dockerfile`, `docker-compose.yml`, and `main.py`.
+> 2. Append 'Phase 31: Docker Hardening & Healthchecks' to `PROMPT_AUDIT.md`."
+
+## Stage 32: The Diagnostic Watchdog & Health Notifications
+**Internal Simulation & Correction:** *Docker healthchecks lack native push notifications. We need to bridge our infrastructure layer to our telemetry layer by wiring `diagnostics.py` into `notifier.py` and automating its execution via a VM cron job.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 32. We need to bridge our Docker healthchecks into our common logging and notification infrastructure.
+> 
+> **Tasks:**
+> 1. **Update `diagnostics.py` (The Bridge):**
+>    - Import `NexusNotifier` from `notifier.py`.
+>    - Add a new function: `check_api_health()`. Have it make a simple HTTP GET request to `http://nexus-api:8000/api/health`. 
+>    - Modify `run_all_diagnostics()`: If `check_database()`, `check_oauth_token()`, or `check_api_health()` return an error status, immediately trigger `notifier.send_urgent_webhook()` with the failure details.
+> 2. **Update `setup.sh` (The Automation):**
+>    - Add a block to the bash script that automatically installs a crontab entry on the host Ubuntu VM.
+>    - The cron job should execute every 15 minutes: `*/15 * * * * cd /path/to/repo && docker compose run --rm nexus-sync-engine python3 diagnostics.py` (ensure you dynamically grab the current directory variable in the bash script).
+> 
+> **Output:** > 1. Silently update `diagnostics.py` and `setup.sh`.
+> 2. Append 'Phase 32: Diagnostic Watchdog & Health Notifications' to `PROMPT_AUDIT.md`."

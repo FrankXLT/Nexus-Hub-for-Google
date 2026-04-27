@@ -25,17 +25,39 @@ DAILY_QUOTA_LIMIT = 10000
 PRIORITY_RESERVE_RATIO = 0.30
 
 class QuotaGovernor:
+    """
+    Manages API quota limits by tracking daily API calls and throttling non-priority processing.
+    Implements the 72-Hour Priority Lane mechanism to guarantee resources for real-time artifact ingestion.
+    """
     def __init__(self, conn: sqlite3.Connection):
+        """
+        Initializes the QuotaGovernor with an active SQLite database connection.
+        
+        Args:
+            conn (sqlite3.Connection): The active SQLite database connection.
+        """
         self.conn = conn
         self.cursor = conn.cursor()
         self.conn.execute("PRAGMA journal_mode=WAL;")
         self._init_quota_tracker()
 
     def _init_quota_tracker(self):
+        """
+        Initializes the 'api_quota' record in the Config_System table if it does not exist.
+        """
         self.cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES ('api_quota', '{\"date\": \"\", \"calls\": 0}', 'Daily API call tracking')")
         self.conn.commit()
 
     def record_api_call(self, cost: int = 1, entity_id: Optional[int] = None, entity_type: str = 'purpose'):
+        """
+        Records an API call cost against the daily quota limit.
+        Also tracks the operation cost against specific taxonomy entities to identify expensive rules.
+        
+        Args:
+            cost (int, optional): The cost of the API call. Defaults to 1.
+            entity_id (Optional[int], optional): The ID of the taxonomy entity being processed. Defaults to None.
+            entity_type (str, optional): The type of entity ('purpose' or 'correspondent'). Defaults to 'purpose'.
+        """
         today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
         self.cursor.execute("SELECT value FROM Config_System WHERE key = 'api_quota'")
         row = self.cursor.fetchone()
@@ -47,7 +69,7 @@ class QuotaGovernor:
         quota_data['calls'] += cost
         self.cursor.execute("UPDATE Config_System SET value = ? WHERE key = 'api_quota'", (json.dumps(quota_data),))
         
-        # Track cost per entity
+        # Track cost per entity to power API usage telemetry and warn users before bulk edits
         if entity_id:
             if entity_type == 'purpose':
                 self.cursor.execute("UPDATE Taxonomy_Purposes SET operation_cost = operation_cost + ? WHERE id = ?", (cost, entity_id))
@@ -57,6 +79,12 @@ class QuotaGovernor:
         self.conn.commit()
 
     def can_process_historical(self) -> bool:
+        """
+        Evaluates whether the system has sufficient daily quota remaining to process historical (non-priority) data.
+        
+        Returns:
+            bool: True if historical data can be processed, False if throttled.
+        """
         today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
         self.cursor.execute("SELECT value FROM Config_System WHERE key = 'api_quota'")
         row = self.cursor.fetchone()
@@ -64,13 +92,25 @@ class QuotaGovernor:
         if quota_data.get('date') != today:
             return True
         
+        # Architectural Intent: The 72-Hour Priority Lane logic.
+        # By reserving a specific percentage of the total daily quota (e.g., 30%), 
+        # we artificially cap the processing of old historical backlog documents.
+        # This guarantees that new, urgent emails/files (< 72 hours old) are always processed 
+        # immediately and never starved by a massive historical migration job.
         calls = quota_data.get('calls', 0)
         return calls < (DAILY_QUOTA_LIMIT * (1.0 - PRIORITY_RESERVE_RATIO))
 
 @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3))
 def fetch_drive_changes(service: Resource, page_token: str) -> Tuple[Dict[str, Any], Optional[str]]:
     """
-    Fetches Drive changes using a pageToken. Returns the changes and the new start page token.
+    Fetches Drive changes using a pageToken.
+    
+    Args:
+        service (Resource): The authenticated Google Drive service resource.
+        page_token (str): The token to track state from the previous sync.
+        
+    Returns:
+        Tuple[Dict[str, Any], Optional[str]]: The JSON response containing changes, and the next page token.
     """
     results = service.changes().list(pageToken=page_token, spaces='drive').execute()
     new_page_token = results.get('newStartPageToken')
@@ -79,7 +119,14 @@ def fetch_drive_changes(service: Resource, page_token: str) -> Tuple[Dict[str, A
 @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3))
 def fetch_gmail_history(service: Resource, history_id: str) -> Tuple[Dict[str, Any], str]:
     """
-    Fetches Gmail history using a historyId. Returns the history records and the new historyId.
+    Fetches Gmail history using a historyId.
+    
+    Args:
+        service (Resource): The authenticated Gmail service resource.
+        history_id (str): The starting history ID.
+        
+    Returns:
+        Tuple[Dict[str, Any], str]: The history records and the new history ID.
     """
     results = service.users().history().list(userId='me', startHistoryId=history_id).execute()
     new_history_id = results.get('historyId', history_id)
@@ -89,6 +136,12 @@ def fetch_gmail_history(service: Resource, history_id: str) -> Tuple[Dict[str, A
 def init_drive_page_token(service: Resource) -> str:
     """
     Fetches the initial start page token for Drive.
+    
+    Args:
+        service (Resource): The authenticated Google Drive service resource.
+        
+    Returns:
+        str: The initial start page token.
     """
     response = service.changes().getStartPageToken().execute()
     return response.get('startPageToken')
@@ -97,6 +150,12 @@ def init_drive_page_token(service: Resource) -> str:
 def init_gmail_history_id(service: Resource) -> str:
     """
     Fetches the initial history ID for Gmail by getting the user profile.
+    
+    Args:
+        service (Resource): The authenticated Gmail service resource.
+        
+    Returns:
+        str: The initial history ID.
     """
     profile = service.users().getProfile(userId='me').execute()
     return str(profile.get('historyId'))
@@ -104,6 +163,13 @@ def init_gmail_history_id(service: Resource) -> str:
 def get_sync_state(cursor: sqlite3.Cursor, app_name: str) -> Optional[str]:
     """
     Reads the last known token from the Sync_State table.
+    
+    Args:
+        cursor (sqlite3.Cursor): The SQLite database cursor.
+        app_name (str): The name of the application ('drive' or 'gmail').
+        
+    Returns:
+        Optional[str]: The sync token if found, otherwise None.
     """
     cursor.execute("SELECT sync_token FROM Sync_State WHERE app_name = ?", (app_name,))
     row = cursor.fetchone()
@@ -112,6 +178,11 @@ def get_sync_state(cursor: sqlite3.Cursor, app_name: str) -> Optional[str]:
 def update_sync_state(cursor: sqlite3.Cursor, app_name: str, sync_token: str) -> None:
     """
     Updates the Sync_State table with the new token.
+    
+    Args:
+        cursor (sqlite3.Cursor): The SQLite database cursor.
+        app_name (str): The name of the application ('drive' or 'gmail').
+        sync_token (str): The new sync token to persist.
     """
     now = int(time.time())
     cursor.execute("""
@@ -124,7 +195,12 @@ def update_sync_state(cursor: sqlite3.Cursor, app_name: str, sync_token: str) ->
 
 def ingest_taxonomy_seed(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGovernor) -> None:
     """
-    Checks Google Drive for taxonomy_seed.json. If found, parses and updates the schema.
+    Checks Google Drive for taxonomy_seed.json. If found, parses and safely updates the taxonomy schema.
+    
+    Args:
+        creds (Credentials): The authenticated Google credentials.
+        conn (sqlite3.Connection): The SQLite database connection.
+        governor (QuotaGovernor): The active QuotaGovernor instance.
     """
     service = build('drive', 'v3', credentials=creds)
     governor.record_api_call()
@@ -151,6 +227,12 @@ def ingest_taxonomy_seed(creds: Credentials, conn: sqlite3.Connection, governor:
     categories = seed_data.get('categories', [])
     for cat in categories:
         cat_name = cat.get('name')
+        
+        # Architectural Intent: Zero-Trust Quarantine Enforcement
+        # We explicitly force `is_gmail_enabled = 0` and `is_drive_enabled = 0` for all
+        # ingested Categories, Correspondents, and Purposes. This prevents a misconfigured 
+        # external JSON file or newly discovered contacts from instantly flooding the active 
+        # taxonomy graph, ensuring they only go live after explicit human approval in the UI.
         cursor.execute("INSERT OR IGNORE INTO Taxonomy_Categories (name, is_gmail_enabled, is_drive_enabled) VALUES (?, 0, 0)", (cat_name,))
         cursor.execute("SELECT id FROM Taxonomy_Categories WHERE name = ?", (cat_name,))
         cat_id = cursor.fetchone()['id']
@@ -188,14 +270,25 @@ def ingest_taxonomy_seed(creds: Credentials, conn: sqlite3.Connection, governor:
 
 def process_file_with_governor(file_time: float, governor: QuotaGovernor) -> bool:
     """
-    72-Hour Priority Lane check. Returns True if the file can be processed.
+    Evaluates whether an artifact should be processed based on its age and available API quota.
+    
+    Args:
+        file_time (float): The Unix timestamp of the artifact's creation/modification.
+        governor (QuotaGovernor): The active QuotaGovernor instance to query.
+        
+    Returns:
+        bool: True if the file is eligible for immediate processing, False if throttled.
     """
     now = time.time()
     age_hours = (now - file_time) / 3600
+    
+    # Architectural Intent: The 72-Hour Priority Lane Math
+    # If the artifact was generated within the last 72 hours, it skips the quota throttle
+    # entirely and is guaranteed processing, utilizing the reserved 30% API budget if necessary.
     if age_hours < 72:
         return True # Priority Lane
     else:
-        # Historical Backlog
+        # Historical Backlog logic requires governor approval
         if not governor.can_process_historical():
             print("Governor: Historical quota limit reached. Throttling.")
             return False
@@ -204,6 +297,11 @@ def process_file_with_governor(file_time: float, governor: QuotaGovernor) -> boo
 def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGovernor) -> None:
     """
     Synchronizes Google Drive changes via delta fetching.
+    
+    Args:
+        creds (Credentials): The authenticated Google credentials.
+        conn (sqlite3.Connection): The SQLite database connection.
+        governor (QuotaGovernor): The active QuotaGovernor instance tracking API calls.
     """
     service = build('drive', 'v3', credentials=creds)
     cursor = conn.cursor()
@@ -243,6 +341,11 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
 def sync_gmail(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGovernor) -> None:
     """
     Synchronizes Gmail changes via history delta fetching.
+    
+    Args:
+        creds (Credentials): The authenticated Google credentials.
+        conn (sqlite3.Connection): The SQLite database connection.
+        governor (QuotaGovernor): The active QuotaGovernor instance tracking API calls.
     """
     service = build('gmail', 'v1', credentials=creds)
     cursor = conn.cursor()
@@ -278,35 +381,108 @@ def sync_gmail(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
         conn.commit()
         print(f"Updated Gmail historyId to: {new_history_id}")
 
+def sync_contacts(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGovernor) -> None:
+    """
+    Fetches the user's Google Contacts and ingests them into the Taxonomy as Correspondents.
+    Defaults to 'Personal Network' category and zero-trust (disabled) state.
+    
+    Args:
+        creds (Credentials): The authenticated Google credentials.
+        conn (sqlite3.Connection): The SQLite database connection.
+        governor (QuotaGovernor): The active QuotaGovernor instance tracking API calls.
+    """
+    print("Fetching Google Contacts...")
+    service = build('people', 'v1', credentials=creds)
+    governor.record_api_call()
+    
+    try:
+        results = service.people().connections().list(
+            resourceName='people/me',
+            pageSize=1000,
+            personFields='names,emailAddresses,addresses'
+        ).execute()
+        
+        connections = results.get('connections', [])
+        if not connections:
+            print("No contacts found.")
+            return
+            
+        cursor = conn.cursor()
+        
+        # Ensure 'Personal Network' category exists
+        cat_name = 'Personal Network'
+        cursor.execute("INSERT OR IGNORE INTO Taxonomy_Categories (name, is_gmail_enabled, is_drive_enabled) VALUES (?, 0, 0)", (cat_name,))
+        cursor.execute("SELECT id FROM Taxonomy_Categories WHERE name = ?", (cat_name,))
+        cat_id = cursor.fetchone()['id']
+        
+        for person in connections:
+            names = person.get('names', [])
+            if not names:
+                continue
+                
+            corr_name = names[0].get('displayName')
+            if not corr_name:
+                continue
+                
+            emails = person.get('emailAddresses', [])
+            sending_subdomains = [email.get('value') for email in emails if email.get('value')]
+            
+            addresses = person.get('addresses', [])
+            physical_addresses = [addr.get('formattedValue') for addr in addresses if addr.get('formattedValue')]
+            
+            # Architectural Intent: Zero-Trust Quarantine Enforcement
+            # We explicitly force `is_gmail_enabled = 0` and `is_drive_enabled = 0` 
+            # to ensure the active taxonomy engine is not polluted by massive personal address books
+            # without human intervention.
+            
+            # Check if exists
+            cursor.execute("SELECT id FROM Taxonomy_Correspondents WHERE category_id = ? AND name = ?", (cat_id, corr_name))
+            row = cursor.fetchone()
+            if row:
+                cursor.execute("""
+                    UPDATE Taxonomy_Correspondents
+                    SET sending_subdomains = ?, physical_addresses = ?
+                    WHERE id = ?
+                """, (json.dumps(sending_subdomains), json.dumps(physical_addresses), row['id']))
+            else:
+                cursor.execute("""
+                    INSERT INTO Taxonomy_Correspondents (category_id, name, division, sending_subdomains, physical_addresses, brand_colors, is_gmail_enabled, is_drive_enabled)
+                    VALUES (?, ?, '', ?, ?, '[]', 0, 0)
+                """, (cat_id, corr_name, json.dumps(sending_subdomains), json.dumps(physical_addresses)))
+            
+        conn.commit()
+        print(f"Ingested {len(connections)} Google Contacts.")
+    except Exception as e:
+        print(f"Error fetching contacts: {e}")
+
 def run_sync() -> None:
     """
     Main entry point for the Delta Synchronization Engine.
+    Coordinates authentication, Quota Governor initialization, seed ingestion,
+    contact syncing, Drive delta fetching, and Gmail history syncing.
     """
     print("Starting synchronization engine...")
-    creds = authenticate()
-    if not creds or not creds.valid:
-        print("Authentication failed. Ensure token is valid.")
-        return
-        
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL;")
-    
-    governor = QuotaGovernor(conn)
+    notifier = NexusNotifier()
     
     try:
+        creds = authenticate()
+        if not creds or not creds.valid:
+            error_msg = "Authentication failed. Ensure token is valid."
+            print(error_msg)
+            notifier.send_urgent_webhook({"title": "Nexus Hub: Fatal Auth Error", "message": error_msg, "priority": 1})
+            return
+            
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL;")
+        
+        governor = QuotaGovernor(conn)
+        
         ingest_taxonomy_seed(creds, conn, governor)
+        sync_contacts(creds, conn, governor)
         sync_drive(creds, conn, governor)
         sync_gmail(creds, conn, governor)
-    except Exception as e:
-        print(f"Synchronization error occurred: {e}")
-    finally:
-        conn.close()
-        print("Synchronization engine completed.")
-
-if __name__ == "__main__":
-    run_sync()
-te3.OperationalError as e:
+    except sqlite3.OperationalError as e:
         error_msg = f"Database Lock or Operational Error: {e}"
         print(error_msg)
         notifier.send_urgent_webhook({"title": "Nexus Hub: Database Lock", "message": error_msg, "priority": 1})

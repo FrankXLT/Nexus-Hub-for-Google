@@ -81,6 +81,24 @@ def check_oauth_token() -> dict:
         return {"status": "error", "message": f"OAuth Token Check Failed: {str(e)}"}
 
 
+def check_api_health() -> dict:
+    """
+    Verifies the FastAPI web server is responsive.
+    
+    Returns:
+        dict: A result dictionary indicating success or failure.
+    """
+    try:
+        req = urllib.request.Request("http://nexus-api:8000/api/health")
+        with urllib.request.urlopen(req, timeout=10) as response:
+            if response.getcode() == 200:
+                data = json.loads(response.read().decode('utf-8'))
+                return {"status": "success", "message": "API is healthy", "details": data}
+            else:
+                return {"status": "error", "message": f"API returned HTTP {response.getcode()}"}
+    except Exception as e:
+        return {"status": "error", "message": f"API Health Check Failed: {str(e)}"}
+
 def upload_diagnostic_log(report_data: dict) -> dict:
     """
     Compiles the diagnostic report and uploads it to a specific Google Drive folder.
@@ -123,7 +141,7 @@ def upload_diagnostic_log(report_data: dict) -> dict:
         }
         
         json_content = json.dumps(report_data, indent=2)
-        media = MediaIoBaseUpload(io.BytesFile(json_content.encode('utf-8')), mimetype='application/json')
+        media = MediaIoBaseUpload(io.BytesIO(json_content.encode('utf-8')), mimetype='application/json')
         
         file = drive_service.files().create(body=file_metadata, media_body=media, fields='id').execute()
         
@@ -143,8 +161,26 @@ def run_all_diagnostics() -> dict:
     report = {
         "timestamp": datetime.now().isoformat(),
         "database": check_database(),
-        "oauth": check_oauth_token()
+        "oauth": check_oauth_token(),
+        "api": check_api_health()
     }
+    
+    notifier = NexusNotifier()
+    errors = []
+    
+    if report['database']['status'] == 'error':
+        errors.append(f"Database Error: {report['database']['message']}")
+    if report['oauth']['status'] == 'error':
+        errors.append(f"OAuth Error: {report['oauth']['message']}")
+    if report['api']['status'] == 'error':
+        errors.append(f"API Error: {report['api']['message']}")
+        
+    if errors:
+        notifier.send_urgent_webhook({
+            "title": "Nexus Hub: Diagnostic Watchdog Failure",
+            "message": "\n".join(errors),
+            "priority": 1
+        })
     
     # If OAuth passed, try to upload the log
     if report['oauth']['status'] == 'success':

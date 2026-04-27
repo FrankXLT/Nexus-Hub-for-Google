@@ -524,3 +524,90 @@ Added rich, functional inline SQL comments (--) directly above each table creati
 **Files Altered/Created:**
 - db_init.py (Updated)
 - documentation/PROMPT_AUDIT.md (Updated)
+
+
+## Phase 24c: LLM Multi-Dimensional Context Injection
+**Date:** April 26, 2026
+
+**Summary:**
+Updated the Gemini AI extraction prompts and python processing logic to inject rich JSON entity profiles, significantly improving taxonomy routing accuracy.
+
+**Decisions Made:**
+- Updated db_init.py prompts (PROMPT_GMAIL and PROMPT_DRIVE_STAGE_1) to expect [ENTITY_PROFILES] instead of [WHITELIST], instructing the LLM to cross-reference sender subdomains and physical addresses.
+- Refactored process_gmail_thread and process_drive_document in llm_engine.py to automatically query Taxonomy_Correspondents for sending_subdomains and physical_addresses.
+- Formatted these lists into a complex JSON entity profile dictionary and injected it dynamically into the Gemini prompt pipeline to provide maximum context.
+
+**Files Altered/Created:**
+- db_init.py (Updated)
+- llm_engine.py (Updated)
+- documentation/PROMPT_AUDIT.md (Updated)
+
+## Phase 29: Google Contacts Integration
+**Date:** April 26, 2026
+
+**Summary:**
+Integrated the Google People API to auto-populate entity profiles directly from the user's personal address book.
+
+**Decisions Made:**
+- Updated `auth.py` to include the `contacts.readonly` scope, requiring the user to re-authenticate and enable the People API in GCP.
+- Created `sync_contacts` inside `sync_engine.py` using `service.people().connections().list` to fetch up to 1000 personal contacts.
+- Automatically mapped the display name, email addresses (`sending_subdomains`), and formatted physical addresses directly into `Taxonomy_Correspondents` under the default category `Personal Network`.
+- Enforced Zero-Trust (`is_gmail_enabled=0`, `is_drive_enabled=0`) for all ingested contacts, placing them in the Review Queue rather than instantly polluting the active taxonomy.
+- Injected the `sync_contacts` invocation directly into the core `run_sync` pipeline.
+
+**Files Altered/Created:**
+- `auth.py` (Updated)
+- `sync_engine.py` (Updated)
+- `documentation/PROMPT_AUDIT.md` (Updated)
+
+
+## Phase 30: Codebase Inline Documentation Polish
+**Date:** April 26, 2026
+
+**Summary:**
+Added comprehensive Google-style docstrings and deep architectural inline comments to the Python processing engines.
+
+**Decisions Made:**
+- sync_engine.py: Added complete method docstrings for QuotaGovernor and sync execution functions. Injected architectural intent comments explaining the math behind the 72-Hour Priority Lane and the exact reasoning for enforcing is_gmail_enabled = 0 during seed/contact ingestion (to enforce the Zero-Trust Quarantine queue).
+- llm_engine.py: Added docstrings to all methods, including parameters and return types. Added architectural inline comments within process_gmail_thread and process_drive_document to clearly distinguish the reasons behind using Single-Pass extraction vs. Two-Stage Triage processing.
+- Strictly adhered to the constraint of altering zero logic, only enriching the documentation.
+
+**Files Altered/Created:**
+- sync_engine.py (Updated)
+- llm_engine.py (Updated)
+- documentation/PROMPT_AUDIT.md (Updated)
+
+## Phase 31: Docker Hardening & Healthchecks
+**Date:** April 26, 2026
+
+**Summary:**
+Hardened the Docker infrastructure by implementing a multi-stage build process to strip build dependencies from the final image, and introduced robust container healthchecks.
+
+**Decisions Made:**
+- Completely rewrote the `Dockerfile` into two stages (`builder` and `runner`). The builder installs `build-essential` and compiles `requirements.txt` into wheels via `pip wheel`. The runner stage merely copies the wheels and installs them directly, keeping the production image slim and free of vulnerable compilation tools.
+- Injected `curl` into the final runner image to support HTTP health monitoring.
+- Updated `docker-compose.yml` with native Docker `healthcheck` blocks for both services.
+- The `nexus-api` service executes a curl against `GET /api/health` to verify Uvicorn server availability.
+- The `nexus-sync-engine` executes a lightweight `sqlite3` Python command to verify that the `nexus.db` is successfully mounted, accessible, and not corrupted.
+
+**Files Altered/Created:**
+- `Dockerfile` (Updated)
+- `docker-compose.yml` (Updated)
+- `documentation/PROMPT_AUDIT.md` (Updated)
+
+## Phase 32: Diagnostic Watchdog & Health Notifications
+**Date:** April 26, 2026
+
+**Summary:**
+Bridged the diagnostic and healthcheck systems into the telemetry and notification matrix to provide immediate alerts on infrastructure failure.
+
+**Decisions Made:**
+- Updated `diagnostics.py` to import `NexusNotifier`.
+- Created `check_api_health()` inside `diagnostics.py` to execute a simple HTTP GET request to the internal `nexus-api` Docker service to verify responsiveness.
+- Modified `run_all_diagnostics()`: If any of the core diagnostic checks (`check_database()`, `check_oauth_token()`, or `check_api_health()`) return an error state, it immediately halts and fires `notifier.send_urgent_webhook()` to push an alert to the administrator.
+- Updated `setup.sh` to automatically install a host-level crontab entry during provisioning that invokes `docker compose run --rm nexus-sync-engine python3 diagnostics.py` every 15 minutes, serving as a persistent watchdog.
+
+**Files Altered/Created:**
+- `diagnostics.py` (Updated)
+- `setup.sh` (Updated)
+- `documentation/PROMPT_AUDIT.md` (Updated)

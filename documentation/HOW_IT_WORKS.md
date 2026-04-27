@@ -185,6 +185,34 @@ sequenceDiagram
 
 To protect the system against malicious, hallucinated, or misconfigured routing paths from the seed file, the engine forces the is_gmail_enabled and is_drive_enabled booleans to 0 (FALSE) during the INSERT commands. These Zero-Trust toggles quarantine the newly discovered taxonomy nodes until a human administrator explicitly reviews and enables them in the frontend UI.
 
+### Google Contacts Entity Bootstrapping
+In addition to passive Drive ingestion, Nexus Hub actively bootstraps its `Taxonomy_Correspondents` table using the user's verified Google Contacts via the Google People API. 
+
+This converts a user's personal address book into a deterministic routing engine.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Cron as run_sync()
+    participant SE as Sync Engine
+    participant People as Google People API
+    participant DB as SQLite (nexus.db)
+
+    Cron->>SE: Initialize Sync Cycle
+    SE->>People: GET /v1/people/me/connections
+    People-->>SE: Return Contacts (Names, Emails, Addresses)
+    
+    loop For Each Contact
+        SE->>SE: Assign to 'Personal Network' Category
+        SE->>SE: Map Emails -> sending_subdomains JSON
+        SE->>SE: Map Addresses -> physical_addresses JSON
+        SE->>DB: INSERT OR UPDATE Taxonomy_Correspondents
+        Note over SE,DB: Enforce: is_gmail_enabled = 0<br/>Enforce: is_drive_enabled = 0
+    end
+```
+### Data Mapping & Zero-Trust:
+When `sync_contacts()` executes, it aggregates all known email addresses and physical addresses for a single person into the native JSON arrays designed in Phase 24. To prevent flooding the active taxonomy with hundreds of personal contacts, every ingested contact is forced into the Zero-Trust Quarantine. This allows the user to selectively enable only the contacts they actively wish to track for document routing.
+
 ## 3. The Google Drive Pipeline (Deep Dive)
 
 The Google Drive ingestion pipeline is designed to efficiently process complex, unstructured documents through a rigorous, Two-Stage Triage system powered by Gemini AI.
@@ -472,7 +500,9 @@ To instantly isolate points of failure across the hybrid architecture, Nexus Hub
 
 Crucially, the diagnostic suite operates under a strict "Isolated Logging" paradigm. If the SQLite database experiences a fatal lock, it cannot log its own failure. Therefore, the diagnostic suite bypasses the internal `Error_Logs` table and uploads its health reports directly to an isolated folder in Google Drive.
 
-### Diagnostic Communication Flow
+The Automated Watchdog: The host VM utilizes a cron job to execute the diagnostic suite every 15 minutes. If any test (Database integrity, OAuth validity, or API health) fails, the suite bypasses standard logging and utilizes the NexusNotifier to push a critical failure alert directly to the user's mobile device via Pushover.
+
+### Diagnostic Watchdog & Communication Flow
 
 ```mermaid
 flowchart TB
@@ -480,46 +510,50 @@ flowchart TB
     classDef gcp fill:#e6f4ea,stroke:#1e8e3e,stroke-width:2px;
     classDef database fill:#fef7e0,stroke:#f9ab00,stroke-width:2px;
     classDef googleApi fill:#e8eaed,stroke:#5f6368,stroke-width:2px;
+    classDef external fill:#fce8e6,stroke:#d93025,stroke-width:2px;
 
-    subgraph Google Apps Script Environment
-        UI[Index.html: Run Diagnostics Button]
-        GS[Code.gs: runSystemDiagnostics]
-        UI -- "Async Call" --> GS
+    subgraph Execution Triggers
+        Cron[Host VM: 15-Min Cron Job]
+        UI[Apps Script UI: Manual Run]
     end
-    class UI,GS appsScript
+    class Cron,UI appsScript
 
     subgraph GCP Compute Engine (Local VM)
-        WH[FastAPI: /api/health]
-        Diag[diagnostics.py Module]
+        WH[nexus-api: FastAPI]
+        Diag[nexus-sync-engine: diagnostics.py]
         DB[(nexus.db SQLite)]
-        
-        GS -- "HMAC Secured POST" --> WH
+        Notif[notifier.py]
+
+        UI -- "HMAC Webhook" --> WH
         WH -- "Triggers" --> Diag
-        
-        Diag -- "1. Test R/W Transaction" --> DB
-        DB -- "Returns Success/WAL Lock Error" --> Diag
+        Cron -- "docker run" --> Diag
+
+        Diag -- "1. Test R/W Lock" --> DB
+        Diag -- "2. Ping /api/health" --> WH
+        Diag -- "If Any Check Fails" --> Notif
     end
-    class WH,Diag gcp
+    class WH,Diag,Notif gcp
     class DB database
 
-    subgraph External Google Workspace Ecosystem
-        Auth[Google OAuth 2.0 Server]
-        Drive[Google Drive API]
-        
-        Diag -- "2. Verify token.json Validity" --> Auth
-        Auth -- "Token OK" --> Diag
-        
-        Diag -- "3. Ping Quota / User Status" --> Drive
-        Diag -- "4. Upload JSON Report to 'Nexus Diagnostics'" --> Drive
+    subgraph External Ecosystem
+        Auth[Google OAuth]
+        Drive[Google Drive]
+        Push[Pushover API]
+
+        Diag -- "3. Verify token.json" --> Auth
+        Diag -- "4. Upload JSON Report" --> Drive
+        Notif -- "Send CRITICAL Mobile Alert" --> Push
     end
     class Auth,Drive googleApi
+    class Push external
 ```
 
-### The Three-Phase Verification Check
+### The Four-Phase Verification Check
 
 1. **Database R/W Integrity:** The script connects to `nexus.db`, enforces `PRAGMA journal_mode=WAL;`, creates a temporary table `_Diagnostic_Test`, inserts a timestamp, reads it back, and drops the table. This confirms the VM filesystem permissions are intact and the database is not locked by a hung background process.
 2. **OAuth Authorization Ping:** The script authenticates using the VM's headless `token.json` and performs a lightweight read-only request (`about().get`) against the Google Drive API. This verifies the token has not expired or lost its requested scopes.
 3. **Decentralized Log Upload:** The results of the database and OAuth checks are compiled into a JSON payload. The script locates (or creates) a `Nexus Diagnostics` folder in the user's Google Drive and uploads the JSON file, providing an immutable, timestamped record of system health independent of the VM's local storage.
+4. **Telemetry & Log Upload:** If all checks pass, a JSON report is uploaded to the 'Nexus Diagnostics' folder in Google Drive. If any check fails, the script immediately leverages 'notifier.py' to push a CRITICAL alert to the user's mobile device via Pushover, bypassing the internal database entirely.
 
 ## **12. Dynamic Prompt Architecture**
 
