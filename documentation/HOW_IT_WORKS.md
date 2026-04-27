@@ -33,26 +33,157 @@ To support robust data extraction, each Correspondent and Purpose is enriched wi
 - **Brand Colors:** JSON arrays of hex pairs to automatically sync visual identity across Google Workspace.
 - **Frequency & Confidence Weights:** Integers and floats used to refine the routing algorithm based on historical accuracy.
 
-## 2. Intelligent Quota Governor
-Google API quotas and Apps Script execution timeouts are the silent killers of enterprise automation. Nexus Hub implements a "Priority Lane" Governor to defend the system.
+### Database Schema & Relational Integrity
+
+To ensure high performance, prevent data anomalies, and maintain strict system constraints, the `nexus.db` SQLite index normalizes the taxonomy and isolates system states. 
+
+The `Workspace_Artifacts` table does not redundantly store string names for Categories or Correspondents; it stores a single `purpose_id`. During Python data analysis or API fetching, the backend dynamically joins the `Taxonomy_Purposes`, `Taxonomy_Correspondents`, and `Taxonomy_Categories` tables. This guarantees that if an administrator renames a Correspondent or shifts a Purpose to a different Category in the UI, the change propagates instantly across thousands of artifacts without requiring expensive bulk database updates.
+
+#### Entity Relationship Diagram
 
 ```mermaid
-flowchart LR
-    A[Incoming Artifacts] --> B{Governor Engine}
-    B -- "< 72 Hours Old" --> C[Priority Lane: 30% Quota Reserved]
-    B -- "> 72 Hours Old" --> D[Historical Backlog: Max 70% Quota]
-    C --> E[Real-Time Processing]
-    D --> E
-    E --> F[API Burn Rate Tracker]
-    F -.-> B
+erDiagram
+    Taxonomy_Categories ||--o{ Taxonomy_Correspondents : "contains"
+    Taxonomy_Correspondents ||--o{ Taxonomy_Purposes : "defines"
+    Taxonomy_Purposes ||--o{ Workspace_Artifacts : "categorizes"
+    Workspace_Artifacts ||--o{ Artifact_History : "logs"
+    Workspace_Artifacts ||--o{ Error_Logs : "tracks"
+
+    Config_System {
+        string key PK "Global variables"
+        string value
+    }
+    Sync_State {
+        string app_name PK "Gmail or Drive"
+        string sync_token "Delta page tokens"
+    }
+    Config_Prompts {
+        string target_app PK
+        string prompt_text "Dynamic LLM instructions"
+    }
+    Taxonomy_Categories {
+        int id PK
+        string name
+        int is_gmail_enabled "Zero-Trust Toggle"
+        int is_drive_enabled "Zero-Trust Toggle"
+    }
+    Taxonomy_Correspondents {
+        int id PK
+        int category_id FK
+        string name
+        string division
+        json sending_subdomains
+        json physical_addresses
+        json brand_colors
+        int operation_cost "Quota tracking weight"
+        int is_gmail_enabled
+        int is_drive_enabled
+    }
+    Taxonomy_Purposes {
+        int id PK
+        int correspondent_id FK
+        string name
+        json custom_field_schema
+        int frequency_weight
+        float confidence_weight
+        int operation_cost "Quota tracking weight"
+        int is_gmail_enabled
+        int is_drive_enabled
+    }
+    Workspace_Artifacts {
+        string artifact_id PK
+        int purpose_id FK
+        string raw_text
+        string summary
+        json custom_data
+        string status
+        int locked_by_system "Prevents race conditions"
+    }
+    Artifact_History {
+        int log_id PK
+        string artifact_id FK
+        int timestamp
+        string actor
+        string action_type
+        json previous_state
+        json new_state
+    }
+    Error_Logs {
+        int log_id PK
+        int timestamp
+        string module_name
+        string artifact_id FK
+        string error_message
+        json stack_trace "DLQ payload"
+    }
 ```
 
-By artificially capping the processing of old historical documents, the system guarantees that new, urgent emails are always processed immediately, even during massive inbox migrations. The system tracks daily API calls inside `Config_System` and attributes operation costs to specific Taxonomy Purposes and Correspondents to evaluate expensive taxonomy rules.
+#### Core Data Structures
+
+* **The Taxonomy Core (`Taxonomy_*`):** Divides the hierarchy into three distinct tiers. The `Taxonomy_Correspondents` table utilizes native `JSON` columns to hold multi-dimensional profiles (`sending_subdomains`, `physical_addresses`, `brand_colors`), while `Taxonomy_Purposes` stores the `custom_field_schema`. Both tables track `operation_cost` to feed the API Quota Governor.
+* **The Master Index (`Workspace_Artifacts`):** The central truth for all indexed documents and emails. It includes a `locked_by_system` boolean that acts as a mutex, preventing the UI from pushing manual overrides while the background synchronization engine is actively modifying the file.
+* **The Dynamic AI Core (`Config_Prompts`):** Isolates the system role, extraction parameters, and AI instructions from the Python logic. This allows the Tuning Loop and UI to mutate AI behavior on the fly without restarting the Docker container.
+* **The Telemetry Core (`Artifact_History` & `Error_Logs`):** Strict append-only ledgers. The History table records immutable JSON diffs of metadata overrides, while the Error Logs function as a Dead-Letter Queue (DLQ), catching API timeouts and Python stack traces for automated background retries.
+
+## 2. Intelligent Quota Governor
+
+Google API quotas and Apps Script execution timeouts are the silent killers of enterprise automation. Nexus Hub implements a "Priority Lane" Governor (`QuotaGovernor` class) directly within `sync_engine.py` to actively monitor and throttle API usage.
+
+### The 72-Hour Priority Lane Logic
+
+For every artifact fetched during a delta sync, `process_file_with_governor()` evaluates the item's age. It physically reserves a portion of the daily API quota (e.g., 30%) exclusively for real-time items.
+
+```mermaid
+flowchart TD
+    classDef check fill:#e8f0fe,stroke:#1a73e8,stroke-width:2px;
+    classDef pass fill:#e6f4ea,stroke:#1e8e3e,stroke-width:2px;
+    classDef fail fill:#fce8e6,stroke:#d93025,stroke-width:2px;
+    classDef db fill:#fef7e0,stroke:#f9ab00,stroke-width:2px;
+
+    Start((Fetch Artifact)) --> Age{Calculate Age}:::check
+    Age -- "< 72 Hours" --> Pass[Priority Lane: Allowed]:::pass
+    Age -- "> 72 Hours" --> Hist{can_process_historical?}:::check
+
+    Hist -- "Calls < 70% Limit" --> Pass
+    Hist -- "Calls >= 70% Limit" --> Throttle[Governor: Throttled]:::fail
+
+    Pass --> Process[Process Artifact]:::check
+    Process --> Record[Governor.record_api_call]:::db
+    Record --> UpdateDB[(Update Config_System Daily Count)]:::db
+    Record --> UpdateCost[(Update Taxonomy operation_cost)]:::db
+```
+
+### Entity Cost Tracking
+Every time an API call is made, record_api_call() updates the global counter in the Config_System table. Furthermore, if the call was associated with a specific entity, it increments the operation_cost integer column in either Taxonomy_Correspondents or Taxonomy_Purposes. This allows the UI to forecast exactly how much quota a bulk-edit operation will consume based on historical data.
 
 ### Seed Ingestion & Zero-Trust Defaults
-A background cron task embedded inside the FastAPI engine runs the `sync_engine.py` pipeline periodically. The very first action of this pipeline is to check Google Drive for a `taxonomy_seed.json` file. If found, the Python engine passively ingests this multi-dimensional file into the SQLite database, extracting categories, correspondents, purposes, schemas, and frequency weights.
 
-To protect the system against malicious or misconfigured routing paths, every newly ingested node automatically defaults to `is_gmail_enabled = FALSE` and `is_drive_enabled = FALSE`. These Zero-Trust toggles quarantine newly discovered taxonomy strings until a human administrator reviews and enables them in the UI.
+Before the standard delta syncs occur, `sync_engine.py` executes `ingest_taxonomy_seed()`. This function acts as a passive ingestion bridge, allowing external scrapers (like the standalone Nexus for Gmail worker) to securely feed new entities into the system without requiring open webhook endpoints.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Cron as run_sync()
+    participant SE as Sync Engine
+    participant Drive as Google Drive API
+    participant DB as SQLite (nexus.db)
+
+    Cron->>SE: Initialize Sync Cycle
+    SE->>Drive: Query: name='taxonomy_seed.json'
+    alt File Found
+        Drive-->>SE: Download JSON Payload
+        SE->>SE: Parse Categories, Correspondents, Purposes
+        SE->>DB: INSERT OR IGNORE Categories (is_gmail=0, is_drive=0)
+        SE->>DB: INSERT OR IGNORE Correspondents (is_gmail=0, is_drive=0)
+        SE->>DB: INSERT OR IGNORE Purposes (is_gmail=0, is_drive=0)
+        Note over SE,DB: Frequency weights & Schemas merged
+    else Not Found
+        SE->>SE: Bypass Ingestion
+    end
+    SE->>SE: Proceed to Delta Syncs (Drive/Gmail)
+```
+
+To protect the system against malicious, hallucinated, or misconfigured routing paths from the seed file, the engine forces the is_gmail_enabled and is_drive_enabled booleans to 0 (FALSE) during the INSERT commands. These Zero-Trust toggles quarantine the newly discovered taxonomy nodes until a human administrator explicitly reviews and enables them in the frontend UI.
 
 ## 3. The Google Drive Pipeline (Deep Dive)
 
@@ -111,28 +242,37 @@ sequenceDiagram
 1. **Delta Synchronization:** To avoid the prohibitive latency of full polling, the sync_engine.py process maintains a persistent pageToken in the Sync_State table. It queries the Google Drive API (changes().list) to fetch only files modified since the last check.  
 2. **Payload Optimization:** For scanned documents, the engine leverages Document AI for OCR. Because raw hOCR output is massive and token-heavy, the engine strips down this payload, retaining only the UTF-8 text to minimize latency before passing it to the LLM.
 
-### **Phase 2: Triage & Routing Queue**
+### **Phase 2 & 3: Two-Stage Triage & Logical Routing**
 
-1. **Correspondent Identification (Stage 1):** The stripped text is passed to the LLM to identify the primary organization, vendor, or sender against a strict whitelist.  
-2. **Taxonomy Normalization:** The LLM's output is intercepted to prevent "Label Creep."
+Because Drive documents are unstructured, `llm_engine.py` employs a Two-Stage verification process (`process_drive_document`). It strictly enforces whitelists via the `normalize_taxonomy()` function while gracefully capturing "Discovery" suggestions from the LLM if a vendor is unknown.
 
-```mermaid  
-flowchart TD  
-    Raw[Raw Extracted Text] --> LLM[Gemini Generates 'Purpose' Tag]  
-    LLM --> Tag["e.g., 'Receipts'"]  
-      
-    Tag --> CheckDict{Check Normalization Dict}  
-    CheckDict -- "Match Found" --> Norm["Normalize: 'Receipts' -> 'Receipt'"]  
-    CheckDict -- "No Match" --> Verify{Verify Against DB Whitelist}  
-      
-    Norm --> Verify  
-      
-    Verify -- "Exact Match" --> Accept[Apply Tag & Process]  
-    Verify -- "Failed Match" --> Reject["Route to 'Purpose/Review'"]  
-      
-    style Accept fill:#e6f4ea,stroke:#1e8e3e  
-    style Reject fill:#fff7d0,stroke:#f29900
+```mermaid
+flowchart TD
+    classDef ai fill:#fce8e6,stroke:#d93025,stroke-width:2px;
+    classDef processing fill:#e8f0fe,stroke:#1a73e8,stroke-width:2px;
+    classDef queue fill:#fff7d0,stroke:#f29900,stroke-width:2px;
+    classDef final fill:#e6f4ea,stroke:#1e8e3e,stroke-width:2px;
+
+    Start((Start Drive Sync)) --> Fetch1[Fetch 'DRIVE_STAGE_1' Prompt]:::processing
+    Fetch1 --> Gemini1[Gemini API: Identify Correspondent]:::ai
+    Gemini1 --> Norm1{Normalize Correspondent}:::processing
+
+    Norm1 -- Valid Match --> Fetch2[Fetch Correspondent-Specific Prompt]:::processing
+    Norm1 -- 'UNKNOWN' or Failed Match --> Disc1{Has 'discovered_correspondent'?}:::processing
+
+    Disc1 -- Yes --> RouteCR[Status: Correspondent/Review<br>Data: pending_discovery]:::queue
+    Disc1 -- No --> RouteUnk[Status: UNKNOWN_CORRESPONDENT]:::queue
+
+    Fetch2 --> Gemini2[Gemini API: Extract Purpose & Fields]:::ai
+    Gemini2 --> Norm2{Normalize Purpose}:::processing
+
+    Norm2 -- Valid Match --> RouteProc[Status: PROCESSED]:::final
+    Norm2 -- 'Purpose/Review' --> Disc2{Has 'discovered_purpose'?}:::processing
+
+    Disc2 -- Yes --> RoutePR1[Status: Purpose/Review<br>Data: pending_discovery]:::queue
+    Disc2 -- No --> RoutePR2[Status: Purpose/Review]:::queue
 ```
+
 ### **Phase 3 & 4: Threshold Batching, Extraction, and Archival**
 
 Once a batch threshold is met for a specific Correspondent, the documents undergo deep extraction for Custom Fields. Successful extractions are written to the database and native Drive metadata. Ambiguous documents are forcefully routed to the Purpose/Review Exception Queue.
@@ -169,6 +309,32 @@ sequenceDiagram
 1. **Trigger Mechanisms:** A Cloud Pub/Sub push notification serves as the primary trigger, firing a webhook to initiate the sync. A cron-based polling fallback queries users().history().list.  
 2. **Single-Pass Extraction:** The payload is evaluated by Gemini in a single pass to determine the taxonomy path, generate a summary, assess actionability, and extract custom fields simultaneously.
 
+### **The Single-Pass Logical Flow**
+
+Because emails provide rich context (Sender, Subject), `llm_engine.py` executes `process_gmail_thread()` in a single step, injecting the schema and whitelists directly into the unified prompt.
+
+```mermaid
+flowchart TD
+    classDef ai fill:#fce8e6,stroke:#d93025,stroke-width:2px;
+    classDef processing fill:#e8f0fe,stroke:#1a73e8,stroke-width:2px;
+    classDef queue fill:#fff7d0,stroke:#f29900,stroke-width:2px;
+    classDef final fill:#e6f4ea,stroke:#1e8e3e,stroke-width:2px;
+    classDef error fill:#fce8e6,stroke:#d93025,stroke-width:2px;
+
+    Start((Start Gmail Sync)) --> Fetch[Fetch 'GMAIL' Prompt]:::processing
+    Fetch --> Context[Inject Dynamic Array & Whitelist]:::processing
+    Context --> Gemini[Gemini API: Single-Pass Extraction]:::ai
+
+    Gemini -- Valid JSON --> Norm{Normalize Taxonomy Path}:::processing
+    Gemini -- JSONDecodeError --> RouteErr[Status: ERROR_LLM_PARSE]:::error
+
+    Norm -- Valid Match --> Save[persist_llm_results]:::processing
+    Norm -- Failed Match --> SaveRev[persist_llm_results]:::processing
+    
+    Save --> RouteProc[Status: PROCESSED]:::final
+    SaveRev --> RouteRev[Status: Purpose/Review]:::queue    
+```
+
 ## **5. The Exception Queue & Manual UI Overrides**
 
 When an artifact fails strict normalization or Gemini returns an ambiguous result, it is flagged as Purpose/Review. These items await human verification in the Apps Script frontend. When a user provides a manual correction, the system secures the transmission via a cryptographic handshake.
@@ -201,7 +367,24 @@ sequenceDiagram
 
 ## **6. RAG Knowledge Retrieval Pipeline**
 
-Nexus Hub includes a natural language querying engine. To protect system memory and API costs, it implements a "Text-to-SQL" pipeline rather than blindly feeding the entire database to the LLM.
+Nexus Hub includes a natural language querying engine (`ask_rag()`). To protect system memory, eliminate context-window limits, and reduce API costs, it implements a strict Two-Step "Text-to-SQL" pipeline rather than blindly feeding semantic vector databases.
+
+```mermaid
+flowchart TD
+    classDef ai fill:#fce8e6,stroke:#d93025,stroke-width:2px;
+    classDef db fill:#fef7e0,stroke:#f9ab00,stroke-width:2px;
+    classDef processing fill:#e8f0fe,stroke:#1a73e8,stroke-width:2px;
+
+    Input[User Natural Language Question] --> Prompt1[Prompt 1: Text-to-SQL Translation]:::processing
+    Prompt1 --> Gemini1[Gemini API: Generate SQL String]:::ai
+    Gemini1 --> Query[(SQLite: Execute Read-Only SQL)]:::db
+    
+    Query -- Returns up to 10 Rows --> Prompt2[Prompt 2: Summarize Rows]:::processing
+    Query -- SQLite Error / Empty --> Fail[Return Error Message to UI]:::processing
+    
+    Prompt2 --> Gemini2[Gemini API: Natural Language Synthesis]:::ai
+    Gemini2 --> Output[Return Answer to Chat UI]:::processing
+```
 
 ## **7. The Tuning Loop (AI Self-Correction)**
 
@@ -283,7 +466,62 @@ To ensure the automated ingestion pipeline never crashes or loses data, Nexus Hu
 2. **API Timeouts:** If a 500 error occurs when calling Gemini or Google APIs, the artifact is logged into the Error_Logs table alongside its full stack trace.  
 3. **Auto-Retry:** The background sync job periodically polls the Error_Logs table. Failed artifacts are automatically re-queued for processing up to a maximum of 3 attempts before requiring manual admin intervention.
 
-## **11. Dynamic Prompt Architecture**
+## 11. Automated Health Checks & Diagnostics
+
+To instantly isolate points of failure across the hybrid architecture, Nexus Hub features a decoupled diagnostic suite (`diagnostics.py`). This suite can be triggered manually via the Apps Script UI or invoked via the command line on the host VM. 
+
+Crucially, the diagnostic suite operates under a strict "Isolated Logging" paradigm. If the SQLite database experiences a fatal lock, it cannot log its own failure. Therefore, the diagnostic suite bypasses the internal `Error_Logs` table and uploads its health reports directly to an isolated folder in Google Drive.
+
+### Diagnostic Communication Flow
+
+```mermaid
+flowchart TB
+    classDef appsScript fill:#e8f0fe,stroke:#1a73e8,stroke-width:2px;
+    classDef gcp fill:#e6f4ea,stroke:#1e8e3e,stroke-width:2px;
+    classDef database fill:#fef7e0,stroke:#f9ab00,stroke-width:2px;
+    classDef googleApi fill:#e8eaed,stroke:#5f6368,stroke-width:2px;
+
+    subgraph Google Apps Script Environment
+        UI[Index.html: Run Diagnostics Button]
+        GS[Code.gs: runSystemDiagnostics]
+        UI -- "Async Call" --> GS
+    end
+    class UI,GS appsScript
+
+    subgraph GCP Compute Engine (Local VM)
+        WH[FastAPI: /api/health]
+        Diag[diagnostics.py Module]
+        DB[(nexus.db SQLite)]
+        
+        GS -- "HMAC Secured POST" --> WH
+        WH -- "Triggers" --> Diag
+        
+        Diag -- "1. Test R/W Transaction" --> DB
+        DB -- "Returns Success/WAL Lock Error" --> Diag
+    end
+    class WH,Diag gcp
+    class DB database
+
+    subgraph External Google Workspace Ecosystem
+        Auth[Google OAuth 2.0 Server]
+        Drive[Google Drive API]
+        
+        Diag -- "2. Verify token.json Validity" --> Auth
+        Auth -- "Token OK" --> Diag
+        
+        Diag -- "3. Ping Quota / User Status" --> Drive
+        Diag -- "4. Upload JSON Report to 'Nexus Diagnostics'" --> Drive
+    end
+    class Auth,Drive googleApi
+```
+
+### The Three-Phase Verification Check
+
+1. **Database R/W Integrity:** The script connects to `nexus.db`, enforces `PRAGMA journal_mode=WAL;`, creates a temporary table `_Diagnostic_Test`, inserts a timestamp, reads it back, and drops the table. This confirms the VM filesystem permissions are intact and the database is not locked by a hung background process.
+2. **OAuth Authorization Ping:** The script authenticates using the VM's headless `token.json` and performs a lightweight read-only request (`about().get`) against the Google Drive API. This verifies the token has not expired or lost its requested scopes.
+3. **Decentralized Log Upload:** The results of the database and OAuth checks are compiled into a JSON payload. The script locates (or creates) a `Nexus Diagnostics` folder in the user's Google Drive and uploads the JSON file, providing an immutable, timestamped record of system health independent of the VM's local storage.
+
+## **12. Dynamic Prompt Architecture**
 
 Nexus Hub employs a fully database-driven prompt architecture, eliminating hardcoded instructions from the execution environment. This allows administrators to modify AI behavior on-the-fly without needing to restart the Docker container or redeploy the Python VM.
 
@@ -291,7 +529,7 @@ Nexus Hub employs a fully database-driven prompt architecture, eliminating hardc
 2. **Real-time Injection:** Immediately before triggering an external call to the Gemini API, the LLM extraction engine queries the database in real-time to fetch the active instructions.
 3. **Frontend Modification:** The backend exposes secured `GET /api/prompts` and `POST /api/prompts` endpoints, allowing the Google Apps Script frontend to seamlessly read and apply updates to these core instructions.
 
-## **12. Telemetry & Alerting Matrix**
+## **13. Telemetry & Alerting Matrix**
 
 Because the engine runs headlessly, Nexus Hub employs a robust notification matrix to alert the user of critical failures via Pushover, and emails daily digests of quarantined items.
 

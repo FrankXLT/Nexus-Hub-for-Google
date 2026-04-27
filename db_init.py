@@ -28,6 +28,7 @@ def init_db(db_path: str = DB_PATH) -> None:
     cursor = conn.cursor()
     
     # 1. Config_System
+    # -- Core key-value store for global settings and Quota Governor API call tracking.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Config_System (
             key TEXT PRIMARY KEY,
@@ -37,6 +38,8 @@ def init_db(db_path: str = DB_PATH) -> None:
     """)
     
     # 2. Sync_State
+    # -- Maintains the Google API pagination/history tokens for delta-sync operations, 
+    # -- preventing full data polling and preserving API quota.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Sync_State (
             app_name TEXT PRIMARY KEY,
@@ -46,6 +49,8 @@ def init_db(db_path: str = DB_PATH) -> None:
     """)
 
     # 3. Config_Prompts
+    # -- Stores the active dynamic LLM prompts. Supports real-time prompt tuning 
+    # -- directly from the Apps Script UI.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Config_Prompts (
             target_app TEXT PRIMARY KEY,
@@ -54,6 +59,8 @@ def init_db(db_path: str = DB_PATH) -> None:
     """)
     
     # 4. Taxonomy_Categories
+    # -- Tier 1 of the relational taxonomy hierarchy (e.g., 'Finance', 'Technology').
+    # -- Uses Zero-Trust default toggles for ecosystem propagation.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Taxonomy_Categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,6 +71,10 @@ def init_db(db_path: str = DB_PATH) -> None:
     """)
 
     # 4b. Taxonomy_Correspondents
+    # -- Tier 2 of the hierarchy representing vendors or senders. 
+    # -- JSON tracking columns (sending_subdomains, physical_addresses, brand_colors) 
+    # -- enrich the deterministic knowledge graph for LLM matching and UI branding.
+    # -- operation_cost tracks historical LLM execution weight for Quota Governor throttling.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Taxonomy_Correspondents (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -81,6 +92,8 @@ def init_db(db_path: str = DB_PATH) -> None:
     """)
 
     # 4c. Taxonomy_Purposes
+    # -- Tier 3 of the hierarchy determining the document's intent. 
+    # -- operation_cost tracks execution impact for the Quota Governor.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Taxonomy_Purposes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -97,6 +110,9 @@ def init_db(db_path: str = DB_PATH) -> None:
     """)
     
     # 5. Workspace_Artifacts
+    # -- The master index for all Google Workspace items. 
+    # -- Uses `purpose_id` as the sole foreign key to maintain the cascading hierarchy,
+    # -- as the Purpose node inherently belongs to a specific Correspondent and Category.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Workspace_Artifacts (
             artifact_id TEXT PRIMARY KEY,
@@ -111,6 +127,7 @@ def init_db(db_path: str = DB_PATH) -> None:
     """)
     
     # 6. Artifact_History
+    # -- Immutable audit log tracking state changes from LLMs or manual UI overrides.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Artifact_History (
             log_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -125,6 +142,8 @@ def init_db(db_path: str = DB_PATH) -> None:
     """)
 
     # 7. Error_Logs
+    # -- The Dead-Letter Queue (DLQ) persisting stack traces and failures for later 
+    # -- automated retries and Telemetry alerting.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Error_Logs (
             log_id INTEGER PRIMARY KEY AUTOINCREMENT,

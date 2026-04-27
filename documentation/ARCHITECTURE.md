@@ -268,12 +268,13 @@ flowchart TD
 | :--- | :--- |
 | **Config_System** | Global preferences and throttling limits. |
 | **Sync_State** | Stores app_name, sync_token, and last_updated timestamp. |
-| **Taxonomy_Categories** | Tier 1 Hierarchy. Fields: `id`, `name`. |
-| **Taxonomy_Correspondents** | Tier 2 Hierarchy. Fields: `id`, `category_id`, `name`, `division`, `is_gmail_enabled`, `is_drive_enabled`, `subdomains`, `addresses`, `brand_colors`, `frequency_weights`. |
-| **Taxonomy_Purposes** | Tier 3 Hierarchy. Fields: `id`, `name`, `is_gmail_enabled`, `is_drive_enabled`, `frequency_weights`. |
-| **Workspace_Artifacts**| Master index. Fields: `artifact_id`, `category_id`, `correspondent_id`, `purpose_id`, `raw_text`, `summary`, `status`, `custom_data`, `locked_by_system`. |
+| **Config_Prompts** | Dynamic AI instructions. Fields: `target_app` (PK), `prompt_text`. |
+| **Taxonomy_Categories** | Tier 1. Fields: `id`, `name`, `is_gmail_enabled`, `is_drive_enabled`. |
+| **Taxonomy_Correspondents** | Tier 2. Fields: `id`, `category_id`, `name`, `division`, `sending_subdomains`, `physical_addresses`, `brand_colors`, `operation_cost`, `is_gmail_enabled`, `is_drive_enabled`. |
+| **Taxonomy_Purposes** | Tier 3. Fields: `id`, `correspondent_id`, `name`, `custom_field_schema`, `frequency_weight`, `confidence_weight`, `operation_cost`, `is_gmail_enabled`, `is_drive_enabled`. |
+| **Workspace_Artifacts**| Master index. Fields: `artifact_id`, `purpose_id`, `raw_text`, `summary`, `status`, `custom_data`, `locked_by_system`. |
 | **Artifact_History** | Immutable audit log. Fields: `log_id`, `artifact_id`, `timestamp`, `actor`, `action_type`, `previous_state`, `new_state`. |
-| **Error_Logs** | Dead-Letter Queue. |
+| **Error_Logs** | Dead-Letter Queue. Fields: `log_id`, `timestamp`, `module_name`, `artifact_id`, `error_message`, `stack_trace`. |
 
 #### **5.2.1 SQLite Schema Constraints**
 When generating the SQL creation scripts, the following constraints are mandatory:
@@ -281,55 +282,6 @@ When generating the SQL creation scripts, the following constraints are mandator
 * Use `JSON` native functions for querying the `custom_data`, `previous_state`, and `new_state` columns.
 * Enforce Foreign Key constraints (e.g., `Artifact_History.artifact_id` referencing `Workspace_Artifacts.id`) and implement `ON DELETE CASCADE` where appropriate to prevent orphaned data.
 * Implement database connection pooling or strict `PRAGMA journal_mode=WAL;` to handle concurrent reads from the UI and writes from the background processor without database lock (`database is locked`) exceptions.
-
-### **5.3 Relational Entity Diagram**
-
-```mermaid
-erDiagram
-    Taxonomy_Categories ||--o{ Taxonomy_Correspondents : "contains"
-    Taxonomy_Categories ||--o{ Workspace_Artifacts : "groups"
-    Taxonomy_Correspondents ||--o{ Workspace_Artifacts : "sends/owns"
-    Taxonomy_Purposes ||--o{ Workspace_Artifacts : "defines"
-    Workspace_Artifacts ||--o{ Artifact_History : "logs"
-
-    Taxonomy_Categories {
-        int id PK
-        string name
-    }
-
-    Taxonomy_Correspondents {
-        int id PK
-        int category_id FK
-        string name
-        string division
-        boolean is_gmail_enabled
-        boolean is_drive_enabled
-        string subdomains
-    }
-
-    Taxonomy_Purposes {
-        int id PK
-        string name
-        boolean is_gmail_enabled
-        boolean is_drive_enabled
-    }
-
-    Workspace_Artifacts {
-        string artifact_id PK
-        int category_id FK
-        int correspondent_id FK
-        int purpose_id FK
-        string status
-        string locked_by_system
-    }
-
-    Artifact_History {
-        int log_id PK
-        string artifact_id FK
-        string actor
-        string action_type
-    }
-```
 
 ## **6\. Security & Access Control**
 

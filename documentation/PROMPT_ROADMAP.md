@@ -521,3 +521,19 @@
 > 1. Silently fix any code or documentation inconsistencies you find.
 > 2. Generate a Pass/Fail checklist at the bottom of `ARCHITECTURE_AUDIT.md` for Stages 22 through 26.
 > 3. Append 'Phase 27: Final V1.1 Master Audit' to `PROMPT_AUDIT.md`."
+
+---
+
+## Stage 24b: Database Schema Documentation Polish
+**Internal Simulation & Correction:** *The `db_init.py` file has excellent relational structure but lacks inline documentation explaining the 'why' behind the schema design for future maintainers.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "Let's execute Phase 24b. The structure of `db_init.py` is perfect, but the documentation is lacking. 
+> 
+> **Tasks:**
+> 1. Add rich, functional inline SQL comments (`--`) directly above each table creation block in `db_init.py`. 
+> 2. Explain *why* `Workspace_Artifacts` only uses `purpose_id` as a foreign key (cascading hierarchy).
+> 3. Explain the function of the JSON tracking columns (`sending_subdomains`, `physical_addresses`, `brand_colors`) and the `operation_cost` columns for the Quota Governor.
+> 4. Do not alter any of the actual SQL table definitions or Python logic. Only inject comments.
+> 
+> **Output:** Silently update `db_init.py`. Append 'Phase 24b: Database Documentation Polish' to `PROMPT_AUDIT.md`."

@@ -507,3 +507,20 @@ Conducted the V1.1 Master Project Audit acting as the Lead QA Engineer, verifyin
 - documentation/HOW_IT_WORKS.md (Updated)
 - documentation/ARCHITECTURE_AUDIT.md (Updated)
 - documentation/PROMPT_AUDIT.md (Updated)
+
+
+## Phase 24b: Database Documentation Polish
+**Date:** April 26, 2026
+
+**Summary:**
+Added rich, functional inline SQL comments (--) directly above each table creation block in db_init.py to clarify the schema's purpose.
+
+**Decisions Made:**
+- Clarified that Workspace_Artifacts only uses purpose_id to strictly enforce the cascading Three-Tier Hierarchy (Purpose -> Correspondent -> Category).
+- Documented that JSON tracking columns (sending_subdomains, physical_addresses, rand_colors) are used to enrich the deterministic knowledge graph for LLM matching and UI branding.
+- Documented the operation_cost columns on Correspondents and Purposes, noting their function in tracking historical LLM execution weight for the Quota Governor's throttling logic.
+- Ensured all updates were strictly cosmetic comments, leaving actual SQL table definitions and Python logic unchanged.
+
+**Files Altered/Created:**
+- db_init.py (Updated)
+- documentation/PROMPT_AUDIT.md (Updated)
