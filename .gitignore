@@ -17,3 +17,11 @@ Thumbs.db
 
 # Documentation Roadmaps
 documentation_roadmap.md
+References/adhoc-analysis_prompt.tmpl
+References/correspondent_prompt.tmpl
+References/created_date_prompt.tmpl
+References/custom_field_prompt.tmpl
+References/document_type_prompt.tmpl
+References/ocr_prompt.tmpl
+References/tag_prompt.tmpl
+References/title_prompt.tmpl
