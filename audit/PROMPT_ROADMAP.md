@@ -1,10 +1,14 @@
-# Nexus Hub: Code Generation Prompt Roadmap
+# Nexus Hub: Prompt Roadmap By Epic
 
 **Instructions for the Human Developer:** Do not paste this entire file into Gemini Code Assist at once. Treat this as a sequential playbook. 
 1. Ensure `ARCHITECTURE.md` is open or referenced in your IDE chat context.
-2. Paste **Stage 0** to anchor the agent. 
-3. Wait for its acknowledgment. 
-4. Proceed phase-by-phase, only moving to the next stage when the current code is perfect.
+2. Paste the prompt to anchor the agent. 
+3. Proceed prompt-by-prompt within the current Epic, only moving to the next when the current code is perfect.
+
+---
+
+## EPIC 0: The Baseline Foundation (v0.x.x)
+*Notice to AI: This Epic covers the foundational ingestion, database, and webhook architecture.*
 
 ---
 
@@ -980,114 +984,38 @@
 
 ---
 
-<a id="stage-46"></a>
-## Stage 46: Audit Fix - Global Purposes & Gmail Tuning Hooks
-**Internal Simulation & Correction:** *A codebase audit revealed that the Single-Pass Gmail engine ignores `custom_extraction_rules` and fails to map `is_global` purposes. We must update the SQL queries to create "Virtual Paths" for global purposes and inject the tuning rules into the entity profiles.*
+## EPIC 1: Autonomous Profiling & Lifecycle Management (v1.x.x)
+*Notice to AI: We are now executing Epic 1. Update the README version history to v1.x.x for the following prompts.*
 
-**Copy/Paste this to Gemini Code Assist:**
-> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+<a id="epic-1-prompt-1"></a>
+### Epic 1 - Prompt 1: Core Audit Fixes (Gmail Tuning & HMAC Trap)
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. We are starting Epic 1.
 > 
-> **Task 1: Code Implementation (`llm_engine.py` - Gmail Logic)**
-> We need to fix the `process_gmail_thread` logic so it supports tuning hooks and global purposes.
-> 1. **Update the SQL Query:** Modify the main SELECT query in `process_gmail_thread` to fetch `tc.custom_extraction_rules as c_rules` and `tp.custom_extraction_rules as p_rules`.
-> 2. **Fetch Global Purposes:** Run a second query to fetch all purposes where `is_global = 1 AND is_gmail_enabled = 1`. 
-> 3. **Virtual Whitelist Paths:** When building the `whitelist_paths` loop, also iterate through the global purposes and append them to the current correspondent (e.g., `f"{cat_name} \\ {corr_name} \\ {global_purpose['name']}"`). 
-> 4. **Inject Tuning Rules:** When building the `entity_profiles` dictionary for each correspondent, inject a new key `"rules": c_rules` (if they exist). Also create a nested dictionary of purpose-specific rules.
+> **Task 1: Code Implementation (`llm_engine.py`)**
+> 1. Modify the SELECT query in `process_gmail_thread` to fetch `tc.custom_extraction_rules as c_rules` and `tp.custom_extraction_rules as p_rules`.
+> 2. Fetch all purposes where `is_global = 1 AND is_gmail_enabled = 1`. 
+> 3. When building the `whitelist_paths`, iterate through global purposes and append them to the current correspondent. 
+> 4. Inject a new key `"rules": c_rules` (if they exist) into the `entity_profiles` dictionary for the prompt context.
 > 
-> **Task 2: Code Implementation (`db_init.py` - Prompt Update)**
-> 1. Modify the `PROMPT_GMAIL` string inside `seed_default_prompts`. Add an explicit instruction under the Tasks section: `You must strictly obey any "rules" or custom extraction instructions provided inside the [ENTITY_PROFILES] for the matched vendor.`
+> **Task 2: Code Implementation (`update.sh`)**
+> 1. Delete the raw `curl` health check (it fails due to HMAC).
+> 2. Replace it with a `while` loop checking native Docker health: `docker inspect --format="{{json .State.Health.Status}}" nexus-api`.
+> 3. Wait up to 30 seconds for the status to equal `"healthy"`. If it fails, trigger the `trap_error` function.
 > 
 > **Task 3: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add a new bullet to the top of the 'Version History' section: `- **v1.10.3:** [Phase 46](./PROMPT_ROADMAP.md#stage-46) - Applied audit fixes to the Gmail Sync Engine to support dynamic AI tuning hooks and cross-pollinated Global Purposes.`
+> * **In `README.md`:** Add to Version History: `- **v1.0.0:** [Epic 1.1](#epic-1-prompt-1) - Applied audit fixes for Gmail global tuning hooks and refactored CI/CD to use Docker health checks.`
 > 
 > **Output Actions:**
-> 1. Silently update `llm_engine.py` and `db_init.py`.
-> 2. Silently update `README.md` exactly as instructed."
+> 1. Silently update `llm_engine.py` and `update.sh`.
+> 2. Silently update `README.md`."
 
----
-
-<a id="stage-47"></a>
-## Stage 47: Audit Fix - Update Script HMAC Trap
-**Internal Simulation & Correction:** *A codebase audit revealed that `update.sh` uses a raw `curl` to check `/api/health`. Because the endpoint is protected by HMAC, this returns 401 Unauthorized, causing the update script to falsely fail. We must use native Docker healthchecks.*
-
-**Copy/Paste this to Gemini Code Assist:**
-> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
-> 
-> **Task 1: Code Implementation (`update.sh`)**
-> 1. **Remove the Curl Command:** Delete the `curl` check and the `if [ "$HTTP_STATUS" -ne 200 ]` block.
-> 2. **Implement Docker Polling:** Replace it with a `while` loop checking the native Docker health status: `docker inspect --format="{{json .State.Health.Status}}" nexus-api`.
-> 3. **Timeout Logic:** Wait up to 30 seconds for the status to equal `"healthy"`. If it hits 30 seconds and is still `"starting"` or `"unhealthy"`, trigger the `trap_error` function.
-> 
-> **Task 2: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add a new bullet to the top of the 'Version History' section: `- **v1.10.4:** [Phase 47](./PROMPT_ROADMAP.md#stage-47) - Refactored CI/CD update script to use native Docker health checks instead of HMAC-blocked cURL requests.`
-> 
-> **Output Actions:**
-> 1. Silently update `update.sh`.
-> 2. Silently update `README.md` exactly as instructed."
-
----
-
-<a id="stage-48"></a>
-## Stage 48: Quota Governor Dashboard (API Burn Rate UI)
-**Internal Simulation & Correction:** *The user has no visibility into API throttling. We need to build a FastAPI endpoint to expose `operation_cost` and a visual progress bar in the Apps Script UI.*
-
-**Copy/Paste this to Gemini Code Assist:**
-> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
-> 
-> **Task 1: Code Implementation (API & UI)**
-> 1. **Update `main.py`:** Create endpoint `GET /api/health/quota` to return today's current API burn rate and the maximum daily limit.
-> 2. **Update Apps Script UI:** Build a 'Quota Governor' metric card displaying a visual progress bar representing daily API usage.
-> 3. **Continuous UX Protocol:** Add a tooltip to the progress bar explaining that historical batches are automatically throttled at 70% capacity.
-> 
-> **Task 2: Continuous Documentation (`README.md`)**
-> * **Location:** Section 6. The Intelligent Quota Governor.
-> * **Action:** Append a new paragraph explaining the frontend UI visualizes the daily API burn rate so the user knows when the system enters a throttled state.
-> 
-> **Task 3: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add a new bullet to the 'Version History': `- **v1.11.0:** [Phase 48](./PROMPT_ROADMAP.md#stage-48) - Built the Quota Governor Dashboard to visualize daily API burn rates.`
-> 
-> **Output Actions:**
-> 1. Silently update `main.py` and the Apps Script UI files.
-> 2. Silently update `README.md` exactly as instructed."
-
----
-
-<a id="stage-49"></a>
-## Stage 49: System Health Status Indicator
-**Internal Simulation & Correction:** *We need a persistent, global status indicator in the UI header that polls the backend health to prevent silent UI failures.*
-
-**Copy/Paste this to Gemini Code Assist:**
-> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
-> 
-> **Task 1: Code Implementation (API & UI)**
-> 1. **Update Apps Script UI:** Add a global System Health badge to the top header (e.g., a colored dot or chip).
-> 2. **Update Apps Script Logic:** Configure the frontend to ping the existing `/api/health` endpoint every 60 seconds. Update color dynamically (Green/Yellow/Red).
-> 3. **Continuous UX Protocol:** Add tooltips displaying the specific error string returned by the API if the badge is Yellow or Red.
-> 
-> **Task 2: Continuous Documentation (`README.md`)**
-> * **Location:** Section 9. Telemetry, Diagnostics & Notifications.
-> * **Action:** Insert a new subsection: `### 9.1 Real-Time UI Observability`. Explain the global status badge logic.
-> * **Constraint - Tables:** Update the **Table of Contents**.
-> 
-> **Task 3: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add a new bullet to the 'Version History': `- **v1.11.1:** [Phase 49](./PROMPT_ROADMAP.md#stage-49) - Implemented real-time System Health Status indicator in the UI header.`
-> 
-> **Output Actions:**
-> 1. Silently update the Apps Script UI files.
-> 2. Silently update `README.md` exactly as instructed."
-
----
-
-<a id="stage-50"></a>
-## Stage 50: Gmail Post-Processing & Tier 3 Auto-Archive
-**Internal Simulation & Correction:** *Emails stay in the inbox after categorization. Add an `auto_archive` boolean to Tier 3 Purposes and build Gmail API logic to strip the 'INBOX' label.*
-
-**Copy/Paste this to Gemini Code Assist:**
+<a id="epic-1-prompt-2"></a>
+### Epic 1 - Prompt 2: Gmail Post-Processing & Auto-Archive
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > 
 > **Task 1: Code Implementation (Backend & Frontend)**
 > 1. **Update `db_init.py`:** In `Taxonomy_Purposes`, add column: `auto_archive BOOLEAN DEFAULT 0`.
-> 2. **Update `sync_engine.py`:** If matched Purpose has `auto_archive == 1`, execute a Gmail API call to remove the `INBOX` label from the thread.
+> 2. **Update `sync_engine.py`:** If a matched Purpose has `auto_archive == 1`, execute a Gmail API call to remove the `INBOX` label from the thread.
 > 3. **Update Apps Script UI:** Add a toggle switch next to each Tier 3 Purpose labeled 'Auto-Archive on Match'. Wire this to update the DB. Include a descriptive tooltip.
 > 
 > **Task 2: Continuous Documentation (`README.md`)**
@@ -1095,44 +1023,34 @@
 > * **Action:** Insert subsection: `### 5.1 Post-Processing & Auto-Archive`. Explain the capability to automatically drop the INBOX label. Update Table of Contents.
 > 
 > **Task 3: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add a new bullet to the 'Version History': `- **v1.12.0:** [Phase 50](./PROMPT_ROADMAP.md#stage-50) - Built Gmail API post-processing for Tier 3 Auto-Archiving.`
+> * **In `README.md`:** Add to Version History: `- **v1.1.0:** [Epic 1.2](#epic-1-prompt-2) - Built Gmail API post-processing for Tier 3 Auto-Archiving.`
 > 
 > **Output Actions:**
-> 1. Silently update `db_init.py`, `sync_engine.py`, and Apps Script UI files.
-> 2. Silently update `README.md` exactly as instructed."
+> 1. Silently update the codebase.
+> 2. Silently update `README.md`."
 
----
-
-<a id="stage-51"></a>
-## Stage 51: Advanced Inbox Retention & Cleanup Engine
-**Internal Simulation & Correction:** *Users need scheduled/on-demand inbox cleanup based on hard rules (age) or AI rules (categories).*
-
-**Copy/Paste this to Gemini Code Assist:**
+<a id="epic-1-prompt-3"></a>
+### Epic 1 - Prompt 3: Advanced Inbox Retention Engine
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > 
 > **Task 1: Code Implementation (Retention Engine & UI)**
 > 1. **Update `db_init.py`:** Add table `Config_Retention_Rules` (cols: id, target_category, action, days_old, is_active).
 > 2. **Create `retention_worker.py`:** Query this table, search Gmail for matching threads, and execute batch Archive/Trash API commands.
-> 3. **Update Apps Script UI:** Create 'Inbox Cleanup Rules' tab to create/manage rules and trigger a manual run. Add tooltips explaining Archive vs Trash.
+> 3. **Update Apps Script UI:** Create an 'Inbox Cleanup Rules' tab to manage rules and trigger a manual run. Add tooltips explaining Archive vs Trash.
 > 
 > **Task 2: Continuous Documentation (`README.md`)**
 > * **Location:** Section 5.1 Post-Processing & Auto-Archive.
-> * **Action:** Rename to `### 5.1 Post-Processing & Retention Rules`. Append paragraph detailing the batch sweeping logic. Update Table of Contents.
+> * **Action:** Rename to `### 5.1 Post-Processing & Retention Rules`. Append paragraph detailing batch sweeping logic. Update Table of Contents.
 > 
 > **Task 3: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add a new bullet to the 'Version History': `- **v1.12.1:** [Phase 51](./PROMPT_ROADMAP.md#stage-51) - Engineered the Advanced Inbox Retention Engine.`
+> * **In `README.md`:** Add to Version History: `- **v1.2.0:** [Epic 1.3](#epic-1-prompt-3) - Engineered the Advanced Inbox Retention Engine.`
 > 
 > **Output Actions:**
-> 1. Silently update the DB, UI, and create `retention_worker.py`.
-> 2. Silently update `README.md` exactly as instructed."
+> 1. Silently update DB/UI, create `retention_worker.py`.
+> 2. Silently update `README.md`."
 
----
-
-<a id="stage-52"></a>
-## Stage 52: The Drive Relocation Engine
-**Internal Simulation & Correction:** *To fulfill the Anti-Folder philosophy, the system must programmatically move processed files out of the staging ground to a permanent Google Drive location.*
-
-**Copy/Paste this to Gemini Code Assist:**
+<a id="epic-1-prompt-4"></a>
+### Epic 1 - Prompt 4: The Drive Relocation Engine
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > 
 > **Task 1: Code Implementation (Drive API Execution)**
@@ -1145,403 +1063,286 @@
 > * **Action:** Append paragraph explaining the programmatic parent directory rewrite logic.
 > 
 > **Task 3: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add a new bullet to the 'Version History': `- **v1.12.2:** [Phase 52](./PROMPT_ROADMAP.md#stage-52) - Built the Drive Relocation Engine to clear the staging dropzone.`
+> * **In `README.md`:** Add to Version History: `- **v1.3.0:** [Epic 1.4](#epic-1-prompt-4) - Built the Drive Relocation Engine to clear the staging dropzone.`
 > 
 > **Output Actions:**
-> 1. Silently update `db_init.py`, `sync_engine.py`, and the UI.
-> 2. Silently update `README.md` exactly as instructed."
+> 1. Silently update codebase.
+> 2. Silently update `README.md`."
 
 ---
 
-<a id="stage-53"></a>
-## Stage 53: Master Terminology & Entity Profiler Architecture
-**Internal Simulation & Correction:** *Before we build the dynamic AI definitions and extract the prompt files, we must establish a strict Glossary in the master documentation so the AI agent and future developers never confuse a 'Correspondent' with a 'Sender'.*
+## EPIC 2: The Core API & Graph Migration (v2.x.x)
+*Notice to AI: We are now executing Epic 2. Update the README version history to v2.x.x for the following prompts.*
 
-**Copy/Paste this to Gemini Code Assist:**
-> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
-> 
-> **Task 1: Continuous Documentation (`README.md` - Glossary)**
-> * **Location:** Create a new Level 2 subsection: `### 10.5 The Nexus Hub Glossary`.
-> * **Content:** Define the strict terminology hierarchy:
->   - **Entity Type:** The broadest category (e.g., Business, People, Finance).
->   - **Correspondent:** The overarching legal entity or parent organization (e.g., Home Depot, SMCPS).
->   - **Sender/Office:** The specific subdomain or email address sending the artifact (e.g., receipts@homedepot.com, marketing@homedepot.com).
->   - **Purpose:** The specific intent of the document (e.g., Receipt, Statement, Newsletter).
->   - **Category:** The Google-specific UI inbox tab (e.g., Primary, Promotions).
->   - **Artifact:** The universal term for a processed item (Gmail Thread or Drive Document).
-> 
-> **Task 2: Continuous Documentation (`README.md` - Architecture)**
-> * **Location:** Section 2. The Zero-Trust Taxonomy.
-> * **Action:** Insert a new subsection: `### 2.1 The Entity Profiler (Static vs. Dynamic Definitions)`.
-> * **Content:** Explain that the system relies on definitions to prevent AI hallucination. 'Entity Types' and 'Purposes' use static, developer-written definitions (e.g., defining exactly what a Receipt is). 'Correspondents' and 'Senders' utilize a dynamic "Entity Profiler"—a lightweight AI prompt that automatically reads the first email from a new sender and permanently writes a 15-word definition into the database so the AI remembers exactly who they are for all future interactions.
-> 
-> **Task 3: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add a new bullet to the 'Version History': `- **v1.13.0:** [Phase 53](./PROMPT_ROADMAP.md#stage-53) - Established the Nexus Hub Glossary and documented the Entity Profiler architecture.`
-> 
-> **Output Actions:**
-> 1. Silently update `README.md` exactly as instructed above."
-
----
-
-<a id="stage-54"></a>
-## Stage 54: Database Schema Upgrade (Senders & Definitions)
-**Internal Simulation & Correction:** *To support the Entity Profiler and subdomain tracking, we must update the SQLite schema to hold definitions and create the new `Taxonomy_Senders` table before we rewrite the AI logic.*
-
-**Copy/Paste this to Gemini Code Assist:**
-> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+<a id="epic-2-prompt-1"></a>
+### Epic 2 - Prompt 1: Telemetry & Effectiveness Schema Upgrade
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. We are starting Epic 2.
 > 
 > **Task 1: Code Implementation (`db_init.py`)**
-> 1. **Update Existing Tables:** Add a `definition TEXT` column to the `Taxonomy_Entities` and `Taxonomy_Purposes` tables.
-> 2. **Create Senders Table:** Create a new table: `Taxonomy_Senders`.
->    - Columns: `id INTEGER PRIMARY KEY`, `correspondent_id INTEGER` (Foreign Key linked to Taxonomy_Correspondents), `sender_address TEXT UNIQUE` (e.g., 'billing@homedepot.com'), `definition TEXT` (For the AI's generated profile), `custom_extraction_rules TEXT`.
-> 3. **Update Seed Data:** In the `seed_default_taxonomy` function, add brief static definitions to the base Entities and Purposes (e.g., 'Receipt': 'A proof of purchase for a completed financial transaction.').
-> 
-> **Task 2: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add a new bullet to the 'Version History': `- **v1.13.1:** [Phase 54](./PROMPT_ROADMAP.md#stage-54) - Upgraded SQLite schema to include Taxonomy_Senders and definition columns for the Entity Profiler.`
-> 
-> **Output Actions:**
-> 1. Silently update `db_init.py`.
-> 2. Silently update `README.md` exactly as instructed."
-
----
-
-<a id="stage-55"></a>
-## Stage 55: The Prompt Sandbox (Extracting `.tmpl` Files)
-**Internal Simulation & Correction:** *Hardcoding massive LLM prompts in Python makes tuning dangerous and clutters the codebase. We must extract the master prompts into flat text files using the XML-Fenced Zero-Trust architecture.*
-
-**Copy/Paste this to Gemini Code Assist:**
-> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
-> 
-> **Task 1: Code Implementation (Prompt Extraction)**
-> 1. **Create Directory:** Create a new directory named `prompts` in the root of the project.
-> 2. **Create Prompt Files:** Inside `/prompts`, create three text files: `gmail_extraction.tmpl`, `drive_stage1.tmpl`, and `drive_stage2.tmpl`.
-> 3. **Format (Gmail):** Populate `gmail_extraction.tmpl` using an XML-Fenced architecture. It must contain distinct `<taxonomy_whitelists>` (for entities, correspondents, purposes) and `<global_rules>`. It must instruct the AI to output the strict JSON schema.
-> 4. **Format (Drive):** Move the existing Stage 1 and Stage 2 Drive prompt logic from the Python code into their respective `.tmpl` files, wrapping their constraints in XML tags for better LLM adherence.
-> 
-> **Task 2: Code Implementation (`db_init.py`)**
-> 1. **Refactor DB Seeding:** Remove the hardcoded `PROMPT_GMAIL` and `PROMPT_DRIVE` strings.
-> 2. **Dynamic Loading:** Update `seed_default_prompts()` to dynamically open, read the contents of the `/prompts/*.tmpl` files, and insert that raw text into the `Config_Prompts` SQLite table.
-> 
-> **Task 3: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add a new bullet to the 'Version History': `- **v1.13.2:** [Phase 55](./PROMPT_ROADMAP.md#stage-55) - Extracted AI prompts into dedicated .tmpl files and implemented the XML-Fenced Zero-Trust prompt architecture.`
-> 
-> **Output Actions:**
-> 1. Silently create the `/prompts` directory and the `.tmpl` files.
-> 2. Silently update `db_init.py`.
-> 3. Silently update `README.md` exactly as instructed."
-
----
-
-<a id="stage-56"></a>
-## Stage 56: The Entity Profiler Prompt Template
-**Internal Simulation & Correction:** *The AI needs strict instructions on how to generate the 15-word definition for new senders. We must create a new `.tmpl` file and ensure the initialization script loads it into the live database memory.*
-
-**Copy/Paste this to Gemini Code Assist:**
-> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
-> 
-> **Task 1: Code Implementation (Prompt Sandbox)**
-> 1. **Create File:** Inside the `/prompts` directory, create a new file named `entity_profiler.tmpl`.
-> 2. **Write the Prompt:** Populate the file with this exact text:
->    ```text
->    You are an Entity Profiling Agent. Your task is to read the provided email and write a strict, factual definition of the sender.
->    
->    Constraints:
->    - Maximum 15 words.
->    - State who the sender is and what type of correspondence they typically send.
->    - Do not use conversational filler (e.g., "This sender is..."). Start directly with the noun.
->    - Example: "Administrative mailing address for St. Mary's County Public Schools; sends district-wide event and policy updates."
->    
->    <sender_address>{{SENDER_ADDRESS}}</sender_address>
->    <email_content>{{EMAIL_CONTENT}}</email_content>
->    
->    Respond ONLY with the definition string.
->    ```
-> 
-> **Task 2: Code Implementation (`db_init.py`)**
-> 1. **Update DB Seeding:** Modify `seed_default_prompts()` to also read `entity_profiler.tmpl` and insert it into the `Config_Prompts` table with the target app key `'ENTITY_PROFILER'`.
-> 
-> **Task 3: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add a new bullet to the 'Version History': `- **v1.14.0:** [Phase 56](./PROMPT_ROADMAP.md#stage-56) - Created the Entity Profiler prompt template to enable autonomous generation of sender definitions.`
-> 
-> **Output Actions:**
-> 1. Silently create `prompts/entity_profiler.tmpl`.
-> 2. Silently update `db_init.py`.
-> 3. Silently update `README.md` exactly as instructed."
-
----
-
-<a id="stage-57"></a>
-## Stage 57: The Entity Profiler Execution Engine
-**Internal Simulation & Correction:** *We must intercept incoming emails from unknown senders, trigger the profiler to generate the definition, save it to the `Taxonomy_Senders` table, and then inject that context into the main extraction prompt.*
-
-**Copy/Paste this to Gemini Code Assist:**
-> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
-> 
-> **Task 1: Code Implementation (`llm_engine.py`)**
-> 1. **Create Profiler Function:** Add a new function `generate_sender_profile(sender_address: str, email_content: str) -> str`. It must fetch the `'ENTITY_PROFILER'` prompt from the DB, inject the variables, call the Gemini API, and return the 15-word definition.
-> 
-> **Task 2: Code Implementation (`sync_engine.py`)**
-> 1. **Intercept Logic:** Inside the Gmail ingestion loop, before calling the main `process_gmail_thread`, query the `Taxonomy_Senders` table for the current thread's sender address.
-> 2. **Execute Profiler:** If the sender does NOT exist:
->    - Call `generate_sender_profile()`.
->    - Execute an `INSERT` into `Taxonomy_Senders` saving the `sender_address` and the newly generated `definition`. (Leave `correspondent_id` null for now; we will build the matching logic later).
-> 
-> **Task 3: Continuous Documentation (`README.md`)**
-> * **Location:** Section 2.1 The Entity Profiler
-> * **Action:** Append a paragraph detailing the execution flow.
-> * **Content:** Explain that `sync_engine.py` intercepts unknown senders at the perimeter, forces the LLM to generate a permanent definition via `generate_sender_profile()`, and commits it to the database before standard categorization occurs.
-> 
-> **Task 4: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add a new bullet to the 'Version History': `- **v1.14.1:** [Phase 57](./PROMPT_ROADMAP.md#stage-57) - Built the Entity Profiler Execution Engine to automatically intercept and define unknown senders in real-time.`
-> 
-> **Output Actions:**
-> 1. Silently update `llm_engine.py` and `sync_engine.py`.
-> 2. Silently update `README.md` exactly as instructed."
-
----
-
-<a id="stage-58"></a>
-## Stage 58: The AI Entity Resolver (Auto-Linking)
-**Internal Simulation & Correction:** *When a new sender is profiled, the AI should attempt to match it to an existing parent Correspondent. We need a specific prompt for this and a Python execution sequence to link the foreign keys.*
-
-**Copy/Paste this to Gemini Code Assist:**
-> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
-> 
-> **Task 1: Code Implementation (Prompt Sandbox)**
-> 1. **Create File:** Inside the `/prompts` directory, create `entity_resolver.tmpl`.
-> 2. **Write the Prompt:** >    ```text
->    You are an Entity Resolution API. Your task is to match a new email sender to an existing parent Correspondent from the provided JSON database.
->    
->    <new_sender>
->      <address>{{SENDER_ADDRESS}}</address>
->      <profile>{{SENDER_PROFILE}}</profile>
->    </new_sender>
->    
->    <available_correspondents>
->      {{CORRESPONDENTS_JSON}}
->    </available_correspondents>
->    
->    Respond ONLY with the exact integer ID of the matched correspondent. If there is no logical match, respond with 0.
->    ```
-> 
-> **Task 2: Code Implementation (`db_init.py` & `llm_engine.py`)**
-> 1. **Seed DB:** Update `seed_default_prompts()` to load `entity_resolver.tmpl` into `Config_Prompts` with the key `'ENTITY_RESOLVER'`.
-> 2. **LLM Engine:** Create `resolve_sender_to_correspondent(sender_address: str, profile: str) -> int`. This function fetches the resolver prompt, fetches all current Correspondents from the DB, formats them as JSON, and calls Gemini. It returns the ID or `None`.
-> 
-> **Task 3: Code Implementation (`sync_engine.py`)**
-> 1. **Update Intercept Logic:** After `generate_sender_profile` runs for a new sender, immediately call `resolve_sender_to_correspondent`. Update the `INSERT` statement for `Taxonomy_Senders` to include the AI-guessed `correspondent_id`.
-> 
-> **Task 4: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add a new bullet to the 'Version History': `- **v1.14.2:** [Phase 58](./PROMPT_ROADMAP.md#stage-58) - Engineered the AI Entity Resolver to autonomously match new senders to parent correspondents.`
-> 
-> **Output Actions:**
-> 1. Silently create the `.tmpl` file and update `db_init.py`.
-> 2. Silently update `llm_engine.py` and `sync_engine.py`.
-> 3. Silently update `README.md` exactly as instructed."
-
----
-
-<a id="stage-59"></a>
-## Stage 59: Sender Resolution UI (Zero-Trust Queue)
-**Internal Simulation & Correction:** *Even with AI guessing, we need a UI for the user to view mapped senders, correct AI mistakes, or manually assign senders that the AI couldn't confidently match (where ID=0).*
-
-**Copy/Paste this to Gemini Code Assist:**
-> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
-> 
-> **Task 1: Code Implementation (API endpoints in `main.py`)**
-> 1. **GET Senders:** Create `GET /api/entities/senders` to return all rows from `Taxonomy_Senders`, joined with `Taxonomy_Correspondents` to show the assigned parent name.
-> 2. **PUT Sender:** Create `PUT /api/entities/senders/{id}` to update a sender's `correspondent_id` or `custom_extraction_rules`.
-> 
-> **Task 2: Code Implementation (Apps Script UI)**
-> 1. **Update `Index.html`:** In the 'Entity Management' tab, add a new sub-section called 'Sender Resolution Queue'. Create a data grid that lists the Sender Address, the AI-generated Profile, and a dropdown of all Correspondents to change or assign the parent link.
-> 2. **Update JS Logic:** Write the frontend fetch and save logic in `JS_Actions.html` to populate the grid and push changes to the new FastAPI endpoints.
-> 3. **Continuous UX Protocol:** Add a tooltip to the new section explaining: 'Senders are specific email addresses. Map them to a Parent Correspondent to ensure the AI groups their documents correctly.'
-> 
-> **Task 3: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add a new bullet to the 'Version History': `- **v1.14.3:** [Phase 59](./PROMPT_ROADMAP.md#stage-59) - Built the Sender Resolution UI to allow human-in-the-loop verification of AI entity linking.`
-> 
-> **Output Actions:**
-> 1. Silently update `main.py` and the Apps Script files.
-> 2. Silently update `README.md` exactly as instructed."
-
----
-
-<a id="stage-60"></a>
-## Stage 60: Telemetry & Effectiveness Schema Upgrade
-**Internal Simulation & Correction:** *To track AI effectiveness and latency, we must add telemetry columns to our core tables so the background workers can log execution times, API costs, and manual corrections.*
-
-**Copy/Paste this to Gemini Code Assist:**
-> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
-> 
-> **Task 1: Code Implementation (`db_init.py`)**
-> 1. **Update `Artifact_History` Table:** Add three new columns: 
->    - `processing_time_ms INTEGER` (To track latency).
->    - `api_tokens_used INTEGER` (To track Gemini payload cost).
->    - `is_human_corrected BOOLEAN DEFAULT 0` (To track if this history event was a human fixing an AI mistake).
+> 1. **Update `Artifact_History`:** Add `processing_time_ms INTEGER`, `api_tokens_used INTEGER`, and `is_human_corrected BOOLEAN DEFAULT 0`.
 > 
 > **Task 2: Code Implementation (`sync_engine.py` & `llm_engine.py`)**
-> 1. **Inject Telemetry:** Wrap the core LLM execution block in a timer (`time.time()`). Calculate the elapsed milliseconds.
-> 2. **Log Tokens:** Extract the `usage_metadata.total_token_count` from the Gemini API response.
-> 3. **Commit Telemetry:** When inserting the success log into the `Artifact_History` table, include the calculated `processing_time_ms` and `api_tokens_used`.
+> 1. **Inject Telemetry:** Wrap the core LLM execution block in a timer (`time.time()`). Calculate elapsed ms.
+> 2. **Log Tokens:** Extract `usage_metadata.total_token_count` from the Gemini response.
+> 3. **Commit Telemetry:** Include `processing_time_ms` and `api_tokens_used` when inserting success logs.
 > 
 > **Task 3: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add a new bullet to the 'Version History': `- **v1.15.0:** [Phase 60](./PROMPT_ROADMAP.md#stage-60) - Upgraded database schema and background workers to capture granular execution telemetry and AI accuracy metrics.`
+> * **In `README.md`:** Add to Version History: `- **v2.0.0:** [Epic 2.1](#epic-2-prompt-1) - Upgraded database schema and workers to capture execution telemetry.`
 > 
 > **Output Actions:**
-> 1. Silently update `db_init.py`, `llm_engine.py`, and `sync_engine.py`.
-> 2. Silently update `README.md` exactly as instructed."
+> 1. Silently update DB and engines.
+> 2. Silently update `README.md`."
 
----
-
-<a id="stage-61"></a>
-## Stage 61: The ROI & Aggregation API (Backend)
-**Internal Simulation & Correction:** *Now that data is being tracked, we need a FastAPI endpoint that runs the complex SQLite aggregation queries to group the data into Throughput, Telemetry, and Effectiveness buckets.*
-
-**Copy/Paste this to Gemini Code Assist:**
+<a id="epic-2-prompt-2"></a>
+### Epic 2 - Prompt 2: The ROI & Aggregation API
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > 
 > **Task 1: Code Implementation (`main.py`)**
 > 1. **Create Endpoint:** Build `GET /api/analytics/roi-dashboard`.
-> 2. **Execute Aggregations (Bucket 1: Effectiveness):** Query `Artifact_History` to calculate 'First-Pass Accuracy' (Total items where `is_human_corrected = 0` divided by total items) and 'Exception Rate' (Items tagged as 'Purpose/Review').
-> 3. **Execute Aggregations (Bucket 2: Telemetry):** Query average `processing_time_ms` and average `api_tokens_used` across the last 1000 records. Include current API quota counts from `Config_System`.
-> 4. **Execute Aggregations (Bucket 3: Throughput):** Calculate total artifacts processed in 30 days, grouped by source (Gmail vs Drive). Calculate average age of documents based on `document_date`.
-> 5. **Return:** A structured JSON object containing these three buckets.
+> 2. **Effectiveness:** Calculate 'First-Pass Accuracy' (Items where `is_human_corrected = 0` / total items) and 'Exception Rate'.
+> 3. **Telemetry:** Query average `processing_time_ms` and `api_tokens_used` across the last 1000 records. 
+> 4. **Throughput:** Calculate total artifacts processed in 30 days, grouped by source (Gmail vs Drive). Return as JSON.
 > 
 > **Task 2: Continuous Documentation (`README.md`)**
 > * **Location:** Section 9. Telemetry, Diagnostics & Notifications
-> * **Action:** Insert a new subsection: `### 9.2 The ROI & Analytics Aggregator`. Detail the backend grouping of Effectiveness, Telemetry, and Volume metrics.
+> * **Action:** Insert subsection: `### 9.2 The ROI & Analytics Aggregator`. Detail the grouping metrics.
 > 
 > **Task 3: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add a new bullet to the 'Version History': `- **v1.15.1:** [Phase 61](./PROMPT_ROADMAP.md#stage-61) - Engineered the ROI Analytics endpoint to aggregate AI effectiveness and system throughput.`
+> * **In `README.md`:** Add to Version History: `- **v2.1.0:** [Epic 2.2](#epic-2-prompt-2) - Engineered the ROI Analytics endpoint.`
 > 
 > **Output Actions:**
-> 1. Silently update `main.py`.
-> 2. Silently update `README.md` exactly as instructed."
+> 1. Silently update `main.py` and `README.md`."
 
----
-
-<a id="stage-62"></a>
-## Stage 62: The Analytics Dashboard UI (Frontend)
-**Internal Simulation & Correction:** *We must visualize the ROI JSON data in the Apps Script UI using a combination of KPI metric cards and Chart.js visualizations.*
-
-**Copy/Paste this to Gemini Code Assist:**
-> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
-> 
-> **Task 1: Code Implementation (`Index.html`)**
-> 1. **Include Chart.js:** Add `<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>` to the `<head>`.
-> 2. **Create Nav Item:** Add a sidebar navigation item: 'System Analytics' (icon: `insert_chart`).
-> 3. **Create Dashboard View:** Build a `<div id="tab-analytics" class="tab-content">`. 
-> 4. **KPI Row:** Create a top row of 3 metric cards displaying: 'AI Accuracy %', 'Avg Latency (ms)', and 'Total Processed'.
-> 5. **Chart Row:** Create a CSS grid containing two `<canvas>` elements: a Doughnut chart for 'Manual Rework vs Automation' and a Bar chart for 'Throughput Source (Gmail/Drive)'.
-> 
-> **Task 2: Code Implementation (`JS_Actions.html` & `Code.gs`)**
-> 1. **Apps Script Bridge:** In `Code.gs`, create `fetchAnalyticsROI()` to retrieve the JSON from the new VM endpoint.
-> 2. **Frontend Logic:** In `JS_Actions.html`, write `renderAnalyticsDashboard()`. This function must populate the KPI HTML elements and instantiate the Chart.js objects with the fetched data.
-> 3. **Continuous UX Protocol:** Add tooltips explaining that 'AI Accuracy' tracks the frequency of manual label corrections.
-> 
-> **Task 3: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add a new bullet to the 'Version History': `- **v1.15.2:** [Phase 62](./PROMPT_ROADMAP.md#stage-62) - Implemented the System Analytics UI using Chart.js to visualize AI accuracy, latency, and throughput.`
-> 
-> **Output Actions:**
-> 1. Silently update `Index.html`, `JS_Actions.html`, and `Code.gs`.
-> 2. Silently update `README.md` exactly as instructed."
-
----
-
-<a id="stage-63"></a>
-## Stage 63: The Backend Search AST (Abstract Syntax Tree)
-**Internal Simulation & Correction:** *To support the Command-Line Omnibox, the backend cannot just do simple SQL `LIKE` queries. We must build a parser in FastAPI that translates string queries (e.g., `Purpose:Receipt !Correspondent:Amazon`) into dynamic SQLite `WHERE` clauses.*
-
-**Copy/Paste this to Gemini Code Assist:**
+<a id="epic-2-prompt-3"></a>
+### Epic 2 - Prompt 3: The Unified Search AST Engine
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > 
 > **Task 1: Code Implementation (`main.py`)**
-> 1. **Create Search Endpoint:** Build `GET /api/artifacts/search`. It must accept a `q` query parameter string.
-> 2. **Build the AST Parser:** Write a Python function that parses the `q` string into tokens. Support exact matches (`Correspondent:"Home Depot"`), exclusions (`!Purpose:Newsletter`), and standard free-text fallback.
-> 3. **Dynamic SQL Generation:** Map these tokens to specific SQLite columns (`tp.name`, `tc.name`, `a.category`). Construct a parameterized `SELECT` statement joining `Artifact_History`, `Taxonomy_Correspondents`, and `Taxonomy_Purposes`. Return the matching artifacts as JSON.
+> 1. **Create Endpoint:** Build `GET /api/artifacts/search` accepting `q` (query string), `limit` (default 50), and `offset` (default 0).
+> 2. **AST Parser:** Build logic to parse exact matches (`Correspondent:"Amazon"`), exclusions (`!Purpose:Receipt`), and temporal bounds (`Date:YYYY-MM`). For `YYYY-MM`, use Python `calendar` to generate a SQLite `BETWEEN 'YYYY-MM-01' AND 'YYYY-MM-31'` clause.
+> 3. **Pagination Bounding:** If `q` is empty, default query to `document_date` within the last 30 days. Execute `SELECT COUNT(*)` first to return `total_matches` alongside the paginated array.
 > 
 > **Task 2: Continuous Documentation (`README.md`)**
 > * **Location:** Section 7. The Frontend SPA.
-> * **Action:** Insert a new subsection: `### 7.1 The Query-First Omnibox`. Detail the backend AST parser that translates advanced search strings into parameterized SQL.
+> * **Action:** Insert subsection: `### 7.1 The Query-First Omnibox & AST`. Detail the parser, temporal routing, and limit/offset architecture.
 > 
 > **Task 3: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add a new bullet to the 'Version History': `- **v2.0.0:** [Phase 63](./PROMPT_ROADMAP.md#stage-63) - Engineered the Backend Search AST to support advanced, exclusion-based Omnibox queries.`
+> * **In `README.md`:** Add to Version History: `- **v2.2.0:** [Epic 2.3](#epic-2-prompt-3) - Engineered the Backend Search AST supporting exclusions, temporal parsing, and pagination.`
 > 
 > **Output Actions:**
-> 1. Silently update `main.py`.
-> 2. Silently update `README.md` exactly as instructed."
+> 1. Silently update `main.py` and `README.md`."
 
----
-
-<a id="stage-64"></a>
-## Stage 64: The Knowledge Grid (CSS & DOM Shell)
-**Internal Simulation & Correction:** *We are moving away from the standard HTML table. We need to build the "Metadata First" responsive CSS grid architecture that differentiates Gmail and Drive artifacts visually.*
-
-**Copy/Paste this to Gemini Code Assist:**
+<a id="epic-2-prompt-4"></a>
+### Epic 2 - Prompt 4: Threads Sankey API & Color Schema
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > 
-> **Task 1: Code Implementation (`CSS_Styles.html` & `Index.html`)**
-> 1. **Update DOM:** In `Index.html`, replace the existing `#grid-body` table with a `<div id="knowledge-grid" class="artifact-grid">`.
-> 2. **CSS Grid:** In `CSS_Styles.html`, define `.artifact-grid` as a responsive `display: grid` with `minmax` column widths.
-> 3. **Card Anatomy:** Define `.artifact-card`. It must have a subtle left border to indicate source (e.g., 3px solid red for Gmail, blue for Drive). It must include typography classes that elevate the Correspondent Name and AI Title, while muting the timestamp.
-> 4. **Interaction CSS:** Add hover states for the cards and a distinct visual class for `.card-selected` to support our upcoming multi-select logic.
+> **Task 1: Code Implementation (`db_init.py`)**
+> 1. Add `brand_color TEXT` to `Taxonomy_Correspondents`.
+> 2. Update `seed_default_taxonomy` to include hex codes for default correspondents.
 > 
-> **Task 2: Code Implementation (`JS_Actions.html`)**
-> 1. **Refactor Renderer:** Update `appActions.renderGrid()` to iterate through `appState.artifacts` and generate the HTML strings for these new cards instead of table rows.
+> **Task 2: Code Implementation (`main.py`)**
+> 1. **Create Endpoint:** Build `GET /api/analytics/threads` accepting `q` and `node_limit` (default 15).
+> 2. **Grouping Logic:** Use AST logic to filter the base set. Group the flow (Source -> Entity -> Correspondent -> Purpose) by volume descending. `LIMIT` by `node_limit`, and `SUM()` the rest into an 'Other' node. Include `brand_color` in the response.
 > 
 > **Task 3: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add a new bullet to the 'Version History': `- **v2.0.1:** [Phase 64](./PROMPT_ROADMAP.md#stage-64) - Overhauled the UI, replacing the legacy table with the responsive, metadata-first Knowledge Grid.`
+> * **In `README.md`:** Add to Version History: `- **v2.3.0:** [Epic 2.4](#epic-2-prompt-4) - Engineered the Threads API with long-tail grouping and brand color injection.`
 > 
 > **Output Actions:**
-> 1. Silently update `CSS_Styles.html`, `Index.html`, and `JS_Actions.html`.
-> 2. Silently update `README.md`."
+> 1. Silently update `db_init.py`, `main.py`, and `README.md`."
 
----
-
-<a id="stage-65"></a>
-## Stage 65: The Command-Line Omnibox (Autocomplete UI)
-**Internal Simulation & Correction:** *We need to implement the tab-to-autocomplete logic so users can rapidly build search strings without taking their hands off the keyboard.*
-
-**Copy/Paste this to Gemini Code Assist:**
+<a id="epic-2-prompt-5"></a>
+### Epic 2 - Prompt 5: Mission Control Heatmap API
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > 
-> **Task 1: Code Implementation (`Index.html`)**
-> 1. **Build Omnibox DOM:** Create a large search input bar above the Knowledge Grid. Include nested buttons inside the right edge of the input: `[Filter UI]` and `[Clear]`.
-> 2. **Typeahead Overlay:** Create an absolutely positioned `<div>` below the input to show autocomplete suggestions.
+> **Task 1: Code Implementation (`main.py`)**
+> 1. **Create Dashboard Endpoint:** Build `GET /api/dashboard/mission-control`. Calculate 'Total Artifacts', 'Action Required', and 'Quarantine' counts.
+> 2. **Create Heatmap Endpoint:** Build `GET /api/analytics/heatmap` accepting `tier`, `timeframe_months`, and `item_limit`. Filter by months, group by `strftime('%Y-%m')` and the selected tier. Return JSON matrix.
 > 
-> **Task 2: Code Implementation (`JS_Actions.html`)**
-> 1. **Event Listeners:** Attach `keyup` and `keydown` listeners to the Omnibox. 
-> 2. **Tab-to-Complete:** If the user types "Med" and the system suggests "MedStar Health (Correspondent)", pressing `Tab` must lock "Correspondent:MedStar Health" into the input string and add a trailing space.
-> 3. **Search Execution:** On `Enter`, read the full string, update the UI to show active "Chips" (e.g., `[Correspondent:MedStar x]`), and fire the fetch request to our new `/api/artifacts/search` endpoint.
-> 
-> **Task 3: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add a new bullet to the 'Version History': `- **v2.0.2:** [Phase 65](./PROMPT_ROADMAP.md#stage-65) - Built the Command-Line Omnibox with Tab-autocomplete taxonomy prediction.`
+> **Task 2: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add to Version History: `- **v2.4.0:** [Epic 2.5](#epic-2-prompt-5) - Engineered Mission Control API with SQLite temporal grouping.`
 > 
 > **Output Actions:**
-> 1. Silently update `Index.html` and `JS_Actions.html`.
-> 2. Silently update `README.md`."
+> 1. Silently update `main.py` and `README.md`."
+
+<a id="epic-2-prompt-6"></a>
+### Epic 2 - Prompt 6: User Preferences & Boot Routing
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (`main.py` & `db_init.py`)**
+> 1. Ensure `Config_System` stores UI preferences (default: `key='default_view'`, `value='dashboard'`).
+> 2. Update `/api/settings` endpoints to expose/modify this value.
+> 
+> **Task 2: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add to Version History: `- **v2.5.0:** [Epic 2.6](#epic-2-prompt-6) - Added persistent user preferences to support dynamic frontend boot routing.`
+> 
+> **Output Actions:**
+> 1. Silently update `db_init.py`, `main.py`, and `README.md`."
 
 ---
 
-<a id="stage-66"></a>
-## Stage 66: Aggregate Context Drawer & Zero-Shot Rules
-**Internal Simulation & Correction:** *The right-hand drawer must support multi-selection. If multiple items are selected, it should aggregate the data and offer a "Submit with AI" button to dynamically generate new extraction rules.*
+## EPIC 3: The Nexus Paradigm Frontend (v3.x.x)
+*Notice to AI: We are now executing Epic 3. Update the README version history to v3.x.x for the following prompts.*
 
-**Copy/Paste this to Gemini Code Assist:**
+<a id="epic-3-prompt-1"></a>
+### Epic 3 - Prompt 1: Global Observability & Quota Dashboards
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. We are starting Epic 3.
+> 
+> **Task 1: Code Implementation (Apps Script UI)**
+> 1. **Quota UI:** Build a 'Quota Governor' metric card displaying a visual progress bar of daily API usage (fetching from `/api/health/quota`). Add a tooltip explaining 70% historical throttling.
+> 2. **Health Badge:** Add a global System Health badge to the top header. Set frontend logic to ping `/api/health` every 60 seconds, dynamically changing color (Green/Yellow/Red) with tooltips.
+> 
+> **Task 2: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add to Version History: `- **v3.0.0:** [Epic 3.1](#epic-3-prompt-1) - Built the Global Observability header and Quota Governor Dashboard.`
+> 
+> **Output Actions:**
+> 1. Silently update Apps Script UI files and `README.md`."
+
+<a id="epic-3-prompt-2"></a>
+### Epic 3 - Prompt 2: The Knowledge Grid Shell
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (`CSS_Styles.html` & UI)**
+> 1. **Update DOM:** Replace the existing legacy table with `<div id="knowledge-grid" class="artifact-grid">`.
+> 2. **CSS Grid:** Define `.artifact-grid` as responsive `display: grid`.
+> 3. **Card Anatomy:** Define `.artifact-card` with dynamic side-borders (red for Gmail, blue for Drive). Refactor the renderer to generate these HTML cards.
+> 
+> **Task 2: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add to Version History: `- **v3.1.0:** [Epic 3.2](#epic-3-prompt-2) - Replaced the legacy table with the responsive, metadata-first Knowledge Grid.`
+> 
+> **Output Actions:**
+> 1. Silently update CSS and JS renderers.
+> 2. Silently update `README.md`."
+
+<a id="epic-3-prompt-3"></a>
+### Epic 3 - Prompt 3: The Command-Line Omnibox
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (UI & JS)**
+> 1. **Build Omnibox DOM:** Create a large search bar above the Knowledge Grid with nested Filter/Clear buttons. Add a typeahead overlay div.
+> 2. **Tab-to-Complete:** Attach `keyup`/`keydown`. If a user types 'Med' and sees 'MedStar Health', pressing `Tab` locks "Correspondent:MedStar Health" into the string.
+> 3. **Execution:** On `Enter`, convert text to UI 'Chips', and fire the fetch to `/api/artifacts/search`.
+> 
+> **Task 2: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add to Version History: `- **v3.2.0:** [Epic 3.3](#epic-3-prompt-3) - Built the Command-Line Omnibox with Tab-autocomplete prediction.`
+> 
+> **Output Actions:**
+> 1. Silently update HTML/JS UI files and `README.md`."
+
+<a id="epic-3-prompt-4"></a>
+### Epic 3 - Prompt 4: Aggregate Context Drawer & Zero-Shot Rules
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > 
 > **Task 1: Code Implementation (`JS_State.html` & `JS_Actions.html`)**
-> 1. **Multi-Select State:** Ensure `appState.selectedIds` correctly tracks Shift/Ctrl clicks on the new `.artifact-card` elements.
-> 2. **Aggregate Drawer Logic:** Update `renderDetailsPane()`. If `selectedIds.size > 1`, group the metadata. (e.g., "3 items selected. Common Correspondent: Home Depot"). 
-> 3. **Zero-Shot UI:** Inject a "Submit with AI (Create Rule)" button in the aggregate drawer. 
+> 1. **Multi-Select State:** Ensure `appState.selectedIds` tracks Shift/Ctrl clicks on `.artifact-card` elements.
+> 2. **Aggregate Drawer:** If `selectedIds.size > 1`, group the metadata in the right-hand details pane.
+> 3. **Zero-Shot UI:** Inject a 'Submit with AI (Create Rule)' button. Transmit edits to `POST /api/taxonomy/zero-shot-rule`.
 > 
-> **Task 2: Code Implementation (`main.py`)**
-> 1. **Create Rule Endpoint:** Build `POST /api/taxonomy/zero-shot-rule`. It accepts a list of artifact IDs and the user's manual taxonomy corrections.
-> 2. **Logic:** The endpoint updates the `custom_extraction_rules` column for the relevant Correspondent based on the bulk edit, ensuring the AI never makes the same mistake twice.
-> 
-> **Task 3: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add a new bullet to the 'Version History': `- **v2.0.3:** [Phase 66](./PROMPT_ROADMAP.md#stage-66) - Implemented the Aggregate Context Drawer and Zero-Shot Rule Generation for bulk taxonomy correction.`
+> **Task 2: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add to Version History: `- **v3.3.0:** [Epic 3.4](#epic-3-prompt-4) - Implemented the Aggregate Context Drawer supporting bulk Zero-Shot Rule generation.`
 > 
 > **Output Actions:**
-> 1. Silently update `JS_State.html`, `JS_Actions.html`, and `main.py`.
-> 2. Silently update `README.md`."
+> 1. Silently update JS state/actions and `README.md`."
+
+<a id="epic-3-prompt-5"></a>
+### Epic 3 - Prompt 5: The 'Select All' Bulk Pattern
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (UI)**
+> 1. **Selection Banner:** Add a hidden banner below the Omnibox. If a user selects all visible items, display: "All X items selected. Select all Y matching items."
+> 2. **Global Select Logic:** If the user clicks the global select, set `isGlobalSelectActive = true`. When performing bulk edits, send the AST query string to the backend instead of an array of IDs to prevent DOM freezing.
+> 
+> **Task 2: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add to Version History: `- **v3.4.0:** [Epic 3.5](#epic-3-prompt-5) - Built the global 'Select All' UX pattern for massive query-based bulk operations.`
+> 
+> **Output Actions:**
+> 1. Silently update HTML/JS and `README.md`."
+
+<a id="epic-3-prompt-6"></a>
+### Epic 3 - Prompt 6: System Analytics Dashboard
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (Chart.js Integration)**
+> 1. Include `Chart.js` via CDN. Add a 'System Analytics' nav item.
+> 2. Build `#tab-analytics` containing 3 KPI metric cards and two `<canvas>` grids.
+> 3. Write `renderAnalyticsDashboard()` to fetch from `/api/analytics/roi-dashboard` and instantiate a Doughnut chart (Manual Rework vs Automation) and a Bar chart (Throughput).
+> 
+> **Task 2: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add to Version History: `- **v3.5.0:** [Epic 3.6](#epic-3-prompt-6) - Implemented the System Analytics Dashboard.`
+> 
+> **Output Actions:**
+> 1. Silently update UI files and `README.md`."
+
+<a id="epic-3-prompt-7"></a>
+### Epic 3 - Prompt 7: Threads UI & Color Weaving
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (Google Charts Sankey)**
+> 1. Load Google Charts script. Create `#tab-threads` with a node-limit slider (5-50).
+> 2. Write `hexToRgba(hex, opacity)` to convert DB brand colors to 0.45 opacity.
+> 3. Write `renderThreadsView()` fetching from `/api/analytics/threads`. Apply the `rgba` values to link colors for transparent weaving.
+> 4. Wire node clicks to update the Omnibox and switch views to the Knowledge Grid.
+> 
+> **Task 2: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add to Version History: `- **v3.6.0:** [Epic 3.7](#epic-3-prompt-7) - Implemented the Threads UI Sankey diagram with interactive routing and color weaving.`
+> 
+> **Output Actions:**
+> 1. Silently update UI files and `README.md`."
+
+<a id="epic-3-prompt-8"></a>
+### Epic 3 - Prompt 8: Mission Control UI & Boot Routing
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (Mission Control)**
+> 1. Map 'Home' icon to `#tab-dashboard` (Mission Control). Create `#tab-home` for the Knowledge Grid.
+> 2. Build the Heatmap UI with a Chart.js Matrix (or Google Calendar chart) fetching from `/api/analytics/heatmap`. Wire cell clicks to inject `Date:YYYY-MM` into the Omnibox.
+> 3. **Boot Routing:** In the init function, read the DB `default_view`. Automatically render Mission Control, Threads, or the Grid based on user preference.
+> 
+> **Task 2: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add to Version History: `- **v3.7.0:** [Epic 3.8](#epic-3-prompt-8) - Finalized Mission Control dashboard and dynamic boot routing.`
+> 
+> **Output Actions:**
+> 1. Silently update UI files and `README.md`."
+
+---
+
+## EPIC 4: Infrastructure as Code (v4.x.x)
+*Notice to AI: We are now executing Epic 4. Update the README version history to v4.x.x for the following prompts.*
+
+<a id="epic-4-prompt-1"></a>
+### Epic 4 - Prompt 1: The Zero-Touch Provisioner (`provision.sh`)
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. We are starting Epic 4.
+> 
+> **Task 1: Code Implementation (`scripts/provision.sh`)**
+> 1. Write a bash script (`chmod +x`) using `gcloud compute instances create` for an `e2-micro` VM.
+> 2. Add `gcloud compute firewall-rules create` for `tcp:8000`.
+> 3. Pass a multi-line inline `--metadata startup-script` that runs apt updates, installs python/sqlite3/git, creates a venv, installs requirements, and configures the `systemd` daemon.
+> 
+> **Task 2: Continuous Documentation (`README.md`)**
+> * **Location:** Create a new Section: `11. Infrastructure as Code (IaC)`.
+> * **Action:** Detail how to run `./scripts/provision.sh` locally.
+> 
+> **Task 3: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add to Version History: `- **v4.0.0:** [Epic 4.1](#epic-4-prompt-1) - Built the Zero-Touch Provisioner for automated GCP VM deployment.`
+> 
+> **Output Actions:**
+> 1. Silently create `scripts/provision.sh` and update `README.md`."
+
+<a id="epic-4-prompt-2"></a>
+### Epic 4 - Prompt 2: The CI/CD Deployment Script (`deploy.sh`)
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (`scripts/deploy.sh`)**
+> 1. Create `scripts/deploy.sh`.
+> 2. Add a `clasp push` section to sync the Apps Script UI locally.
+> 3. Use `gcloud compute ssh` to execute a remote string on the VM: Pull git updates, activate venv, run `pip install`, execute `db_init.py` migrations, and `sudo systemctl restart nexus-hub`.
+> 4. Use fail-fast error traps and color-coded `echo` feedback.
+> 
+> **Task 2: Continuous Documentation (`README.md`)**
+> * **Location:** Section 11. Infrastructure as Code (IaC).
+> * **Action:** Add subsection `11.1 The One-Click Deployer`.
+> 
+> **Task 3: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add to Version History: `- **v4.1.0:** [Epic 4.2](#epic-4-prompt-2) - Engineered the CI/CD deploy script integrating clasp and gcloud.`
+> 
+> **Output Actions:**
+> 1. Silently create `scripts/deploy.sh` and update `README.md`."
