@@ -1446,3 +1446,102 @@
 > 1. Silently update `Index.html`, `JS_Actions.html`, and `Code.gs`.
 > 2. Silently update `README.md` exactly as instructed."
 
+---
+
+<a id="stage-63"></a>
+## Stage 63: The Backend Search AST (Abstract Syntax Tree)
+**Internal Simulation & Correction:** *To support the Command-Line Omnibox, the backend cannot just do simple SQL `LIKE` queries. We must build a parser in FastAPI that translates string queries (e.g., `Purpose:Receipt !Correspondent:Amazon`) into dynamic SQLite `WHERE` clauses.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (`main.py`)**
+> 1. **Create Search Endpoint:** Build `GET /api/artifacts/search`. It must accept a `q` query parameter string.
+> 2. **Build the AST Parser:** Write a Python function that parses the `q` string into tokens. Support exact matches (`Correspondent:"Home Depot"`), exclusions (`!Purpose:Newsletter`), and standard free-text fallback.
+> 3. **Dynamic SQL Generation:** Map these tokens to specific SQLite columns (`tp.name`, `tc.name`, `a.category`). Construct a parameterized `SELECT` statement joining `Artifact_History`, `Taxonomy_Correspondents`, and `Taxonomy_Purposes`. Return the matching artifacts as JSON.
+> 
+> **Task 2: Continuous Documentation (`README.md`)**
+> * **Location:** Section 7. The Frontend SPA.
+> * **Action:** Insert a new subsection: `### 7.1 The Query-First Omnibox`. Detail the backend AST parser that translates advanced search strings into parameterized SQL.
+> 
+> **Task 3: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add a new bullet to the 'Version History': `- **v2.0.0:** [Phase 63](./PROMPT_ROADMAP.md#stage-63) - Engineered the Backend Search AST to support advanced, exclusion-based Omnibox queries.`
+> 
+> **Output Actions:**
+> 1. Silently update `main.py`.
+> 2. Silently update `README.md` exactly as instructed."
+
+---
+
+<a id="stage-64"></a>
+## Stage 64: The Knowledge Grid (CSS & DOM Shell)
+**Internal Simulation & Correction:** *We are moving away from the standard HTML table. We need to build the "Metadata First" responsive CSS grid architecture that differentiates Gmail and Drive artifacts visually.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (`CSS_Styles.html` & `Index.html`)**
+> 1. **Update DOM:** In `Index.html`, replace the existing `#grid-body` table with a `<div id="knowledge-grid" class="artifact-grid">`.
+> 2. **CSS Grid:** In `CSS_Styles.html`, define `.artifact-grid` as a responsive `display: grid` with `minmax` column widths.
+> 3. **Card Anatomy:** Define `.artifact-card`. It must have a subtle left border to indicate source (e.g., 3px solid red for Gmail, blue for Drive). It must include typography classes that elevate the Correspondent Name and AI Title, while muting the timestamp.
+> 4. **Interaction CSS:** Add hover states for the cards and a distinct visual class for `.card-selected` to support our upcoming multi-select logic.
+> 
+> **Task 2: Code Implementation (`JS_Actions.html`)**
+> 1. **Refactor Renderer:** Update `appActions.renderGrid()` to iterate through `appState.artifacts` and generate the HTML strings for these new cards instead of table rows.
+> 
+> **Task 3: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add a new bullet to the 'Version History': `- **v2.0.1:** [Phase 64](./PROMPT_ROADMAP.md#stage-64) - Overhauled the UI, replacing the legacy table with the responsive, metadata-first Knowledge Grid.`
+> 
+> **Output Actions:**
+> 1. Silently update `CSS_Styles.html`, `Index.html`, and `JS_Actions.html`.
+> 2. Silently update `README.md`."
+
+---
+
+<a id="stage-65"></a>
+## Stage 65: The Command-Line Omnibox (Autocomplete UI)
+**Internal Simulation & Correction:** *We need to implement the tab-to-autocomplete logic so users can rapidly build search strings without taking their hands off the keyboard.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (`Index.html`)**
+> 1. **Build Omnibox DOM:** Create a large search input bar above the Knowledge Grid. Include nested buttons inside the right edge of the input: `[Filter UI]` and `[Clear]`.
+> 2. **Typeahead Overlay:** Create an absolutely positioned `<div>` below the input to show autocomplete suggestions.
+> 
+> **Task 2: Code Implementation (`JS_Actions.html`)**
+> 1. **Event Listeners:** Attach `keyup` and `keydown` listeners to the Omnibox. 
+> 2. **Tab-to-Complete:** If the user types "Med" and the system suggests "MedStar Health (Correspondent)", pressing `Tab` must lock "Correspondent:MedStar Health" into the input string and add a trailing space.
+> 3. **Search Execution:** On `Enter`, read the full string, update the UI to show active "Chips" (e.g., `[Correspondent:MedStar x]`), and fire the fetch request to our new `/api/artifacts/search` endpoint.
+> 
+> **Task 3: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add a new bullet to the 'Version History': `- **v2.0.2:** [Phase 65](./PROMPT_ROADMAP.md#stage-65) - Built the Command-Line Omnibox with Tab-autocomplete taxonomy prediction.`
+> 
+> **Output Actions:**
+> 1. Silently update `Index.html` and `JS_Actions.html`.
+> 2. Silently update `README.md`."
+
+---
+
+<a id="stage-66"></a>
+## Stage 66: Aggregate Context Drawer & Zero-Shot Rules
+**Internal Simulation & Correction:** *The right-hand drawer must support multi-selection. If multiple items are selected, it should aggregate the data and offer a "Submit with AI" button to dynamically generate new extraction rules.*
+
+**Copy/Paste this to Gemini Code Assist:**
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (`JS_State.html` & `JS_Actions.html`)**
+> 1. **Multi-Select State:** Ensure `appState.selectedIds` correctly tracks Shift/Ctrl clicks on the new `.artifact-card` elements.
+> 2. **Aggregate Drawer Logic:** Update `renderDetailsPane()`. If `selectedIds.size > 1`, group the metadata. (e.g., "3 items selected. Common Correspondent: Home Depot"). 
+> 3. **Zero-Shot UI:** Inject a "Submit with AI (Create Rule)" button in the aggregate drawer. 
+> 
+> **Task 2: Code Implementation (`main.py`)**
+> 1. **Create Rule Endpoint:** Build `POST /api/taxonomy/zero-shot-rule`. It accepts a list of artifact IDs and the user's manual taxonomy corrections.
+> 2. **Logic:** The endpoint updates the `custom_extraction_rules` column for the relevant Correspondent based on the bulk edit, ensuring the AI never makes the same mistake twice.
+> 
+> **Task 3: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add a new bullet to the 'Version History': `- **v2.0.3:** [Phase 66](./PROMPT_ROADMAP.md#stage-66) - Implemented the Aggregate Context Drawer and Zero-Shot Rule Generation for bulk taxonomy correction.`
+> 
+> **Output Actions:**
+> 1. Silently update `JS_State.html`, `JS_Actions.html`, and `main.py`.
+> 2. Silently update `README.md`."
