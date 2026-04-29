@@ -1102,6 +1102,39 @@
 
 ---
 
+<a id="epic-1-prompt-6"></a>
+### Epic 1 - Prompt 6: The Historical Import Engine & Queue
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. We are building an asynchronous buffering system to handle massive historical data ingestion without triggering Google API rate limits.
+> 
+> **Task 1: Schema Update (`db_init.py`)**
+> 1. Create a new table: `Ingestion_Queue`.
+> 2. Columns: `id INTEGER PRIMARY KEY`, `source TEXT` (e.g., 'gmail'), `source_id TEXT` (the Gmail message/thread ID), `status TEXT DEFAULT 'PENDING'` (states: PENDING, PROCESSING, COMPLETE, FAILED), `added_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP`.
+> 
+> **Task 2: API Endpoint (`main.py`)**
+> 1. Create a new endpoint: `POST /api/ingestion/queue-historical`. It must accept a JSON payload containing a `search_query` string (e.g., 'before:2025-01-01').
+> 2. **Logic:** The endpoint must use the Gmail API (`users().messages().list`) passing the `q=search_query` parameter. It must iterate through pagination tokens to fetch *only the IDs* of all matching messages. 
+> 3. Bulk insert these IDs into the `Ingestion_Queue` table with `status = 'PENDING'`. Return a success JSON with the total number of items queued.
+> 
+> **Task 3: The Throttled Worker (`sync_engine.py`)**
+> 1. Modify the main daemon loop. After performing the standard delta-sync, query the `Ingestion_Queue` for `status = 'PENDING' LIMIT 20`.
+> 2. For each queued ID, change status to `PROCESSING`, fetch the full payload via the Gmail API, run the standard LLM extraction pipeline, and finally update the queue status to `COMPLETE`.
+> 3. Ensure error handling updates the status to `FAILED` if the LLM or API times out, allowing it to be retried or audited later.
+> 
+> **Task 4: UI Implementation (`Index.html` & `JS_Actions.html`)**
+> 1. In the Mission Control dashboard (`#tab-dashboard`), build a 'Historical Import' widget.
+> 2. Include a text input for a Gmail search string, a 'Queue Import' button, and a small counter showing the current number of PENDING items in the queue.
+> 3. Wire the button to send the search string to the new `POST` endpoint and display a success toast/notification.
+> 
+> **Task 5: Documentation & Versioning**
+> 1. **In `README.md`:** Add to Version History: `- **v2026.1.6.0:** [Epic 1.6](#epic-1-prompt-6) - Engineered the asynchronous Historical Import Engine and SQLite ingestion buffer.`
+> 2. Insert a brief section in the README explaining how to use standard Gmail search syntax in the UI to safely import old data.
+> 
+> **Output Actions:**
+> 1. Silently execute the code implementation across `db_init.py`, `main.py`, `sync_engine.py`, and the frontend UI.
+> 2. Silently update `README.md` exactly as instructed."
+
+---
+
 ## EPIC 2: The Core API & Graph Migration (v2.x.x)
 *Notice to AI: We are now executing Epic 2. Update the README version history to v2.x.x for the following prompts.*
 
