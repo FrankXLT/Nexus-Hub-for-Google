@@ -30,3 +30,10 @@ Once securely received, the SMS payload is dropped seamlessly into the existing 
 ### 4. Advanced Capabilities & Expansions
 * **MMS & Receipt Processing:** If a contractor texts a photo of an invoice, the edge node can base64-encode the image and forward it. The backend decodes it, drops it into Drive, and runs Document AI.
 * **Command-Line via SMS:** The edge node can act as a remote execution terminal. Texting a specific syntax (e.g., `#Nexus search Amazon receipts`) could trigger the API to parse the AST string and reply to the phone with a secure summary or Drive link, completely bypassing the web UI.
+* Use AI to break messages with correspondents into discussion topic. each topic becomes the artifact.
+*
+*
+*
+*
+*
+* ypassingecome the artifact.
