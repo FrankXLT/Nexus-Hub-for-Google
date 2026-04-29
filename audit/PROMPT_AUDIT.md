@@ -630,7 +630,7 @@ Built the Backend Bridge for the UI Pipeline Orchestrator, dynamically linking U
 - main.py (Updated)
 - sync_engine.py (Updated)
 - README.md (Updated)
-- udit/PROMPT_ROADMAP.md (Updated)
+- ROADMAP/PROMPT_ROADMAP.md (Updated)
 - udit/PROMPT_AUDIT.md (Updated)
 
 ## Phase 37: The Apps Script Pipeline Orchestrator
@@ -651,7 +651,7 @@ Built the visual interface for the Pipeline Orchestrator in our Google Apps Scri
 - `JS_Actions.html` (Updated)
 - `Code.gs` (Updated)
 - `README.md` (Updated)
-- `audit/PROMPT_ROADMAP.md` (Updated)
+- `ROADMAP/PROMPT_ROADMAP.md` (Updated)
 - `audit/PROMPT_AUDIT.md` (Updated)
 
 
@@ -673,7 +673,7 @@ Upgraded SQLite schema to support Global Purposes and dynamic AI Tuning Hooks.
 - db_init.py (Updated)
 - llm_engine.py (Updated)
 - README.md (Updated)
-- udit/PROMPT_ROADMAP.md (Updated)
+- ROADMAP/PROMPT_ROADMAP.md (Updated)
 - udit/PROMPT_AUDIT.md (Updated)
 
 ## Phase 39: Entity Management & Prompt Tuning UI
@@ -695,7 +695,7 @@ Built the Entity Management UI, introducing grouped taxonomy dropdowns and no-co
 - `JS_Actions.html` (Updated)
 - `Code.gs` (Updated)
 - `README.md` (Updated)
-- `audit/PROMPT_ROADMAP.md` (Updated)
+- `ROADMAP/PROMPT_ROADMAP.md` (Updated)
 - `audit/PROMPT_AUDIT.md` (Updated)
 
 ## Phase 40: The Walled Garden Privacy Guarantee
@@ -707,11 +707,11 @@ Documented the 'Walled Garden' Privacy Guarantee and enterprise AI data protecti
 **Decisions Made:**
 - Updated `README.md` to add `### The Privacy Guarantee: Your Data, Your Walled Garden` to explicitly outline the system's data sovereignty features, guaranteeing data never transits a third-party server and private data is not used to train Gemini models.
 - Updated `README.md` Version History and Table of Contents.
-- Appended to `audit/PROMPT_ROADMAP.md`.
+- Appended to `ROADMAP/PROMPT_ROADMAP.md`.
 
 **Files Altered/Created:**
 - `README.md` (Updated)
-- `audit/PROMPT_ROADMAP.md` (Updated)
+- `ROADMAP/PROMPT_ROADMAP.md` (Updated)
 - `audit/PROMPT_AUDIT.md` (Updated)
 
 ## Phase 41: Security Architecture & Network Boundaries
@@ -729,7 +729,7 @@ Added a dedicated Security Architecture section detailing HMAC webhook verificat
 
 **Files Altered/Created:**
 - `README.md` (Updated)
-- `audit/PROMPT_ROADMAP.md` (Updated)
+- `ROADMAP/PROMPT_ROADMAP.md` (Updated)
 - `audit/PROMPT_AUDIT.md` (Updated)
 
 ## Phase 42: OAuth Scope Justifications
@@ -742,11 +742,11 @@ Documented OAuth scope justifications and token management security protocols.
 - Updated `README.md` to add `### 10.1 OAuth Boundaries & Scope Justification` within the Security Architecture section.
 - Explicitly detailed the reason for requesting `gmail.modify`, `drive`, and `contacts.readonly` permissions, emphasizing that `token.json` is stored securely in the firewalled VM and never sent to the UI.
 - Updated `README.md` Version History and Table of Contents.
-- Appended to `audit/PROMPT_ROADMAP.md`.
+- Appended to `ROADMAP/PROMPT_ROADMAP.md`.
 
 **Files Altered/Created:**
 - `README.md` (Updated)
-- `audit/PROMPT_ROADMAP.md` (Updated)
+- `ROADMAP/PROMPT_ROADMAP.md` (Updated)
 - `audit/PROMPT_AUDIT.md` (Updated)
 
 ## Phase 44: Fail-Fast Architecture for CLI Scripts
@@ -760,13 +760,13 @@ Refactored installation scripts into a Fail-Fast architecture with direct docume
 - Refactored the scripts to check for required files (`.env`, `credentials.json`, `token.json`) and Docker health, providing direct references to `INSTRUCTIONS.md` (e.g., Phase 0, Step 3) when an error is caught.
 - Updated `README.md` to add `### 8.1 Fail-Fast Provisioning` documenting the new architecture.
 - Updated `README.md` Version History and Table of Contents.
-- Appended to `audit/PROMPT_ROADMAP.md`.
+- Appended to `ROADMAP/PROMPT_ROADMAP.md`.
 
 **Files Altered/Created:**
 - `setup.sh` (Updated)
 - `update.sh` (Updated)
 - `README.md` (Updated)
-- `audit/PROMPT_ROADMAP.md` (Updated)
+- `ROADMAP/PROMPT_ROADMAP.md` (Updated)
 - `audit/PROMPT_AUDIT.md` (Updated)
 
 ## Phase 45: Quota Governor Dashboard
@@ -782,7 +782,7 @@ Built the Quota Governor Dashboard in the Apps Script UI to visualize daily API 
 - Added `getQuotaGovernor()` to `Code.gs` to bridge the webhook.
 - Updated `README.md` Section 6 to explain the new UI dashboard and its integration with `main.py`.
 - Updated `README.md` Version History.
-- Appended to `audit/PROMPT_ROADMAP.md`.
+- Appended to `ROADMAP/PROMPT_ROADMAP.md`.
 
 **Files Altered/Created:**
 - `main.py` (Updated)
@@ -790,5 +790,22 @@ Built the Quota Governor Dashboard in the Apps Script UI to visualize daily API 
 - `JS_Actions.html` (Updated)
 - `Code.gs` (Updated)
 - `README.md` (Updated)
-- `audit/PROMPT_ROADMAP.md` (Updated)
+- `ROADMAP/PROMPT_ROADMAP.md` (Updated)
 - `audit/PROMPT_AUDIT.md` (Updated)
+
+---
+
+## Phase 46: Repository Reorganization & Documentation Link Resolution
+**Objective:** Perform repository housekeeping by organizing planning and architectural documentation into a dedicated `ROADMAP/` directory.
+
+**Tasks Executed:**
+- **Structural Folder Reorganization:** Created a new root directory named `ROADMAP/` to serve as a hub for future software whitepapers and roadmap tracking.
+- **File Relocation:** Safely moved `PROMPT_ROADMAP.md` from its previous location into the newly created `ROADMAP/` directory.
+- **Link Resolution & Path Updates:** Scanned `README.md`, `INSTRUCTIONS.md`, and `PROMPT_AUDIT.md` to locate all relative markdown links pointing to the old roadmap location. Safely updated all occurrences (e.g., `./ROADMAP/PROMPT_ROADMAP.md`) while strictly preserving the integrity of all existing `#epic-x...` anchor links.
+
+**Files Altered/Created:**
+- `ROADMAP/` (Directory Created)
+- `ROADMAP/PROMPT_ROADMAP.md` (Moved)
+- `README.md` (Updated links)
+- `INSTRUCTIONS.md` (Updated links)
+- `audit/PROMPT_AUDIT.md` (Updated links and appended audit log)

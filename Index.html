@@ -31,6 +31,9 @@
           <li class="nav-item" onclick="appState.switchTab('pipeline-orchestrator', event)">
             <i class="material-icons">tune</i> Pipeline Orchestrator
           </li>
+          <li class="nav-item" onclick="appState.switchTab('inbox-cleanup', event)">
+            <i class="material-icons">delete_sweep</i> Inbox Cleanup
+          </li>
           <li class="nav-item" onclick="appState.switchTab('audit', event)">
             <i class="material-icons">history</i> Audit Timeline
           </li>
@@ -148,12 +151,16 @@
               <p style="font-size: 0.875rem; color: #666;">Tune extraction logic for specific document types.</p>
               <label for="edit-purp-id" style="display:block; margin-bottom:4px; font-weight:bold;">Purpose ID</label>
               <input type="text" id="edit-purp-id" placeholder="e.g., 45" style="width: 100%; padding: 8px; margin-bottom: 12px; box-sizing: border-box;">
-              
+
+              <label style="display:flex; align-items:center; margin-bottom:12px; font-weight:bold;" title="Automatically drop the INBOX label from Gmail threads when matched to this Purpose.">
+                <input type="checkbox" id="purp-auto-archive" style="margin-right: 8px;">
+                Auto-Archive on Match
+              </label>
+
               <label for="purp-extraction-rules" style="display:block; margin-bottom:4px; font-weight:bold;">Custom AI Extraction Rules</label>
               <textarea id="purp-extraction-rules" placeholder="e.g., Extract the Due Date in YYYY-MM-DD" style="width: 100%; padding: 8px; font-family: monospace; resize: none; height: 100px; margin-bottom: 12px; box-sizing: border-box;" title="This text is dynamically injected into the LLM prompt to force specific data extraction (e.g., 'Extract the invoice total')."></textarea>
               <button class="btn btn-primary" onclick="appActions.savePurposeRules()">Save Purpose Rules</button>
-            </div>
-          </div>
+            </div>          </div>
         </div>
 
         <!-- Prompt Sandbox Tab -->

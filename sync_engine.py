@@ -412,7 +412,19 @@ def sync_gmail(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
                         }
                         
                         # Process the thread
-                        process_gmail_thread(f"mail_{msg_id}", email_context, "[]")
+                        should_archive = process_gmail_thread(f"mail_{msg_id}", email_context, "[]")
+                        if should_archive:
+                            # The message is part of a thread, so we archive the entire thread or just the message.
+                            # The instruction says "remove the INBOX label from the thread."
+                            thread_id = msg_detail.get('threadId')
+                            if thread_id:
+                                service.users().threads().modify(
+                                    userId='me',
+                                    id=thread_id,
+                                    body={'removeLabelIds': ['INBOX']}
+                                ).execute()
+                                governor.record_api_call(cost=1)
+                                print(f"Auto-archived thread {thread_id} for message {msg_id}.")
                     except Exception as e:
                         print(f"Error fetching message {msg_id}: {e}")
     else:

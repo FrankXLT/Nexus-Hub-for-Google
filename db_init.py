@@ -49,7 +49,7 @@ def init_db(db_path: str = DB_PATH) -> None:
     """)
 
     # 3. Config_Prompts
-    # -- Stores the active dynamic LLM prompts. Supports real-time prompt tuning 
+    # -- Stores the active dynamic LLM prompts. Supports real-time prompt tuning
     # -- directly from the Apps Script UI.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Config_Prompts (
@@ -57,9 +57,20 @@ def init_db(db_path: str = DB_PATH) -> None:
             prompt_text TEXT
         ) STRICT;
     """)
-    
-    # 4. Taxonomy_Categories
-    # -- Tier 1 of the relational taxonomy hierarchy (e.g., 'Finance', 'Technology').
+
+    # 3b. Config_Retention_Rules
+    # -- Stores advanced retention rules for inbox sweep/cleanup
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Config_Retention_Rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            target_category TEXT NOT NULL,
+            action TEXT NOT NULL,
+            days_old INTEGER NOT NULL,
+            is_active INTEGER DEFAULT 1
+        ) STRICT;
+    """)
+
+    # 4. Taxonomy_Categories    # -- Tier 1 of the relational taxonomy hierarchy (e.g., 'Finance', 'Technology').
     # -- Uses Zero-Trust default toggles for ecosystem propagation.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Taxonomy_Categories (
@@ -102,6 +113,7 @@ def init_db(db_path: str = DB_PATH) -> None:
             name TEXT NOT NULL,
             custom_field_schema TEXT NOT NULL CHECK(json_valid(custom_field_schema)),
             is_global INTEGER DEFAULT 0,
+            auto_archive BOOLEAN DEFAULT 0,
             custom_extraction_rules TEXT,
             frequency_weight INTEGER DEFAULT 0,
             confidence_weight REAL DEFAULT 0.0,

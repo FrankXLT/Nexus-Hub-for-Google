@@ -13,34 +13,39 @@ Nexus Hub is a self-hosted, AI-powered knowledge management system that unifies 
 By leveraging Google's Gemini Large Language Models (LLMs) and a strictly governed Zero-Trust Taxonomy, Nexus Hub autonomously categorizes, extracts, and organizes your digital life while keeping your data entirely within your personal Google Cloud environment.
 
 **Version History**
-- **v1.9.1:** [Phase 45](./audit/PROMPT_ROADMAP.md#stage-45) - Built the Quota Governor Dashboard in the Apps Script UI to visualize daily API burn rates and throttling status.
-- **v1.9.0:** [Phase 44](./audit/PROMPT_ROADMAP.md#stage-44) - Refactored installation scripts into a Fail-Fast architecture with direct documentation traceability and mobile webhook alerts.
-- **v1.8.3:** [Phase 43](./audit/PROMPT_ROADMAP.md#stage-43) - Performed a UI tooltip sweep on all AI pipeline controls and updated the AI CONOPS to mandate the Continuous UX Protocol.
-- **v1.8.2:** [Phase 42](./audit/PROMPT_ROADMAP.md#stage-42) - Documented OAuth scope justifications and token management security protocols.
-- **v1.8.1:** [Phase 41](./audit/PROMPT_ROADMAP.md#stage-41) - Added a dedicated Security Architecture section detailing HMAC webhook verification and VM network isolation.
-- **v1.8.0:** [Phase 40](./audit/PROMPT_ROADMAP.md#stage-40) - Documented the 'Walled Garden' Privacy Guarantee and enterprise AI data protection policies.
-- **v1.7.1:** [Phase 39](./audit/PROMPT_ROADMAP.md#stage-39) - Built the Entity Management UI, introducing grouped taxonomy dropdowns and no-code AI prompt tuning text areas.
-- **v1.7.0:** [Phase 38](./audit/PROMPT_ROADMAP.md#stage-38) - Upgraded SQLite schema to support Global Purposes and dynamic AI Tuning Hooks.
-- **v1.6.1:** [Phase 37](./audit/PROMPT_ROADMAP.md#stage-37) - Built the Material Design 3-Phase Vertical Stepper in the Apps Script UI to control the pipeline.
-- **v1.6.0:** [Phase 36](./audit/PROMPT_ROADMAP.md#stage-36) - Built the Backend Bridge for the UI Pipeline Orchestrator, dynamically linking UI configs to the Python engines.
-- **v1.5.2:** [Phase 35](./audit/PROMPT_ROADMAP.md#stage-35) - Defined the Anti-Folder philosophy and established standard nomenclature for the two operational Drive folders.
-- **v1.5.1:** [Phase 34](./audit/PROMPT_ROADMAP.md#stage-34) - Implemented hard-coded Pre-AI filtering in the Gmail Sync Engine to drop junk mail before LLM processing.
-- **v1.5.0:** [Phase 33](./audit/PROMPT_ROADMAP.md#stage-33) - Established AI-Assisted Development CONOPS, prompt governance, and Continuous Documentation protocols.
-- **v1.4.0:** [Phase 29](./audit/PROMPT_ROADMAP.md#stage-29) - Integrated Google People API for autonomous Contact Bootstrapping and multi-dimensional profile mapping.
-- **v1.3.0:** [Phase 28](./audit/PROMPT_ROADMAP.md#stage-28) - Telemetry & Alerting Matrix with Pushover webhook notifications and Gmail Daily Digests.
-- **v1.2.0:** [Phase 22-26](./audit/PROMPT_ROADMAP.md#stage-22) - Added Three-Tier Taxonomy Hierarchy, Zero-Trust UI Review Queues, RAG Query engine, and Quota Governor.
-- **v1.0.0:** [Phase 19-21](./audit/PROMPT_ROADMAP.md#stage-19) - Decoupled hardcoded LLM prompts to SQLite, implemented FastAPI BackgroundTasks for the AI Self-Tuning loop, and finalized documentation.
-- **v0.11.0:** [Phase 16-18](./audit/PROMPT_ROADMAP.md#stage-16) - Containerized the Python backend via Docker Compose, added the Dead-Letter Queue, and implemented taxonomy normalization.
-- **v0.10.0:** [Phase 11-15](./audit/PROMPT_ROADMAP.md#stage-11) - Refactored database row factories, implemented programmatic visual branding, and deployed the Help Center tooltips.
-- **v0.9.0:** [Phase 9](./audit/PROMPT_ROADMAP.md#stage-9) - Implemented the zero-dependency Material Design UI (HTML/CSS/JS) via Apps Script templates.
-- **v0.8.0:** [Phase 8](./audit/PROMPT_ROADMAP.md#stage-8) - Implemented [`llm_engine.py`](./llm_engine.py) to handle Gemini AI data extraction and artifact DB logging.
-- **v0.7.0:** [Phase 7](./audit/PROMPT_ROADMAP.md#stage-7) - Implemented [`sync_engine.py`](./sync_engine.py) Delta Synchronization Engine for Gmail & Drive.
-- **v0.6.0:** [Phase 6](./audit/PROMPT_ROADMAP.md#stage-6) - Implemented [`diagnostics.py`](./diagnostics.py) and diagnostic ping routing.
-- **v0.5.0:** [Phase 5](./audit/PROMPT_ROADMAP.md#stage-5) - Implemented [`auth.py`](./auth.py) for Google Workspace headless authentication.
-- **v0.4.0:** [Phase 4](./audit/PROMPT_ROADMAP.md#stage-4) - Implemented [`Code.gs`](./Code.gs) Apps Script Router & Cryptographic Webhook Client.
-- **v0.3.0:** [Phase 3](./audit/PROMPT_ROADMAP.md#stage-3) - Implemented [`main.py`](./main.py) Webhook Receiver with HMAC Signature & Replay Protection.
-- **v0.2.0:** [Phase 2](./audit/PROMPT_ROADMAP.md#stage-2) - Implemented Database Initialization ([`db_init.py`](./db_init.py)) with STRICT and JSON validation constraints.
-- **v0.1.0:** [Phase 1](./audit/PROMPT_ROADMAP.md#stage-1) - VM Infrastructure and CI/CD Pipeline implemented ([`setup.sh`](./setup.sh), [`update.sh`](./update.sh)).
+
+*** NOTICE: As of Stage 45, development has shifted to Architectural Epics. Versioning has been reset to a YYYY.Epic.Major.Minor schema. Epic 0 (Baseline) = 2026.0.x.x, Epic 1 (Profiling) = 2026.1.x.x, Epic 2 (Graph API) = 2026.2.x.x, Epic 3 (Nexus UI) = 2026.3.x.x, Epic 4 (IaC) = 2026.4.x.x. ***
+- **v2026.1.3.0:** [Epic 1.3](./ROADMAP/PROMPT_ROADMAP.md#epic-1-prompt-3) - Engineered the Advanced Inbox Retention Engine.
+- **v2026.1.2.0:** [Epic 1.2](./ROADMAP/PROMPT_ROADMAP.md#epic-1-prompt-2) - Built Gmail API post-processing for Tier 3 Auto-Archiving.
+- **v2026.1.1.0:** [Epic 1.1](./ROADMAP/PROMPT_ROADMAP.md#epic-1-prompt-1) - Applied audit fixes for Gmail global tuning hooks and refactored CI/CD to use Docker health checks.
+- **v2026.0.45.0:** [Epic 0 - Prompt 45](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-45) - Built the Quota Governor Dashboard in the Apps Script UI to visualize daily API burn rates and throttling status.
+- **v2026.0.44.0:** [Epic 0 - Prompt 44](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-44) - Refactored installation scripts into a Fail-Fast architecture with direct documentation traceability and mobile webhook alerts.
+- **v2026.0.43.0:** [Epic 0 - Prompt 43](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-43) - Performed a UI tooltip sweep on all AI pipeline controls and updated the AI CONOPS to mandate the Continuous UX Protocol.
+- **v2026.0.42.0:** [Epic 0 - Prompt 42](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-42) - Documented OAuth scope justifications and token management security protocols.
+- **v2026.0.41.0:** [Epic 0 - Prompt 41](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-41) - Added a dedicated Security Architecture section detailing HMAC webhook verification and VM network isolation.
+- **v2026.0.40.0:** [Epic 0 - Prompt 40](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-40) - Documented the 'Walled Garden' Privacy Guarantee and enterprise AI data protection policies.
+- **v2026.0.39.0:** [Epic 0 - Prompt 39](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-39) - Built the Entity Management UI, introducing grouped taxonomy dropdowns and no-code AI prompt tuning text areas.
+- **v2026.0.38.0:** [Epic 0 - Prompt 38](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-38) - Upgraded SQLite schema to support Global Purposes and dynamic AI Tuning Hooks.
+- **v2026.0.37.0:** [Epic 0 - Prompt 37](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-37) - Built the Material Design 3-Phase Vertical Stepper in the Apps Script UI to control the pipeline.
+- **v2026.0.36.0:** [Epic 0 - Prompt 36](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-36) - Built the Backend Bridge for the UI Pipeline Orchestrator, dynamically linking UI configs to the Python engines.
+- **v2026.0.35.0:** [Epic 0 - Prompt 35](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-35) - Defined the Anti-Folder philosophy and established standard nomenclature for the two operational Drive folders.
+- **v2026.0.34.0:** [Epic 0 - Prompt 34](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-34) - Implemented hard-coded Pre-AI filtering in the Gmail Sync Engine to drop junk mail before LLM processing.
+- **v2026.0.33.0:** [Epic 0 - Prompt 33](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-33) - Established AI-Assisted Development CONOPS, prompt governance, and Continuous Documentation protocols.
+- **v2026.0.29.0:** [Epic 0 - Prompt 29](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-29) - Integrated Google People API for autonomous Contact Bootstrapping and multi-dimensional profile mapping.
+- **v2026.0.28.0:** [Epic 0 - Prompt 28](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-28) - Telemetry & Alerting Matrix with Pushover webhook notifications and Gmail Daily Digests.
+- **v2026.0.26.0:** [Epic 0 - Prompts 22-26](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-22) - Added Three-Tier Taxonomy Hierarchy, Zero-Trust UI Review Queues, RAG Query engine, and Quota Governor.
+- **v2026.0.21.0:** [Epic 0 - Prompts 19-21](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-19) - Decoupled hardcoded LLM prompts to SQLite, implemented FastAPI BackgroundTasks for the AI Self-Tuning loop, and finalized documentation.
+- **v2026.0.18.0:** [Epic 0 - Prompts 16-18](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-16) - Containerized the Python backend via Docker Compose, added the Dead-Letter Queue, and implemented taxonomy normalization.
+- **v2026.0.15.0:** [Epic 0 - Prompts 11-15](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-11) - Refactored database row factories, implemented programmatic visual branding, and deployed the Help Center tooltips.
+- **v2026.0.9.0:** [Epic 0 - Prompt 9](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-9) - Implemented the zero-dependency Material Design UI (HTML/CSS/JS) via Apps Script templates.
+- **v2026.0.8.0:** [Epic 0 - Prompt 8](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-8) - Implemented [`llm_engine.py`](./llm_engine.py) to handle Gemini AI data extraction and artifact DB logging.
+- **v2026.0.7.0:** [Epic 0 - Prompt 7](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-7) - Implemented [`sync_engine.py`](./sync_engine.py) Delta Synchronization Engine for Gmail & Drive.
+- **v2026.0.6.0:** [Epic 0 - Prompt 6](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-6) - Implemented [`diagnostics.py`](./diagnostics.py) and diagnostic ping routing.
+- **v2026.0.5.0:** [Epic 0 - Prompt 5](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-5) - Implemented [`auth.py`](./auth.py) for Google Workspace headless authentication.
+- **v2026.0.4.0:** [Epic 0 - Prompt 4](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-4) - Implemented [`Code.gs`](./Code.gs) Apps Script Router & Cryptographic Webhook Client.
+- **v2026.0.3.0:** [Epic 0 - Prompt 3](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-3) - Implemented [`main.py`](./main.py) Webhook Receiver with HMAC Signature & Replay Protection.
+- **v2026.0.2.0:** [Epic 0 - Prompt 2](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-2) - Implemented Database Initialization ([`db_init.py`](./db_init.py)) with STRICT and JSON validation constraints.
+- **v2026.0.1.0:** [Epic 0 - Prompt 1](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-1) - VM Infrastructure and CI/CD Pipeline implemented ([`setup.sh`](./setup.sh), [`update.sh`](./update.sh)).
 
 **Documentation**
 
@@ -393,6 +398,11 @@ erDiagram
 
 The synchronization engine implements distinct processing strategies tailored to the input data type.
 
+### 5.1 Post-Processing & Retention Rules
+Once an artifact is categorized, the synchronization engine can execute downstream actions. For Gmail, if a matched Purpose has `auto_archive` enabled (configurable in the Entity Management UI), the engine automatically issues a Gmail API call to drop the `INBOX` label from the thread. This prevents your active inbox from cluttering with automated system notifications or processed receipts.
+
+Additionally, the Advanced Inbox Retention Engine allows users to set programmatic batch sweeping rules (e.g. "Trash all 'Promotions' older than 30 days"). A dedicated `retention_worker.py` script queries the SQLite `Config_Retention_Rules` table and executes bulk API modifications, manageable directly from the 'Inbox Cleanup Rules' tab in the UI.
+
 ### Drive Two-Stage Triage Logic
 Google Drive documents (PDFs, images) are unstructured and noisy even after OCR. Feeding massive whitelists into the LLM simultaneously dilutes instructions. 
 * **Stage 1 (Triage):** Identifies the Vendor/Correspondent from the OCR text.
@@ -633,7 +643,7 @@ To maintain an immutable audit trail of *why* and *how* code was generated, deve
 1. **The Architect (Gemini Pro/Advanced):** Use a conversational LLM to brainstorm features, review pseudocode, and generate the final execution prompt. 
 2. **The Executor (Gemini Code Assist / IDE Agent):** Feed the finalized prompt to your IDE agent to silently execute the file updates.
 
-Before executing any code changes, the finalized execution prompt **MUST** be committed to [`PROMPT_ROADMAP.md`](./audit/PROMPT_ROADMAP.md). This acts as our source code for AI behavior. If a bug is introduced, maintainers can audit the roadmap to see exactly what instructions the AI was given.
+Before executing any code changes, the finalized execution prompt **MUST** be committed to [`ROADMAP/PROMPT_ROADMAP.md`](./ROADMAP/PROMPT_ROADMAP.md). This acts as our source code for AI behavior. If a bug is introduced, maintainers can audit the roadmap to see exactly what instructions the AI was given.
 
 <a id="figure-8"></a>
 **Figure 8: The AI-Assisted Development Workflow**
@@ -647,7 +657,7 @@ flowchart TD
     Dev[Human Developer]:::human -->|1. Discuss Feature & Logic| Chat[Gemini Pro / Architect]:::ai_chat
     Chat -->|2. Generate Strict Execution Prompt| Dev
     
-    Dev -->|3. Commit Prompt for Audit| Road[(PROMPT_ROADMAP.md)]:::repo
+    Dev -->|3. Commit Prompt for Audit| Road[(./ROADMAP/PROMPT_ROADMAP.md)]:::repo
     
     Dev -->|4. Paste Prompt into IDE| IDE[Gemini Code Assist]:::ai_ide
     IDE -->|5a. Modify Python/JS Files| Code[(Codebase)]:::repo
@@ -658,20 +668,20 @@ flowchart TD
 Documentation is not a separate sprint; it compiles alongside the code. Every execution prompt fed to the IDE agent must include the following standard instruction block to ensure [`README.md`](./README.md) never drifts from the codebase:
 
 **Standard Prompt Footer:**
-> "Update [`README.md`](./README.md) [Specify Section] with these changes. Wrap all codebase file mentions in relative hotlinks, unless they are inside of the diagrams and flow charts, generated by mermaid. If adding a section or diagram, update the Table of Contents and Table of Figures with working HTML anchors. Add a bullet to the Version History hotlinked to the new stage in `PROMPT_ROADMAP.md`.
+> "Update [`README.md`](./README.md) [Specify Section] with these changes. Wrap all codebase file mentions in relative hotlinks, unless they are inside of the diagrams and flow charts, generated by mermaid. If adding a section or diagram, update the Table of Contents and Table of Figures with working HTML anchors. Add a bullet to the Version History hotlinked to the new stage in `ROADMAP/PROMPT_ROADMAP.md`.
 > * If modifying the UI, ensure all new interactive elements include inline user education (tooltips or help text) explaining their function."
 
 ### 11.3 Multi-Developer Synchronization
 In a multi-developer environment relying on AI, merge conflicts on documentation and roadmap files are highly probable.
 
-* **Always Pull First:** Before generating a new prompt, the human needs to pull the latest `PROMPT_ROADMAP.md` to ensure they are appending to the correct stage sequence.
+* **Always Pull First:** Before generating a new prompt, the human needs to pull the latest `ROADMAP/PROMPT_ROADMAP.md` to ensure they are appending to the correct stage sequence.
 * **Isolate Prompts:** Do not ask the AI to refactor multiple distinct architectures in a single prompt. Isolate infrastructure changes (e.g., Docker) from logic changes (e.g., LLM routing) to maintain clean Git commits and readable audit trails.
 
 ### 11.4 The Standard Execution Prompt Template (Example)
 
 To ensure strict adherence to the CONOPS, all execution prompts must be committed to the roadmap before being fed to the AI IDE agent. A fully compliant prompt ensures that code, user education (UX), and master documentation compile simultaneously.
 
-Below is a complete example of a compliant execution prompt (using a hypothetical feature) formatted exactly as it should appear in `PROMPT_ROADMAP.md`:
+Below is a complete example of a compliant execution prompt (using a hypothetical feature) formatted exactly as it should appear in `ROADMAP/PROMPT_ROADMAP.md`:
 
 <details>
 <summary><b>Click to expand the Standard Prompt Template</b></summary>
@@ -696,7 +706,7 @@ Below is a complete example of a compliant execution prompt (using a hypothetica
 &gt; * **Constraint - Tables:** If a new section or diagram was added, update the **Table of Contents** or **Table of Figures** with a working HTML anchor.
 &gt; 
 &gt; **Task 3: Roadmap Anchors & Version History**
-&gt; * **In `README.md`:** Add a new bullet point to the top of the 'Version History' section: `- **vX.X.X:** [Phase 99999](./PROMPT_ROADMAP.md#stage-99999) - [Brief description of the feature].`
+&gt; * **In `README.md`:** Add a new bullet point to the top of the 'Version History' section: `- **vX.X.X:** [Phase 99999](./ROADMAP/PROMPT_ROADMAP.md#stage-99999) - [Brief description of the feature].`
 &gt; 
 &gt; **Output Actions:**
 &gt; 1. Silently update the targeted code files.

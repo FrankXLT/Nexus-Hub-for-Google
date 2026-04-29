@@ -84,12 +84,21 @@ clasp push --force || trap_error "Failed to push clasp to Apps Script. Did you a
 echo "Restarting Docker containers..."
 docker compose up -d || trap_error "Failed to start Docker containers." "Phase 6"
 
-# Assert containers are up and return 200
+# Assert containers are up and healthy
 echo "Waiting for Nexus API to become healthy..."
-sleep 5
-HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/health || echo "000")
-if [ "$HTTP_STATUS" -ne 200 ]; then
-    trap_error "Docker containers started, but API health check returned HTTP $HTTP_STATUS." "Phase 6"
+attempts=0
+max_attempts=30
+while [ $attempts -lt $max_attempts ]; do
+    HEALTH_STATUS=$(docker inspect --format="{{json .State.Health.Status}}" nexus-api 2>/dev/null || echo "\"unhealthy\"")
+    if [ "$HEALTH_STATUS" = "\"healthy\"" ]; then
+        break
+    fi
+    sleep 1
+    ((attempts++))
+done
+
+if [ "$HEALTH_STATUS" != "\"healthy\"" ]; then
+    trap_error "Docker containers started, but Nexus API failed to report healthy status within 30 seconds." "Phase 6"
 fi
 
 echo "======================================="

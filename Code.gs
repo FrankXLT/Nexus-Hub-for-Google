@@ -239,11 +239,15 @@ function savePipelineSettings(payload) {
  * @param {string} entityType - "correspondents" or "purposes"
  * @param {string} id - The entity ID
  * @param {string} rules - The custom extraction rules
+ * @param {boolean} autoArchive - Auto-archive setting (only for purposes)
  * @returns {Object} The JSON response.
  */
-function updateEntityRules(entityType, id, rules) {
+function updateEntityRules(entityType, id, rules, autoArchive = false) {
   try {
     const payload = { custom_extraction_rules: rules };
+    if (entityType === 'purposes') {
+      payload.auto_archive = autoArchive;
+    }
     const result = sendToNexusVM(`/api/entities/${entityType}/${id}`, payload, 'put');
     return { success: true, data: result };
   } catch (error) {

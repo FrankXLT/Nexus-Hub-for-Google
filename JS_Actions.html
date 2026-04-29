@@ -408,6 +408,7 @@ const appActions = {
   savePurposeRules: function() {
     const id = document.getElementById('edit-purp-id').value;
     const rules = document.getElementById('purp-extraction-rules').value;
+    const autoArchive = document.getElementById('purp-auto-archive').checked;
     if(!id) return this.showToast("Please enter a Purpose ID.");
     
     this.showToast("Saving rules...");
@@ -417,7 +418,7 @@ const appActions = {
         else this.showToast("Failed to save rules: " + (result.error || "Unknown"));
       })
       .withFailureHandler((err) => this.showToast("Error: " + err.message))
-      .updateEntityRules('purposes', id, rules);
+      .updateEntityRules('purposes', id, rules, autoArchive);
   },
 
   bulkEdit: function() {

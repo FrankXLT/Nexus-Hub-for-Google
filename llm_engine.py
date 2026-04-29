@@ -287,7 +287,7 @@ def normalize_taxonomy(extracted_tag: str, whitelist_str: str) -> str:
     # Aggressively enforce exception fallback
     return "Purpose/Review"
 
-def process_gmail_thread(artifact_id: str, email_context: Dict[str, Any], dynamic_array_str: str) -> None:
+def process_gmail_thread(artifact_id: str, email_context: Dict[str, Any], dynamic_array_str: str) -> bool:
     """
     Single-Pass processing for Gmail threads.
     Injects full multi-dimensional taxonomy profiles and extracts metadata in one prompt.
@@ -302,23 +302,46 @@ def process_gmail_thread(artifact_id: str, email_context: Dict[str, Any], dynami
     cursor = conn.cursor()
     cursor.execute("""
         SELECT tc.name as correspondent_name, tp.name as purpose_name, 
-               tc.sending_subdomains, tc.physical_addresses, tcat.name as category_name
+               tc.sending_subdomains, tc.physical_addresses, tcat.name as category_name,
+               tc.custom_extraction_rules as c_rules, tp.custom_extraction_rules as p_rules,
+               tp.auto_archive as auto_archive
         FROM Taxonomy_Purposes tp
         JOIN Taxonomy_Correspondents tc ON tp.correspondent_id = tc.id
         JOIN Taxonomy_Categories tcat ON tc.category_id = tcat.id
         WHERE tp.is_gmail_enabled = 1 AND tc.is_gmail_enabled = 1 AND tcat.is_gmail_enabled = 1
     """)
     rows = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT name as purpose_name, custom_extraction_rules as p_rules, auto_archive
+        FROM Taxonomy_Purposes
+        WHERE is_global = 1 AND is_gmail_enabled = 1
+    """)
+    global_purposes = cursor.fetchall()
     conn.close()
 
     entity_profiles = {}
     whitelist_paths = []
+    auto_archive_map = {}
+    
+    global_purps_list = [{'name': gp['purpose_name'], 'rules': gp['p_rules'], 'auto_archive': gp['auto_archive']} for gp in global_purposes]
+    
     for row in rows:
         corr_name = row['correspondent_name']
         purp_name = row['purpose_name']
         cat_name = row['category_name']
+        c_rules = row['c_rules']
+        
         taxonomy_path = f"{cat_name} \\ {corr_name} \\ {purp_name}"
         whitelist_paths.append(taxonomy_path)
+        auto_archive_map[taxonomy_path] = bool(row['auto_archive'])
+        
+        # Append global purposes to the current correspondent
+        for gp in global_purps_list:
+            global_path = f"{cat_name} \\ {corr_name} \\ {gp['name']}"
+            if global_path not in whitelist_paths:
+                whitelist_paths.append(global_path)
+                auto_archive_map[global_path] = bool(gp['auto_archive'])
         
         if corr_name not in entity_profiles:
             try:
@@ -330,10 +353,14 @@ def process_gmail_thread(artifact_id: str, email_context: Dict[str, Any], dynami
             except Exception:
                 addresses = []
                 
-            entity_profiles[corr_name] = {
+            profile = {
                 'subdomains': subdomains,
                 'addresses': addresses
             }
+            if c_rules:
+                profile['rules'] = c_rules
+            
+            entity_profiles[corr_name] = profile
 
     whitelist_str = "\n".join(whitelist_paths)
     profiles_str = json.dumps(entity_profiles, indent=2)
@@ -373,9 +400,11 @@ def process_gmail_thread(artifact_id: str, email_context: Dict[str, Any], dynami
             status=status
         )
         print(f"Successfully processed {artifact_id}")
+        return auto_archive_map.get(normalized_path, False)
     else:
         update_artifact_status(artifact_id, "ERROR_LLM_PARSE")
         print(f"Failed to parse LLM output for {artifact_id}")
+        return False
 
 def process_drive_document(artifact_id: str, ocr_text: str, dynamic_array_str: str) -> None:
     """
@@ -530,6 +559,7 @@ def process_drive_document(artifact_id: str, ocr_text: str, dynamic_array_str: s
             status=status
         )
         print(f"Successfully processed {artifact_id}")
+        return auto_archive_map.get(normalized_path, False)
     else:
         update_artifact_status(artifact_id, "ERROR_STAGE_2_FAILED")
         print(f"Stage 2 failed for {artifact_id}")

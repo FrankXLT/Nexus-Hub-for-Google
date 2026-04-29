@@ -394,13 +394,15 @@ async def update_purpose(id: int, request: Request):
     try:
         body = await request.json()
         rules = body.get("custom_extraction_rules", "")
+        auto_archive = body.get("auto_archive", False)
+        auto_archive_int = 1 if auto_archive else 0
         conn = sqlite3.connect(DB_PATH)
         conn.execute("PRAGMA journal_mode=WAL;")
         cursor = conn.cursor()
-        cursor.execute("UPDATE Taxonomy_Purposes SET custom_extraction_rules = ? WHERE id = ?", (rules, id))
+        cursor.execute("UPDATE Taxonomy_Purposes SET custom_extraction_rules = ?, auto_archive = ? WHERE id = ?", (rules, auto_archive_int, id))
         conn.commit()
         conn.close()
-        return JSONResponse(content={"status": "success", "message": "Purpose rules updated."})
+        return JSONResponse(content={"status": "success", "message": "Purpose rules and settings updated."})
     except Exception as e:
         return JSONResponse(status_code=500, content={"detail": str(e)})
 
@@ -428,6 +430,59 @@ async def get_health_quota():
                 calls = quota_data.get('calls', 0)
                 
         return JSONResponse(content={"status": "success", "quota": {"used": calls, "limit": DAILY_QUOTA_LIMIT}})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+@app.get("/api/retention/rules")
+async def get_retention_rules():
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM Config_Retention_Rules ORDER BY id DESC")
+        rules = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return JSONResponse(content={"status": "success", "rules": rules})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+@app.post("/api/retention/rules")
+async def add_retention_rule(request: Request):
+    try:
+        body = await request.json()
+        target_category = body.get('target_category', '')
+        action = body.get('action', 'ARCHIVE')
+        days_old = int(body.get('days_old', 30))
+        
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("PRAGMA journal_mode=WAL;")
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO Config_Retention_Rules (target_category, action, days_old) VALUES (?, ?, ?)", (target_category, action, days_old))
+        conn.commit()
+        conn.close()
+        return JSONResponse(content={"status": "success"})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+@app.delete("/api/retention/rules/{rule_id}")
+async def delete_retention_rule(rule_id: int):
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("PRAGMA journal_mode=WAL;")
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM Config_Retention_Rules WHERE id = ?", (rule_id,))
+        conn.commit()
+        conn.close()
+        return JSONResponse(content={"status": "success"})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+@app.post("/api/retention/sweep")
+async def trigger_retention_sweep():
+    try:
+        import subprocess
+        subprocess.Popen(["python", "retention_worker.py"])
+        return JSONResponse(content={"status": "success", "message": "Sweep started in background."})
     except Exception as e:
         return JSONResponse(status_code=500, content={"detail": str(e)})
 
