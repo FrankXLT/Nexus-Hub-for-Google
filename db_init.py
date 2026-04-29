@@ -190,6 +190,8 @@ def seed_default_configs(conn: sqlite3.Connection) -> None:
         ('ui_ai_config', '{"drive_model": "gemini-1.5-pro", "gmail_model": "gemini-1.5-flash"}', 'LLM model selection'))
     cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)",
         ('ui_post_processing', '{"auto_archive_gmail": false, "quarantine_unconfident": true}', 'Post-processing actions'))
+    cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)",
+        ('drive_permanent_archive_id', '""', 'Permanent Archive Folder ID'))
 
 
 def seed_universal_purposes(conn):

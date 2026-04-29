@@ -101,7 +101,8 @@ const appActions = {
       settings: {
         ui_gmail_filters: ui_gmail_filters,
         ui_ai_config: ui_ai_config,
-        ui_post_processing: ui_post_processing
+        ui_post_processing: ui_post_processing,
+        drive_permanent_archive_id: document.getElementById('drive-archive-id').value
       }
     };
 
@@ -676,6 +677,11 @@ const appActions = {
       })
       .withFailureHandler((error) => {
         this.showToast("Apps Script Error: " + error.message, 5000);
+      })
+      .runSystemDiagnostics();
+  }
+};
+</script>00);
       })
       .runSystemDiagnostics();
   }

@@ -328,8 +328,31 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
             if not process_file_with_governor(file_time, governor):
                 continue
             
-            print(f" - Drive Change: File ID {change.get('fileId')}")
+            file_id = change.get('fileId')
+            print(f" - Drive Change: File ID {file_id}")
             governor.record_api_call(cost=1)
+            
+            # Drive Relocation Engine
+            cursor.execute("SELECT value FROM Config_System WHERE key = 'drive_permanent_archive_id'")
+            archive_row = cursor.fetchone()
+            if archive_row and archive_row['value'] and archive_row['value'] != '""':
+                archive_id = archive_row['value'].strip('"')
+                if archive_id:
+                    try:
+                        file_obj = service.files().get(fileId=file_id, fields='parents').execute()
+                        governor.record_api_call(cost=1)
+                        current_parents = ",".join(file_obj.get('parents', []))
+                        
+                        service.files().update(
+                            fileId=file_id,
+                            addParents=archive_id,
+                            removeParents=current_parents,
+                            fields='id, parents'
+                        ).execute()
+                        governor.record_api_call(cost=1)
+                        print(f"   -> Relocated File {file_id} to Permanent Archive ({archive_id})")
+                    except Exception as e:
+                        print(f"   -> Relocation failed for {file_id}: {e}")
     else:
         print("No new Drive changes.")
     

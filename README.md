@@ -15,6 +15,7 @@ By leveraging Google's Gemini Large Language Models (LLMs) and a strictly govern
 **Version History**
 
 *** NOTICE: As of Stage 45, development has shifted to Architectural Epics. Versioning has been reset to a YYYY.Epic.Major.Minor schema. Epic 0 (Baseline) = 2026.0.x.x, Epic 1 (Profiling) = 2026.1.x.x, Epic 2 (Graph API) = 2026.2.x.x, Epic 3 (Nexus UI) = 2026.3.x.x, Epic 4 (IaC) = 2026.4.x.x. ***
+- **v2026.1.4.0:** [Epic 1.4](#epic-1-prompt-4) - Built the Drive Relocation Engine to clear the staging dropzone.
 - **v2026.1.3.0:** [Epic 1.3](./ROADMAP/PROMPT_ROADMAP.md#epic-1-prompt-3) - Engineered the Advanced Inbox Retention Engine.
 - **v2026.1.2.0:** [Epic 1.2](./ROADMAP/PROMPT_ROADMAP.md#epic-1-prompt-2) - Built Gmail API post-processing for Tier 3 Auto-Archiving.
 - **v2026.1.1.0:** [Epic 1.1](./ROADMAP/PROMPT_ROADMAP.md#epic-1-prompt-1) - Applied audit fixes for Gmail global tuning hooks and refactored CI/CD to use Docker health checks.
@@ -729,5 +730,8 @@ Below is a complete example of a compliant execution prompt (using a hypothetica
 * **UI (User Interface):** The visual, interactive dashboard presented in the browser.
 * **VM (Virtual Machine):** The dedicated server running Ubuntu Linux executing the Docker containers.
 * **WAL (Write-Ahead Logging):** An SQLite journaling mode that enables extremely fast concurrency (allowing simultaneous reading and writing without locking).
+* **WCAG (Web Content Accessibility Guidelines):** Contrast requirements to ensure branded colors remain readable on the UI and inside Gmail labels.
+
+ng and writing without locking).
 * **WCAG (Web Content Accessibility Guidelines):** Contrast requirements to ensure branded colors remain readable on the UI and inside Gmail labels.
 
