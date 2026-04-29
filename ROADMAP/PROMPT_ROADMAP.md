@@ -1079,6 +1079,29 @@
 
 ---
 
+<a id="epic-1-prompt-5"></a>
+### Epic 1 - Prompt 5: The Entity Profiler & Template Engine
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. We are finalizing Epic 1.
+> 
+> **Task 1: Code Implementation (Template Extraction)**
+> 1. Create a new directory in the root called `prompts/`.
+> 2. Extract the hardcoded LLM instructions from `llm_engine.py`. Create at least three XML-fenced text files in the new directory: `gmail_extraction.tmpl`, `drive_extraction.tmpl`, and `entity_profiler.tmpl`.
+> 3. Update `llm_engine.py` to dynamically read these `.tmpl` files from the disk when constructing the Gemini payload, rather than relying on hardcoded strings.
+> 
+> **Task 2: Code Implementation (Autonomous Profiling)**
+> 1. In `llm_engine.py`, create a new function: `generate_sender_profile(sender_email, email_body)`. This must use the `entity_profiler.tmpl` to generate a 15-word definition of the sender and guess their parent Correspondent category.
+> 2. In `sync_engine.py`, update the routing logic. Before standard triage, check if the sender exists in `Taxonomy_Senders`. If they are unknown, pause, trigger `generate_sender_profile()`, save the new profile and guessed Correspondent ID to the database, and *then* proceed with standard extraction.
+> 
+> **Task 3: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add to Version History: `- **v2026.1.5.0:** [Epic 1.5](#epic-1-prompt-5) - Engineered the Entity Profiler for autonomous classification of unknown senders and externalized LLM prompts to XML templates.`
+> 
+> **Output Actions:**
+> 1. Silently create the `prompts/` directory and `.tmpl` files.
+> 2. Silently update `llm_engine.py` and `sync_engine.py`.
+> 3. Silently update `README.md` exactly as instructed."
+
+---
+
 ## EPIC 2: The Core API & Graph Migration (v2.x.x)
 *Notice to AI: We are now executing Epic 2. Update the README version history to v2.x.x for the following prompts.*
 
@@ -1127,7 +1150,7 @@
 > 
 > **Task 1: Code Implementation (`main.py`)**
 > 1. **Create Endpoint:** Build `GET /api/artifacts/search` accepting `q` (query string), `limit` (default 50), and `offset` (default 0).
-> 2. **AST Parser:** Build logic to parse exact matches (`Correspondent:"Amazon"`), exclusions (`!Purpose:Receipt`), and temporal bounds (`Date:YYYY-MM`). For `YYYY-MM`, use Python `calendar` to generate a SQLite `BETWEEN 'YYYY-MM-01' AND 'YYYY-MM-31'` clause.
+> 2. **AST Parser:** Build logic to parse exact matches (`Correspondent:"Amazon"`), exclusions (`!Purpose:Receipt`), and temporal bounds (`Date:YYYY-MM` or `Date:YYYY-MM-DD`). For `YYYY-MM`, use Python `calendar` to generate a SQLite `BETWEEN 'YYYY-MM-01' AND 'YYYY-MM-31'` clause. For `YYYY-MM-DD`, enforce an exact match.
 > 3. **Pagination Bounding:** If `q` is empty, default query to `document_date` within the last 30 days. Execute `SELECT COUNT(*)` first to return `total_matches` alongside the paginated array.
 > 
 > **Task 2: Continuous Documentation (`README.md`)**
@@ -1186,6 +1209,21 @@
 > **Output Actions:**
 > 1. Silently update `db_init.py`, `main.py`, and `README.md`."
 
+<a id="epic-2-prompt-7"></a>
+### Epic 2 - Prompt 7: Zero-Shot Taxonomy Rules API
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> 
+> **Task 1: Code Implementation (`main.py` & `llm_engine.py`)**
+> 1. **Create Endpoint:** Build `POST /api/taxonomy/zero-shot-rule`. It must accept a JSON payload containing an array of `artifact_ids` and a string `instruction` (e.g., "Always extract the total without tax").
+> 2. **Processing Logic:** Fetch the current `purpose_id` shared by these artifacts. Fetch the existing `custom_extraction_rules` for that purpose from the database. Append the user's new `instruction` to the existing rules and update the `Taxonomy_Purposes` table. Return a success status.
+> 
+> **Task 2: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add to Version History: `- **v2026.2.7.0:** [Epic 2.7](#epic-2-prompt-7) - Built the Zero-Shot Rule generation API for bulk UI tuning.`
+> 
+> **Output Actions:**
+> 1. Silently update `main.py` and `llm_engine.py`.
+> 2. Silently update `README.md`."
+
 ---
 
 ## EPIC 3: The Nexus Paradigm Frontend (v3.x.x)
@@ -1196,11 +1234,11 @@
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. We are starting Epic 3.
 > 
 > **Task 1: Code Implementation (Apps Script UI)**
-> 1. **Quota UI:** Build a 'Quota Governor' metric card displaying a visual progress bar of daily API usage (fetching from `/api/health/quota`). Add a tooltip explaining 70% historical throttling.
-> 2. **Health Badge:** Add a global System Health badge to the top header. Set frontend logic to ping `/api/health` every 60 seconds, dynamically changing color (Green/Yellow/Red) with tooltips.
+> 1. **Relocate Quota UI:** Take the 'Quota Governor' progress bar UI built in Epic 0 (Prompt 45) and relocate it into a new persistent Global Header at the top of `Index.html`.
+> 2. **Health Badge:** Add a global System Health badge to this top header. Set frontend logic to ping `/api/health` every 60 seconds, dynamically changing color (Green/Yellow/Red) with tooltips.
 > 
 > **Task 2: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add to Version History: `- **v2026.3.1.0:** [Epic 3.1](#epic-3-prompt-1) - Built the Global Observability header and Quota Governor Dashboard.`
+> * **In `README.md`:** Add to Version History: `- **v2026.3.1.0:** [Epic 3.1](#epic-3-prompt-1) - Built the Global Observability header and integrated the Quota Governor Dashboard.`
 > 
 > **Output Actions:**
 > 1. Silently update Apps Script UI files and `README.md`."
@@ -1243,7 +1281,7 @@
 > **Task 1: Code Implementation (`JS_State.html` & `JS_Actions.html`)**
 > 1. **Multi-Select State:** Ensure `appState.selectedIds` tracks Shift/Ctrl clicks on `.artifact-card` elements.
 > 2. **Aggregate Drawer:** If `selectedIds.size > 1`, group the metadata in the right-hand details pane.
-> 3. **Zero-Shot UI:** Inject a 'Submit with AI (Create Rule)' button. Transmit edits to `POST /api/taxonomy/zero-shot-rule`.
+> 3. **Zero-Shot UI:** Inject a 'Submit with AI (Create Rule)' button into the Drawer. Transmit the selected IDs and the user's custom instruction to `POST /api/taxonomy/zero-shot-rule`.
 > 
 > **Task 2: Roadmap Anchors & Version History**
 > * **In `README.md`:** Add to Version History: `- **v2026.3.4.0:** [Epic 3.4](#epic-3-prompt-4) - Implemented the Aggregate Context Drawer supporting bulk Zero-Shot Rule generation.`
@@ -1321,36 +1359,38 @@
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. We are starting Epic 4.
 > 
 > **Task 1: Code Implementation (`scripts/provision.sh`)**
-> 1. Write a bash script (`chmod +x`) using `gcloud compute instances create` for an `e2-micro` VM.
-> 2. Add `gcloud compute firewall-rules create` for `tcp:8000`.
-> 3. Pass a multi-line inline `--metadata startup-script` that runs apt updates, installs python/sqlite3/git, creates a venv, installs requirements, and configures the `systemd` daemon.
+> 1. **Delete Legacy File:** Ensure the old `setup.sh` file from the root directory is explicitly deleted from the repository, as it is now obsolete.
+> 2. Write a bash script (`chmod +x`) in the new `scripts/` folder using `gcloud compute instances create` for an `e2-micro` VM.
+> 3. Add `gcloud compute firewall-rules create` for `tcp:8000`.
+> 4. Pass a multi-line inline `--metadata startup-script` that runs apt updates, installs python/sqlite3/git, creates a venv, installs requirements, and configures the `systemd` daemon.
 > 
-> **Task 2: Continuous Documentation (`README.md`)**
-> * **Location:** Create a new Section: `11. Infrastructure as Code (IaC)`.
-> * **Action:** Detail how to run `./scripts/provision.sh` locally.
+> **Task 2: Continuous Documentation (`README.md` & `INSTRUCTIONS.md`)**
+> * **Location:** Create a new Section in README: `11. Infrastructure as Code (IaC)`.
+> * **Action:** Detail how to run `./scripts/provision.sh` locally. Update `INSTRUCTIONS.md` to completely remove all references to manual SSH provisioning and replace them with the `gcloud` CLI commands.
 > 
 > **Task 3: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add to Version History: `- **v2026.4.1.0:** [Epic 4.1](#epic-4-prompt-1) - Built the Zero-Touch Provisioner for automated GCP VM deployment.`
+> * **In `README.md`:** Add to Version History: `- **v2026.4.1.0:** [Epic 4.1](#epic-4-prompt-1) - Built the Zero-Touch Provisioner for automated GCP VM deployment and deprecated manual setup scripts.`
 > 
 > **Output Actions:**
-> 1. Silently create `scripts/provision.sh` and update `README.md`."
+> 1. Silently delete `setup.sh`, create `scripts/provision.sh`, and update documentation."
 
 <a id="epic-4-prompt-2"></a>
 ### Epic 4 - Prompt 2: The CI/CD Deployment Script (`deploy.sh`)
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > 
 > **Task 1: Code Implementation (`scripts/deploy.sh`)**
-> 1. Create `scripts/deploy.sh`.
-> 2. Add a `clasp push` section to sync the Apps Script UI locally.
-> 3. Use `gcloud compute ssh` to execute a remote string on the VM: Pull git updates, activate venv, run `pip install`, execute `db_init.py` migrations, and `sudo systemctl restart nexus-hub`.
-> 4. Use fail-fast error traps and color-coded `echo` feedback.
+> 1. **Delete Legacy File:** Ensure the old `update.sh` file from the root directory is explicitly deleted from the repository.
+> 2. Create `scripts/deploy.sh`.
+> 3. Add a `clasp push` section to sync the Apps Script UI locally.
+> 4. Use `gcloud compute ssh` to execute a remote string on the VM: Pull git updates, activate venv, run `pip install`, execute `db_init.py` migrations, and `sudo systemctl restart nexus-hub`.
+> 5. Use fail-fast error traps and color-coded `echo` feedback.
 > 
-> **Task 2: Continuous Documentation (`README.md`)**
+> **Task 2: Continuous Documentation (`README.md` & `INSTRUCTIONS.md`)**
 > * **Location:** Section 11. Infrastructure as Code (IaC).
-> * **Action:** Add subsection `11.1 The One-Click Deployer`.
+> * **Action:** Add subsection `11.1 The One-Click Deployer`. Update `INSTRUCTIONS.md` to document this local one-click deployment architecture.
 > 
 > **Task 3: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add to Version History: `- **v2026.4.2.0:** [Epic 4.2](#epic-4-prompt-2) - Engineered the CI/CD deploy script integrating clasp and gcloud.`
+> * **In `README.md`:** Add to Version History: `- **v2026.4.2.0:** [Epic 4.2](#epic-4-prompt-2) - Engineered the CI/CD deploy script integrating clasp and gcloud, officially deprecating legacy shell scripts.`
 > 
 > **Output Actions:**
-> 1. Silently create `scripts/deploy.sh` and update `README.md`."
+> 1. Silently delete `update.sh`, create `scripts/deploy.sh`, and update documentation."
