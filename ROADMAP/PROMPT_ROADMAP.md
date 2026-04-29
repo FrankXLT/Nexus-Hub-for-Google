@@ -1079,6 +1079,29 @@
 
 ---
 
+<a id="epic-1-prompt-4-1"></a>
+### Epic 1 - Prompt 4.1: Mid-Epic Audit Remediation (Bug Fixes)
+> "I am the Lead Architect. We have just completed Epic 1.4. Before we move on to the Historical Import Engine, we must patch several critical vulnerabilities identified during a static analysis of the codebase up to this point. Please read `audit/AUDIT_REPORT_APR_2026.md` in the workspace for context.
+> 
+> **Task 1: Security & Hardening (`main.py` & `llm_engine.py`)**
+> 1. **Patch HMAC Middleware (`main.py`):** Update the `verify_nexus_signature` middleware. It must enforce the signature check on `POST`, `PUT`, `DELETE`, and `PATCH` methods (not just `POST`).
+> 2. **Configure CORS (`main.py`):** Import `CORSMiddleware` from `fastapi.middleware.cors` and add it to the `app`, allowing all origins (`["*"]`), methods, and headers.
+> 3. **Prevent SQL Injection (`llm_engine.py`):** In the `ask_rag()` function, implement strict sanitization before executing the AI-generated SQL string. Assert that the string `upper().startswith("SELECT")`. If the string contains `DROP`, `DELETE`, `UPDATE`, `INSERT`, or `ALTER`, raise a `ValueError` immediately and do not execute it.
+> 
+> **Task 2: Resilience & Pipeline Fixes (`sync_engine.py` & `llm_engine.py`)**
+> 1. **Fix RAG Schema Mismatch (`llm_engine.py`):** In the `ask_rag()` schema definition string, change `taxonomy_id` to `purpose_id` to match the actual database schema.
+> 2. **Fix Missing Drive Invocation (`sync_engine.py`):** Inside the `sync_drive()` function's loop, you must actually invoke `process_drive_document()` (passing the downloaded file content) before executing the Drive Relocation logic.
+> 3. **Isolate API Exceptions (`sync_engine.py`):** Inside both `sync_gmail()` and `sync_drive()`, wrap the calls to the LLM processing functions in a `try/except Exception as e:` block. If a failure occurs for a specific artifact, log the error and use `continue` to move to the next item in the batch without crashing the entire `run_sync` loop.
+> 
+> **Task 3: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add a new bullet to the 'Version History' section: `- **v2026.1.4.1:** [Epic 1.4.1](#epic-1-prompt-4-1) - Executed Mid-Epic Audit Remediation: Patched HMAC bypass, secured RAG SQL injection, fixed Drive LLM invocation, and isolated API exceptions.`
+> 
+> **Output Actions:**
+> 1. Silently update `main.py`, `llm_engine.py`, and `sync_engine.py`.
+> 2. Silently update `README.md` exactly as instructed."
+> 3. 
+---
+
 <a id="epic-1-prompt-5"></a>
 ### Epic 1 - Prompt 5: The Entity Profiler & Template Engine
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. We are finalizing Epic 1.
@@ -1099,6 +1122,72 @@
 > 1. Silently create the `prompts/` directory and `.tmpl` files.
 > 2. Silently update `llm_engine.py` and `sync_engine.py`.
 > 3. Silently update `README.md` exactly as instructed."
+
+---
+
+<a id="epic-1-prompt-6"></a>
+### Epic 1 - Prompt 6: The Historical Import Engine & Queue
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. We are building an asynchronous buffering system to handle massive historical data ingestion without triggering Google API rate limits.
+> 
+> **Task 1: Schema Update (`db_init.py`)**
+> 1. Create a new table: `Ingestion_Queue`.
+> 2. Columns: `id INTEGER PRIMARY KEY`, `source TEXT` (e.g., 'gmail'), `source_id TEXT` (the Gmail message/thread ID), `status TEXT DEFAULT 'PENDING'` (states: PENDING, PROCESSING, COMPLETE, FAILED), `added_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP`.
+> 
+> **Task 2: API Endpoint (`main.py`)**
+> 1. Create a new endpoint: `POST /api/ingestion/queue-historical`. It must accept a JSON payload containing a `search_query` string (e.g., 'before:2025-01-01').
+> 2. **Logic:** The endpoint must use the Gmail API (`users().messages().list`) passing the `q=search_query` parameter. It must iterate through pagination tokens to fetch *only the IDs* of all matching messages. 
+> 3. Bulk insert these IDs into the `Ingestion_Queue` table with `status = 'PENDING'`. Return a success JSON with the total number of items queued.
+> 
+> **Task 3: The Throttled Worker (`sync_engine.py`)**
+> 1. Modify the main daemon loop. After performing the standard delta-sync, query the `Ingestion_Queue` for `status = 'PENDING' LIMIT 20`.
+> 2. For each queued ID, change status to `PROCESSING`, fetch the full payload via the Gmail API, run the standard LLM extraction pipeline, and finally update the queue status to `COMPLETE`.
+> 3. Ensure error handling updates the status to `FAILED` if the LLM or API times out, allowing it to be retried or audited later.
+> 
+> **Task 4: UI Implementation (`Index.html` & `JS_Actions.html`)**
+> 1. In the Mission Control dashboard (`#tab-dashboard`), build a 'Historical Import' widget.
+> 2. Include a text input for a Gmail search string, a 'Queue Import' button, and a small counter showing the current number of PENDING items in the queue.
+> 3. Wire the button to send the search string to the new `POST` endpoint and display a success toast/notification.
+> 
+> **Task 5: Documentation & Versioning**
+> 1. **In `README.md`:** Add to Version History: `- **v2026.1.6.0:** [Epic 1.6](#epic-1-prompt-6) - Engineered the asynchronous Historical Import Engine and SQLite ingestion buffer.`
+> 2. Insert a brief section in the README explaining how to use standard Gmail search syntax in the UI to safely import old data.
+> 
+> **Output Actions:**
+> 1. Silently execute the code implementation across `db_init.py`, `main.py`, `sync_engine.py`, and the frontend UI.
+> 2. Silently update `README.md` exactly as instructed."
+
+---
+
+<a id="epic-1-prompt-7"></a>
+### Epic 1 - Prompt 7: The Materialization Pipeline & Lineage Tracking
+> "I am the Lead Architect. We are building the Materialization Pipeline to convert transient HTML emails into permanent PDFs in Google Drive, establishing a strict lineage between the source and the new artifact.
+> 
+> **Task 1: Schema Updates (`db_init.py`)**
+> 1. In `Workspace_Artifacts`, add `parent_artifact_id TEXT` (self-referencing foreign key).
+> 2. In `Workspace_Artifacts`, add `lifecycle_status TEXT DEFAULT 'ACTIVE'`. (Options: 'ACTIVE', 'MATERIALIZED', 'TRASHED').
+> 
+> **Task 2: Backend Lineage & Deduplication (`main.py`)**
+> 1. **Update AST Parser:** Modify the `/api/artifacts/search` and `/api/analytics/threads` endpoints. By default, append a SQL clause to exclude `lifecycle_status = 'MATERIALIZED'` so the UI and Sankey charts do not double-count parent emails that have been converted to PDFs. 
+> 
+> **Task 3: The Materialization Engine (`sync_engine.py`)**
+> 1. Create a new function: `materialize_artifact(artifact_id)`.
+> 2. **Logic:** Fetch the raw HTML body of the Gmail artifact. (Stub out the actual PDF rendering tool, e.g., `# TODO: Implement WeasyPrint or API conversion here`).
+> 3. Upload the generated PDF bytes to the Google Drive Dropzone via the Drive API.
+> 4. Insert the new Drive artifact into the DB, setting its `parent_artifact_id` to the original email's ID.
+> 5. Update the original email's `lifecycle_status` to `'MATERIALIZED'`.
+> 
+> **Task 4: The Workflow Hub UI (`Index.html` & `JS_Actions.html`)**
+> 1. Add a 'Workflow Hub' icon/button in the top right navigation header.
+> 2. Clicking it opens a modal overlay. Include a section for 'Materialization Pipeline'.
+> 3. Add a button: "Materialize Selected Items". Wire this to send the `appState.selectedIds` array to a new `POST /api/workflows/materialize` endpoint.
+> 4. **Grid UI Update:** In `renderKnowledgeGrid()`, if an item has a `parent_artifact_id` or acts as a parent, add a visual 'Linked' icon or badge to the `.artifact-card`.
+> 
+> **Task 5: Documentation & Versioning**
+> 1. **In `README.md`:** Add to Version History: `- **v2026.1.7.0:** [Epic 1.7](#epic-1-prompt-7) - Engineered the Materialization Pipeline, Lineage Tracking, and Workflow Hub to normalize HTML emails into Drive PDFs.`
+> 
+> **Output Actions:**
+> 1. Silently execute the code implementation across `db_init.py`, `main.py`, `sync_engine.py`, and the frontend UI.
+> 2. Silently update `README.md` exactly as instructed."
 
 ---
 
