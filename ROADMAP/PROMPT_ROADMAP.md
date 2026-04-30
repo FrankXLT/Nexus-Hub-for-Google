@@ -1342,18 +1342,20 @@
 ---
 
 ## EPIC 3: The Nexus Paradigm Frontend (v3.x.x)
-*Notice to AI: We are now executing Epic 3. Update the README version history to v3.x.x for the following prompts.*
+*Notice to AI: We are now executing Epic 3. Update the README version history to v3.x.x for the following prompts.* *CRITICAL UI DIRECTIVE: You have already built functional UI elements, state management, and settings modals in Epics 0-2. DO NOT delete or overwrite existing functionality. You must use `roadmap/Index.html` as a structural and stylistic blueprint (CSS variables, grid layout, sidebar mechanics), but your objective is to MELD our existing UI components into this new responsive shell, preserving all prior features.*
 
 <a id="epic-3-prompt-1"></a>
 ### Epic 3 - Prompt 1: Global Observability & Quota Dashboards
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. We are starting Epic 3.
+> *CRITICAL UI DIRECTIVE: You have already built functional UI elements, state management, and settings modals in Epics 0-2. DO NOT delete or overwrite existing functionality. You must use `roadmap/Index.html` as a structural and stylistic blueprint (CSS variables, grid layout, sidebar mechanics), but your objective is to MELD our existing UI components into this new responsive shell, preserving all prior features.*
 > 
 > **Task 1: Code Implementation (Apps Script UI)**
-> 1. **Relocate Quota UI:** Take the 'Quota Governor' progress bar UI built in Epic 0 (Prompt 45) and relocate it into a new persistent Global Header at the top of `Index.html`.
-> 2. **Health Badge:** Add a global System Health badge to this top header. Set frontend logic to ping `/api/health` every 60 seconds, dynamically changing color (Green/Yellow/Red) with tooltips.
+> 1. **Analyze Blueprint:** Read `roadmap/Index.html` to understand the new target CSS variables (`--bg-dark`, `--accent-blue`, etc.) and the collapsible sidebar layout.
+> 2. **Relocate Quota UI:** Take the existing 'Quota Governor' progress bar UI built in Epic 0 and carefully adapt it to fit within the new persistent Global Header or Sidebar design from the prototype. Do not lose the existing backend quota-fetching logic.
+> 3. **Health Badge:** Add a global System Health badge to this top header. Set frontend logic to ping `/api/health` every 60 seconds, dynamically changing color (Green/Yellow/Red) with tooltips.
 > 
 > **Task 2: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add to Version History: `- **v2026.3.1.0:** [Epic 3.1](#epic-3-prompt-1) - Built the Global Observability header and integrated the Quota Governor Dashboard.`
+> * **In `README.md`:** Add to Version History: `- **v2026.3.1.0:** [Epic 3.1](#epic-3-prompt-1) - Migrated the Quota Governor into the new V3 UI prototype header and established the System Health badge.`
 > 
 > **Output Actions:**
 > 1. Silently update Apps Script UI files and `README.md`."
@@ -1361,14 +1363,15 @@
 <a id="epic-3-prompt-2"></a>
 ### Epic 3 - Prompt 2: The Knowledge Grid Shell
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
+> *CRITICAL UI DIRECTIVE: You have already built functional UI elements, state management, and settings modals in Epics 0-2. DO NOT delete or overwrite existing functionality. You must use `roadmap/Index.html` as a structural and stylistic blueprint (CSS variables, grid layout, sidebar mechanics), but your objective is to MELD our existing UI components into this new responsive shell, preserving all prior features.*
 > 
 > **Task 1: Code Implementation (`CSS_Styles.html` & UI)**
-> 1. **Update DOM:** Replace the existing legacy table with `<div id="knowledge-grid" class="artifact-grid">`.
-> 2. **CSS Grid:** Define `.artifact-grid` as responsive `display: grid`.
-> 3. **Card Anatomy:** Define `.artifact-card` with dynamic side-borders (red for Gmail, blue for Drive). Refactor the renderer to generate these HTML cards.
+> 1. **Update DOM Wrapper:** Replace the existing legacy table wrapper with `<div class="grid-container">` exactly as structured in `roadmap/Index.html`.
+> 2. **CSS Grid:** Replicate the responsive CSS grid logic (`grid-template-columns: repeat(auto-fill, minmax(320px, 1fr))`) and the mobile `@media` overrides from the prototype.
+> 3. **Card Anatomy (Meld Logic):** Define `.card` with the dynamic side-borders (red for Gmail, blue for Drive). Implement the `.stacked::before` pseudo-element logic. **Crucially:** Refactor the existing JavaScript renderer so it injects the *actual* database metadata (which you mapped in Epics 1-2) into this new HTML card structure.
 > 
 > **Task 2: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add to Version History: `- **v2026.3.2.0:** [Epic 3.2](#epic-3-prompt-2) - Replaced the legacy table with the responsive, metadata-first Knowledge Grid.`
+> * **In `README.md`:** Add to Version History: `- **v2026.3.2.0:** [Epic 3.2](#epic-3-prompt-2) - Adapted the existing artifact data renderer into the responsive, metadata-first Knowledge Grid utilizing the prototype's stacked card CSS.`
 > 
 > **Output Actions:**
 > 1. Silently update CSS and JS renderers.
@@ -1377,14 +1380,16 @@
 <a id="epic-3-prompt-3"></a>
 ### Epic 3 - Prompt 3: The Command-Line Omnibox
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
-> 
+> *CRITICAL UI DIRECTIVE: You have already built functional UI elements, state management, and settings modals in Epics 0-2. DO NOT delete or overwrite existing functionality. You must use `roadmap/Index.html` as a structural and stylistic blueprint (CSS variables, grid layout, sidebar mechanics), but your objective is to MELD our existing UI components into this new responsive shell, preserving all prior features.*
+>
 > **Task 1: Code Implementation (UI & JS)**
-> 1. **Build Omnibox DOM:** Create a large search bar above the Knowledge Grid with nested Filter/Clear buttons. Add a typeahead overlay div.
-> 2. **Tab-to-Complete:** Attach `keyup`/`keydown`. If a user types 'Med' and sees 'MedStar Health', pressing `Tab` locks "Correspondent:MedStar Health" into the string.
-> 3. **Execution:** On `Enter`, convert text to UI 'Chips', and fire the fetch to `/api/artifacts/search`.
+> 1. **Build Omnibox DOM:** Replicate the `.search-row` and `.omnibox-wrapper` found in `roadmap/Index.html`. Include the SVG icons for Search, Save, and Filter. Ensure the existing search function is bound to this new input element.
+> 2. **Search Chips:** Implement the `.chips-row` and the JS `toggleChip()` function from the prototype to dynamically inject/remove AST syntax (e.g., 'Purpose:Receipt') into the input field.
+> 3. **Tab-to-Complete:** Attach `keyup`/`keydown`. If a user types 'Med' and sees 'MedStar Health', pressing `Tab` locks "Correspondent:MedStar Health" into the string.
+> 4. **Execution:** On `Enter`, convert text to UI 'Chips', and fire the fetch to `/api/artifacts/search`.
 > 
 > **Task 2: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add to Version History: `- **v2026.3.3.0:** [Epic 3.3](#epic-3-prompt-3) - Built the Command-Line Omnibox with Tab-autocomplete prediction.`
+> * **In `README.md`:** Add to Version History: `- **v2026.3.3.0:** [Epic 3.3](#epic-3-prompt-3) - Upgraded the Omnibox with interactive AST chips and Tab-autocomplete prediction.`
 > 
 > **Output Actions:**
 > 1. Silently update HTML/JS UI files and `README.md`."
@@ -1392,11 +1397,12 @@
 <a id="epic-3-prompt-4"></a>
 ### Epic 3 - Prompt 4: Aggregate Context Drawer & Zero-Shot Rules
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
-> 
+> *CRITICAL UI DIRECTIVE: You have already built functional UI elements, state management, and settings modals in Epics 0-2. DO NOT delete or overwrite existing functionality. You must use `roadmap/Index.html` as a structural and stylistic blueprint (CSS variables, grid layout, sidebar mechanics), but your objective is to MELD our existing UI components into this new responsive shell, preserving all prior features.*
+>
 > **Task 1: Code Implementation (`JS_State.html` & `JS_Actions.html`)**
-> 1. **Multi-Select State:** Ensure `appState.selectedIds` tracks Shift/Ctrl clicks on `.artifact-card` elements.
-> 2. **Aggregate Drawer:** If `selectedIds.size > 1`, group the metadata in the right-hand details pane.
-> 3. **Zero-Shot UI:** Inject a 'Submit with AI (Create Rule)' button into the Drawer. Transmit the selected IDs and the user's custom instruction to `POST /api/taxonomy/zero-shot-rule`.
+> 1. **Multi-Select State:** Ensure `appState.selectedIds` tracks Shift/Ctrl clicks on `.card` elements in the grid.
+> 2. **Aggregate Drawer:** If `selectedIds.size > 1`, group the metadata in a right-hand sliding drawer. Ensure the UI styling matches the variables established in `roadmap/Index.html`.
+> 3. **Zero-Shot UI:** Inject a 'Submit with AI (Create Rule)' button into the Drawer. Transmit the selected IDs and the user's custom instruction to the existing `POST /api/taxonomy/zero-shot-rule` endpoint.
 > 
 > **Task 2: Roadmap Anchors & Version History**
 > * **In `README.md`:** Add to Version History: `- **v2026.3.4.0:** [Epic 3.4](#epic-3-prompt-4) - Implemented the Aggregate Context Drawer supporting bulk Zero-Shot Rule generation.`
@@ -1407,10 +1413,11 @@
 <a id="epic-3-prompt-5"></a>
 ### Epic 3 - Prompt 5: The 'Select All' Bulk Pattern
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
-> 
+> *CRITICAL UI DIRECTIVE: You have already built functional UI elements, state management, and settings modals in Epics 0-2. DO NOT delete or overwrite existing functionality. You must use `roadmap/Index.html` as a structural and stylistic blueprint (CSS variables, grid layout, sidebar mechanics), but your objective is to MELD our existing UI components into this new responsive shell, preserving all prior features.*
+>
 > **Task 1: Code Implementation (UI)**
 > 1. **Selection Banner:** Add a hidden banner below the Omnibox. If a user selects all visible items, display: "All X items selected. Select all Y matching items."
-> 2. **Global Select Logic:** If the user clicks the global select, set `isGlobalSelectActive = true`. When performing bulk edits, send the AST query string to the backend instead of an array of IDs to prevent DOM freezing.
+> 2. **Global Select Logic:** If the user clicks the global select, set `isGlobalSelectActive = true`. When performing bulk edits (like the Zero-Trust Quarantine actions built previously), send the AST query string to the backend instead of an array of IDs to prevent DOM freezing.
 > 
 > **Task 2: Roadmap Anchors & Version History**
 > * **In `README.md`:** Add to Version History: `- **v2026.3.5.0:** [Epic 3.5](#epic-3-prompt-5) - Built the global 'Select All' UX pattern for massive query-based bulk operations.`
@@ -1421,10 +1428,11 @@
 <a id="epic-3-prompt-6"></a>
 ### Epic 3 - Prompt 6: System Analytics Dashboard
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
-> 
+> *CRITICAL UI DIRECTIVE: You have already built functional UI elements, state management, and settings modals in Epics 0-2. DO NOT delete or overwrite existing functionality. You must use `roadmap/Index.html` as a structural and stylistic blueprint (CSS variables, grid layout, sidebar mechanics), but your objective is to MELD our existing UI components into this new responsive shell, preserving all prior features.*
+>
 > **Task 1: Code Implementation (Chart.js Integration)**
-> 1. Include `Chart.js` via CDN. Add a 'System Analytics' nav item.
-> 2. Build `#tab-analytics` containing 3 KPI metric cards and two `<canvas>` grids.
+> 1. Include `Chart.js` via CDN. Ensure the background and font colors match the `--bg-panel` and `--text-main` variables from `roadmap/Index.html`.
+> 2. Build `#tab-analytics` containing 3 KPI metric cards and two `<canvas>` grids. Preserve any existing KPI logic.
 > 3. Write `renderAnalyticsDashboard()` to fetch from `/api/analytics/roi-dashboard` and instantiate a Doughnut chart (Manual Rework vs Automation) and a Bar chart (Throughput).
 > 
 > **Task 2: Roadmap Anchors & Version History**
@@ -1436,12 +1444,13 @@
 <a id="epic-3-prompt-7"></a>
 ### Epic 3 - Prompt 7: Threads UI & Color Weaving
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
-> 
+> *CRITICAL UI DIRECTIVE: You have already built functional UI elements, state management, and settings modals in Epics 0-2. DO NOT delete or overwrite existing functionality. You must use `roadmap/Index.html` as a structural and stylistic blueprint (CSS variables, grid layout, sidebar mechanics), but your objective is to MELD our existing UI components into this new responsive shell, preserving all prior features.*
+>
 > **Task 1: Code Implementation (Google Charts Sankey)**
 > 1. Load Google Charts script. Create `#tab-threads` with a node-limit slider (5-50).
 > 2. Write `hexToRgba(hex, opacity)` to convert DB brand colors to 0.45 opacity.
 > 3. Write `renderThreadsView()` fetching from `/api/analytics/threads`. Apply the `rgba` values to link colors for transparent weaving.
-> 4. Wire node clicks to update the Omnibox and switch views to the Knowledge Grid.
+> 4. Wire node clicks to update the Omnibox. Ensure the `.view-controls` toggle buttons from `roadmap/Index.html` correctly switch the DOM between this Sankey view and the Knowledge Grid.
 > 
 > **Task 2: Roadmap Anchors & Version History**
 > * **In `README.md`:** Add to Version History: `- **v2026.3.7.0:** [Epic 3.7](#epic-3-prompt-7) - Implemented the Threads UI Sankey diagram with interactive routing and color weaving.`
@@ -1450,21 +1459,21 @@
 > 1. Silently update UI files and `README.md`."
 
 <a id="epic-3-prompt-8"></a>
-### Epic 3 - Prompt 8: Mission Control UI & Boot Routing
+### Epic 3 - Prompt 8: Mission Control UI, Boot Routing, & UI Consolidation
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
-> 
-> **Task 1: Code Implementation (Mission Control)**
-> 1. Map 'Home' icon to `#tab-dashboard` (Mission Control). Create `#tab-home` for the Knowledge Grid.
-> 2. Build the Heatmap UI with a Chart.js Matrix (or Google Calendar chart) fetching from `/api/analytics/heatmap`. Wire cell clicks to inject `Date:YYYY-MM` into the Omnibox.
-> 3. **Boot Routing:** In the init function, read the DB `default_view`. Automatically render Mission Control, Threads, or the Grid based on user preference.
+> *CRITICAL UI DIRECTIVE: You have already built functional UI elements, state management, and settings modals in Epics 0-2. DO NOT delete or overwrite existing functionality. You must use `roadmap/Index.html` as a structural and stylistic blueprint (CSS variables, grid layout, sidebar mechanics), but your objective is to MELD our existing UI components into this new responsive shell, preserving all prior features.*
+>
+> **Task 1: Code Implementation (Mission Control & Sidebar Integration)**
+> 1. **Sidebar Navigation:** Implement the `toggleSidebar()` JS logic and collapsible `.sidebar` CSS exactly as defined in `roadmap/Index.html`.
+> 2. **UI Consolidation:** Ensure any existing modals or tabs built in Epics 0-2 (e.g., Settings, Taxonomy Manager, Zero-Trust rules) are preserved and assigned to a specific navigation item in the new sidebar.
+> 3. **Heatmap:** Build the Heatmap UI with a Chart.js Matrix fetching from `/api/analytics/heatmap`. Wire cell clicks to inject `Date:YYYY-MM` into the Omnibox.
+> 4. **Boot Routing:** In the init function, read the DB `default_view`. Automatically render Mission Control, Threads, or the Grid based on user preference.
 > 
 > **Task 2: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add to Version History: `- **v2026.3.8.0:** [Epic 3.8](#epic-3-prompt-8) - Finalized Mission Control dashboard and dynamic boot routing.`
+> * **In `README.md`:** Add to Version History: `- **v2026.3.8.0:** [Epic 3.8](#epic-3-prompt-8) - Finalized the collapsible sidebar, consolidated all existing modals into the navigation tree, and configured dynamic boot routing.`
 > 
 > **Output Actions:**
 > 1. Silently update UI files and `README.md`."
-
----
 
 ## EPIC 4: Infrastructure as Code (v4.x.x)
 *Notice to AI: We are now executing Epic 4. Update the README version history to v4.x.x for the following prompts.*

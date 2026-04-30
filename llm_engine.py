@@ -654,5 +654,51 @@ Return ONLY valid JSON containing the answer.
     
     return "Sorry, I couldn't generate a summary."
 
+async def append_zero_shot_rule(artifact_ids: list[str], instruction: str) -> dict:
+    """
+    Appends a new extraction rule instruction to the purpose shared by the provided artifacts.
+    """
+    import sqlite3
+    from db_init import DB_PATH
+    
+    if not artifact_ids or not instruction:
+        return {"status": "error", "message": "Missing artifact_ids or instruction"}
+        
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    try:
+        placeholders = ','.join(['?'] * len(artifact_ids))
+        cursor.execute(f"SELECT DISTINCT purpose_id FROM Workspace_Artifacts WHERE artifact_id IN ({placeholders}) AND purpose_id IS NOT NULL", artifact_ids)
+        rows = cursor.fetchall()
+        
+        if not rows:
+            return {"status": "error", "message": "No valid purpose_ids found for the provided artifacts."}
+            
+        if len(rows) > 1:
+            return {"status": "error", "message": "Artifacts belong to multiple different purposes. Batch must share the same purpose."}
+            
+        purpose_id = rows[0]['purpose_id']
+        
+        cursor.execute("SELECT custom_extraction_rules FROM Taxonomy_Purposes WHERE id = ?", (purpose_id,))
+        purpose_row = cursor.fetchone()
+        
+        if not purpose_row:
+            return {"status": "error", "message": "Purpose not found."}
+            
+        existing_rules = purpose_row['custom_extraction_rules'] or ""
+        new_rules = f"{existing_rules}\n- {instruction}".strip()
+        
+        cursor.execute("UPDATE Taxonomy_Purposes SET custom_extraction_rules = ? WHERE id = ?", (new_rules, purpose_id))
+        conn.commit()
+        return {"status": "success", "message": f"Successfully appended rule to purpose {purpose_id}."}
+    except Exception as e:
+        conn.rollback()
+        return {"status": "error", "message": str(e)}
+    finally:
+        conn.close()
+
 if __name__ == "__main__":
     print("Nexus Hub LLM Engine initialized.")

@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from db_init import DB_PATH
-from llm_engine import generate_tuning_rule, run_sandbox_prompt, ask_rag
+from llm_engine import generate_tuning_rule, run_sandbox_prompt, ask_rag, append_zero_shot_rule
 from sync_engine import run_sync
 
 # Load environment variables from .env file
@@ -219,6 +219,24 @@ async def materialize_items(request: Request, background_tasks: BackgroundTasks)
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+@app.post("/api/taxonomy/zero-shot-rule")
+async def zero_shot_rule(request: Request):
+    """
+    Appends a user instruction as a new extraction rule to the purpose shared by provided artifacts.
+    """
+    try:
+        body = await request.json()
+        artifact_ids = body.get("artifact_ids", [])
+        instruction = body.get("instruction", "")
+        
+        result = await append_zero_shot_rule(artifact_ids, instruction)
+        if result.get("status") == "success":
+            return JSONResponse(content=result)
+        else:
+            return JSONResponse(status_code=400, content=result)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 @app.get("/api/artifacts/search")
 async def search_artifacts(q: str = "", limit: int = 50, offset: int = 0):
     """
@@ -326,13 +344,242 @@ async def search_artifacts(q: str = "", limit: int = 50, offset: int = 0):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+@app.get("/api/dashboard/mission-control")
+async def mission_control():
+    """
+    Returns High-Level KPI totals: Total Artifacts, Action Required, and Quarantine.
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT COUNT(*) as total FROM Workspace_Artifacts")
+        total_artifacts = cursor.fetchone()['total']
+        
+        cursor.execute("SELECT COUNT(*) as action_req FROM Workspace_Artifacts WHERE json_extract(custom_data, '$.requires_action') = 1 OR json_extract(custom_data, '$.requires_action') = 'true'")
+        action_required = cursor.fetchone()['action_req']
+        
+        cursor.execute("""
+            SELECT COUNT(*) as quarantine
+            FROM Workspace_Artifacts w
+            JOIN Taxonomy_Purposes tp ON w.purpose_id = tp.id
+            JOIN Taxonomy_Correspondents tc ON tp.correspondent_id = tc.id
+            WHERE tp.is_gmail_enabled = 0 AND tp.is_drive_enabled = 0
+        """)
+        quarantine = cursor.fetchone()['quarantine']
+        
+        conn.close()
+        
+        return JSONResponse(content={
+            "status": "success",
+            "total_artifacts": total_artifacts,
+            "action_required": action_required,
+            "quarantine": quarantine
+        })
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/api/analytics/heatmap")
+async def analytics_heatmap(tier: str = 'category', timeframe_months: int = 12, item_limit: int = 10):
+    """
+    Returns temporal activity grouped by tier.
+    tier can be 'category', 'correspondent', or 'purpose'.
+    """
+    try:
+        import datetime
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cutoff_date = (datetime.datetime.utcnow() - datetime.timedelta(days=timeframe_months * 30)).strftime('%Y-%m-01')
+        
+        if tier == 'category':
+            name_col = "tcat.name"
+        elif tier == 'correspondent':
+            name_col = "tc.name"
+        else:
+            name_col = "tp.name"
+            
+        join_clause = """
+            FROM Workspace_Artifacts w
+            JOIN Taxonomy_Purposes tp ON w.purpose_id = tp.id
+            JOIN Taxonomy_Correspondents tc ON tp.correspondent_id = tc.id
+            JOIN Taxonomy_Categories tcat ON tc.category_id = tcat.id
+        """
+        
+        top_query = f"""
+            SELECT {name_col} as item_name, COUNT(*) as vol
+            {join_clause}
+            WHERE json_extract(w.custom_data, '$.document_date') >= ?
+            GROUP BY {name_col}
+            ORDER BY vol DESC
+            LIMIT ?
+        """
+        cursor.execute(top_query, (cutoff_date, item_limit))
+        top_items = [row['item_name'] for row in cursor.fetchall()]
+        
+        if not top_items:
+            conn.close()
+            return JSONResponse(content={"status": "success", "data": []})
+            
+        placeholders = ','.join(['?'] * len(top_items))
+        
+        data_query = f"""
+            SELECT 
+                strftime('%Y-%m', json_extract(w.custom_data, '$.document_date')) as month,
+                {name_col} as item_name,
+                COUNT(*) as volume
+            {join_clause}
+            WHERE json_extract(w.custom_data, '$.document_date') >= ?
+              AND {name_col} IN ({placeholders})
+            GROUP BY month, {name_col}
+            ORDER BY month ASC
+        """
+        params = [cutoff_date] + top_items
+        cursor.execute(data_query, params)
+        rows = cursor.fetchall()
+        
+        matrix = {}
+        for row in rows:
+            month = row['month']
+            item = row['item_name']
+            if item not in matrix:
+                matrix[item] = {}
+            matrix[item][month] = row['volume']
+            
+        cursor.execute(f"""
+            SELECT DISTINCT strftime('%Y-%m', json_extract(w.custom_data, '$.document_date')) as month
+            FROM Workspace_Artifacts w
+            WHERE json_extract(w.custom_data, '$.document_date') >= ?
+            ORDER BY month ASC
+        """, (cutoff_date,))
+        all_months = [row['month'] for row in cursor.fetchall() if row['month']]
+        
+        results = []
+        for item in top_items:
+            series = [{"month": m, "volume": matrix.get(item, {}).get(m, 0)} for m in all_months]
+            results.append({
+                "item_name": item,
+                "series": series
+            })
+            
+        conn.close()
+        return JSONResponse(content={"status": "success", "data": results})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 @app.get("/api/analytics/threads")
-async def analytics_threads(request: Request):
+async def analytics_threads(q: str = "", node_limit: int = 15):
     """
     Threads analytics endpoint.
     By default, appends a SQL clause to exclude lifecycle_status = 'MATERIALIZED'
     """
-    return JSONResponse(content={"status": "not_implemented", "message": "Epic 2 endpoint stubbed."})
+    try:
+        import calendar
+        import datetime
+        import re
+        
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        conditions = ["w.status != 'MATERIALIZED' AND w.lifecycle_status != 'MATERIALIZED'"]
+        params = []
+        
+        if not q.strip():
+            thirty_days_ago = (datetime.datetime.utcnow() - datetime.timedelta(days=30)).strftime('%Y-%m-%d')
+            conditions.append("json_extract(w.custom_data, '$.document_date') >= ?")
+            params.append(thirty_days_ago)
+        else:
+            parts = re.findall(r'(!?[a-zA-Z]+):(?:"([^"]+)"|([^\s]+))', q)
+            clean_q = re.sub(r'!?[a-zA-Z]+:(?:"[^"]+"|[^\s]+)', '', q).strip()
+            
+            if clean_q:
+                conditions.append("(w.summary LIKE ? OR w.raw_text LIKE ?)")
+                params.append(f"%{clean_q}%")
+                params.append(f"%{clean_q}%")
+                
+            for match in parts:
+                key = match[0]
+                val = match[1] or match[2]
+                
+                is_exclude = key.startswith('!')
+                actual_key = key.lstrip('!')
+                operator = "!=" if is_exclude else "="
+                
+                if actual_key.lower() == 'correspondent':
+                    conditions.append(f"tc.name {operator} ?")
+                    params.append(val)
+                elif actual_key.lower() == 'purpose':
+                    conditions.append(f"tp.name {operator} ?")
+                    params.append(val)
+                elif actual_key.lower() == 'date':
+                    if len(val) == 7 and '-' in val:
+                        y, m = map(int, val.split('-'))
+                        last_day = calendar.monthrange(y, m)[1]
+                        start_date = f"{y:04d}-{m:02d}-01"
+                        end_date = f"{y:04d}-{m:02d}-{last_day:02d}"
+                        if is_exclude:
+                            conditions.append("json_extract(w.custom_data, '$.document_date') NOT BETWEEN ? AND ?")
+                        else:
+                            conditions.append("json_extract(w.custom_data, '$.document_date') BETWEEN ? AND ?")
+                        params.extend([start_date, end_date])
+                    elif len(val) == 10:
+                        conditions.append(f"json_extract(w.custom_data, '$.document_date') {operator} ?")
+                        params.append(val)
+        
+        where_clause = " WHERE " + " AND ".join(conditions)
+        
+        join_clause = """
+            FROM Workspace_Artifacts w
+            LEFT JOIN Taxonomy_Purposes tp ON w.purpose_id = tp.id
+            LEFT JOIN Taxonomy_Correspondents tc ON tp.correspondent_id = tc.id
+            LEFT JOIN Taxonomy_Categories tcat ON tc.category_id = tcat.id
+        """
+        
+        query = f"""
+            SELECT 
+                CASE 
+                    WHEN w.artifact_id LIKE 'mail_%' THEN 'gmail'
+                    WHEN w.artifact_id LIKE 'drive_%' THEN 'drive'
+                    ELSE 'other'
+                END as source,
+                tcat.name as entity,
+                tc.name as correspondent,
+                tc.brand_color,
+                tp.name as purpose,
+                COUNT(*) as volume
+            {join_clause}
+            {where_clause}
+            GROUP BY source, entity, correspondent, brand_color, purpose
+            ORDER BY volume DESC
+        """
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        
+        top_nodes = rows[:node_limit]
+        other_nodes = rows[node_limit:]
+        
+        results = [dict(row) for row in top_nodes]
+        
+        if other_nodes:
+            other_volume = sum(row['volume'] for row in other_nodes)
+            results.append({
+                "source": "mixed",
+                "entity": "Other",
+                "correspondent": "Other",
+                "brand_color": "#9AA0A6",
+                "purpose": "Other",
+                "volume": other_volume
+            })
+            
+        conn.close()
+        
+        return JSONResponse(content={"status": "success", "data": results})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/analytics/roi-dashboard")
 async def roi_dashboard():
@@ -592,13 +839,19 @@ async def update_pipeline_settings(request: Request):
         conn.execute("PRAGMA journal_mode=WAL;")
         cursor = conn.cursor()
         
-        valid_keys = {'ui_gmail_filters', 'ui_ai_config', 'ui_post_processing'}
+        valid_keys = {'ui_gmail_filters', 'ui_ai_config', 'ui_post_processing', 'default_view'}
         for key, value in settings.items():
             if key in valid_keys:
-                cursor.execute(
-                    "UPDATE Config_System SET value = ? WHERE key = ?",
-                    (json.dumps(value), key)
-                )
+                if key == 'default_view':
+                    cursor.execute(
+                        "UPDATE Config_System SET value = ? WHERE key = ?",
+                        (value, key)
+                    )
+                else:
+                    cursor.execute(
+                        "UPDATE Config_System SET value = ? WHERE key = ?",
+                        (json.dumps(value), key)
+                    )
                 
         conn.commit()
         conn.close()
