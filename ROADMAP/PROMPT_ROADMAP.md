@@ -1582,3 +1582,32 @@
 > 
 > **Output Requirements:**
 > Do not change any code. Output the findings in a strict Markdown document titled `AUDIT_REPORT_PRE_FLIGHT.md` and save it directly into the `audit/` directory (create the directory if it does not already exist). Highlight any disconnected UI elements, missing API routes, or bypassed feature flags. Conclude with a prioritized list of 'Go/No-Go Deployment Blockers'."
+
+<a id="epic-5-prompt-2"></a>
+### Epic 5 - Prompt 2: Bi-Directional Traceability Audit
+> "Act as a Lead QA Architect. We have completed the core infrastructure for 'Nexus Hub' and are preparing for a live cloud deployment. I need you to perform a deep, read-only static analysis of the entire workspace using a Bi-Directional Traceability method. Do not write or alter any code.
+> 
+> **Context: The Nexus Hub File Manifest**
+> * **Backend:** `db_init.py` (Schema), `main.py` (API/Security), `sync_engine.py` (Ingestion), `llm_engine.py` (AI), `retention_worker.py` (Sweeper).
+> * **Frontend:** `Index.html` (DOM/UI), `CSS_Styles.html`, `JS_State.html`, `JS_Actions.html`.
+> 
+> **Your Task: Generate `audit/AUDIT_REPORT_PRE_FLIGHT.md`**
+> Execute the audit in two distinct phases and document your findings:
+> 
+> **PHASE 1: Bottom-Up Audit (Ground Floor to UI)**
+> *Focus: Data Integrity, Schema Alignment, and API Exposure.*
+> 1. **Schema Check:** Map every column in `db_init.py` (`Workspace_Artifacts`, `Config_System`, `Ingestion_Queue`). Do the SQL queries in `main.py` and `llm_engine.py` accurately reflect these columns? (e.g., matching `purpose_id` vs `taxonomy_id`).
+> 2. **Execution Gatekeepers:** Trace the Epic 5 Safe Mode toggles from `Config_System`. Are they correctly wrapping the execution logic in `sync_engine.py` and `retention_worker.py` to prevent execution if set to '0'?
+> 3. **API Routing:** List all endpoints in `main.py`. Are there any endpoints that are completely orphaned (never called by `JS_Actions.html` or background workers)? 
+> 
+> **PHASE 2: Top-Down Audit (UI to Ground Floor)**
+> *Focus: User Experience, Event Listeners, and Dead Elements.*
+> *Read `Index.html` to establish the baseline DOM elements, then trace their execution paths.*
+> 1. **The Sidebar & Toggles:** Click trace the 4 Feature Toggles in the UI. Do they trigger a JS fetch? Does that fetch hit a valid `main.py` endpoint? Does that endpoint successfully `UPDATE Config_System`?
+> 2. **The Omnibox & Chips:** Click trace the AST Search Chips. Do they correctly modify the `#ast-input` value? Does pressing 'Enter' trigger the AST parser payload to `/api/artifacts/search`? Are the `limit` and `offset` pagination parameters successfully passed?
+> 3. **The View Modifiers:** Click trace the `.view-controls` (Sankey vs Grid). Do they correctly swap the DOM visibility and trigger `renderThreadsView()` vs `renderKnowledgeGrid()`?
+> 4. **Card Interactions:** Trace the `.card` elements. If multiple are selected, does the 'Submit with AI' Zero-Shot button correctly bundle the IDs and POST to `/api/taxonomy/zero-shot-rule`? Does that endpoint save to the database?
+> 5. **Lineage:** Trace the '🔗 PDF' Materialized badge. Does the JS correctly parse `parent_artifact_id` to render the `.stacked` CSS class?
+> 
+> **Output Requirements:**
+> Do not change any code. Output the findings in a strict Markdown document titled `AUDIT_REPORT_PRE_FLIGHT.md` inside the `audit/` directory. Explicitly structure the report into 'Phase 1 Findings' and 'Phase 2 Findings'. Highlight any broken paths, missing variables, or dead buttons. Conclude with a prioritized list of 'Deployment Blockers'."
