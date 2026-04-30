@@ -1191,6 +1191,32 @@
 
 ---
 
+<a id="epic-1-prompt-8"></a>
+### Epic 1 - Prompt 8: The Google Tasks Action Engine
+> "I am the Lead Architect. We are integrating the Google Tasks API to autonomously generate actionable to-do items for system alerts and artifacts flagged by the LLM as requiring user action.
+> 
+> **Task 1: GCP & Schema Preparation (`db_init.py` & `INSTRUCTIONS.md`)**
+> 1. **Schema Update:** In the `Workspace_Artifacts` table, add a new column: `google_task_id TEXT DEFAULT NULL`. This is critical to prevent duplicate task generation during sync loops.
+> 2. **System Config:** In `Config_System`, add a new key: `nexus_task_list_id` to store the specific Google Tasks list we will push to.
+> 3. **Documentation:** Update `INSTRUCTIONS.md` to instruct the user to enable the 'Google Tasks API' in their GCP console and authorize the `https://www.googleapis.com/auth/tasks` scope.
+> 
+> **Task 2: The Task Generation Engine (`sync_engine.py`)**
+> 1. **Create Function:** Build a new function: `push_to_google_tasks(artifact_data)`.
+> 2. **Logic Trigger:** Inside the main ingestion loops (`sync_gmail`, `sync_drive`), after the LLM classification is complete, check if the AI flagged the item with `action_required = 1` OR if it is a `system_alert`.
+> 3. **Execution:** If true and `google_task_id` is NULL, call the Google Tasks API (`tasks().insert`) to create a new task in the designated list. 
+> 4. **Payload Formatting:** Set the Task `title` to the artifact's Subject/Name. Set the `notes` to include a summary of why action is needed and a direct hyperlink to the artifact in Drive or Gmail.
+> 5. **State Save:** Extract the resulting Task ID from the Google API response and save it to the `google_task_id` column in the database.
+> 
+> **Task 3: Documentation & Versioning**
+> 1. **In `README.md`:** Add to Version History: `- **v2026.1.8.0:** [Epic 1.8](#epic-1-prompt-8) - Engineered the Google Tasks Action Engine for autonomous workflow generation.`
+> 2. Update the README's Lifecycle Management section to explain how flagged artifacts automatically populate the user's Google Tasks.
+> 
+> **Output Actions:**
+> 1. Silently execute the code implementation across `db_init.py` and `sync_engine.py`.
+> 2. Silently update `README.md` and `INSTRUCTIONS.md` exactly as instructed."
+
+---
+
 ## EPIC 2: The Core API & Graph Migration (v2.x.x)
 *Notice to AI: We are now executing Epic 2. Update the README version history to v2.x.x for the following prompts.*
 
@@ -1483,3 +1509,30 @@
 > 
 > **Output Actions:**
 > 1. Silently delete `update.sh`, create `scripts/deploy.sh`, and update documentation."
+
+## EPIC 5: Post-Deployment Hardening & Cleanup (v5.x.x)
+*Notice to AI: We are now executing Epic 5. Update the README version history to v5.x.x for the following prompts.*
+
+<a id="epic-5-prompt-1"></a>
+### Epic 5 - Prompt 1: Progressive Rollout (Feature Flags)
+> "I am the Lead Architect. We have completed the core infrastructure (Epics 0-4) and are preparing for our first live cloud deployment. To ensure a safe, debuggable boot, we are implementing a Progressive Rollout (Feature Flag) architecture to explicitly gate the advanced pipelines we built previously.
+> 
+> **Task 1: The Configuration Layer (`db_init.py`)**
+> 1. In the `seed_default_config()` function (or equivalent initialization), inject the following keys into `Config_System` with a default value of `'0'` (string representing disabled): `feature_retention_sweeper`, `feature_drive_relocator`, `feature_materialization`, `feature_google_tasks`.
+> 
+> **Task 2: The Execution Gatekeepers (`sync_engine.py` & `retention_worker.py`)**
+> 1. Locate the execution calls for the advanced features: the retention worker daemon, the drive relocator logic, `materialize_artifact()`, and `push_to_google_tasks()`.
+> 2. Wrap each of these functional blocks in a conditional check that queries `Config_System`.
+> 3. If the corresponding flag equals `'0'`, use `logger.debug()` to print that the feature is bypassed due to Safe Mode, and `continue` or `return` safely.
+> 
+> **Task 3: The Control Panel UI (`Index.html` & `JS_Actions.html`)**
+> 1. Add a 'System Toggles' section to the Settings modal (or Mission Control dashboard).
+> 2. Create UI toggle switches for each of the 4 features. Wire them to fetch the current state on boot and update the `Config_System` table via the backend API when clicked.
+> 
+> **Task 4: Documentation & Versioning**
+> 1. **In `README.md`:** Add to Version History: `- **v2026.5.1.0:** [Epic 5.1](#epic-5-prompt-1) - Implemented Progressive Rollout feature flags to safeguard the first-time cloud deployment.`
+> 2. Update the deployment instructions in the README to explicitly state that the system boots in "Safe Mode" and features must be toggled on manually via the UI.
+> 
+> **Output Actions:**
+> 1. Silently execute the code implementation across `db_init.py`, `sync_engine.py`, `retention_worker.py`, and the frontend UI.
+> 2. Silently update `README.md` exactly as instructed."

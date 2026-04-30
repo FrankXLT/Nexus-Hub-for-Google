@@ -32,3 +32,27 @@ Once securely received, the SMS payload is dropped seamlessly into the existing 
 * **Command-Line via SMS:** The edge node can act as a remote execution terminal. Texting a specific syntax (e.g., `#Nexus search Amazon receipts`) could trigger the API to parse the AST string and reply to the phone with a secure summary or Drive link, completely bypassing the web UI.
 * Use AI to break messages with correspondents into discussion topic. each topic becomes the artifact.
 
+## Feature Concept: Universal IMAP Ingestion (Provider-Agnostic Sync)
+
+**Core Objective:** To break the hard dependency on the Google Workspace API by implementing a standard IMAP client within the Python backend. This allows Nexus Hub to ingest unstructured communications from any standard email provider (Outlook, Yahoo, Fastmail) or private self-hosted mail servers.
+
+### 1. The Python IMAP Engine
+Instead of relying on Google's REST API for payloads, the backend will introduce a dedicated IMAP sync worker.
+* **The Library:** Utilizing modern, high-level Python libraries like `IMAPClient` or `imap_tools` (which securely wrap the standard library's `imaplib`) to handle the heavy lifting of raw MIME tree parsing, decoding, and attachment extraction.
+* **State Management (The UID Watermark):** Because standard IMAP lacks Google's global `historyId` delta-sync, the SQLite database will track the highest `UID` (Unique Identifier) fetched for each IMAP folder. The background worker will query `UID FETCH` to pull only new messages that arrived since the last watermark.
+* **Push Notifications (IMAP IDLE):** Where supported by the server, the Python daemon can utilize the IMAP `IDLE` command to keep a persistent socket open, allowing for instant, real-time ingestion the moment a message hits the external server, rather than relying strictly on cron-style polling.
+
+### 2. The Data Sovereignty Gateway
+By supporting standard IMAP, the Walled Garden can be entirely localized.
+* **Local Network Routing:** The backend can be pointed at internal IP addresses, ingesting alerts directly from local Firewalla hardware, Docker health-check reports, or a private Mailcow instance on a local NAS, keeping sensitive homelab telemetry entirely off the public internet.
+* **E2EE Bridge Support:** It enables ingestion from zero-knowledge providers like ProtonMail by connecting to their localized desktop bridge applications.
+
+### 3. Pipeline Normalization
+The beauty of the existing architecture is that the LLM and Knowledge Graph do not care where the text came from.
+* **The Handoff:** Once the IMAP engine downloads and decodes the raw email headers and body, it formats them into the exact same JSON structure used by the Gmail sync engine.
+* **Seamless Processing:** This payload is dropped into the standard `llm_engine.py` queue. The Entity Profiler categorizes the sender, the Taxonomy engine assigns the Purpose, and the Materialization Pipeline can convert HTML bodies into Drive PDFs—all operating completely agnostic to the source email provider.
+
+### 4. UI Integration: The Multi-Tenant Dashboard
+* The Mission Control UI will be expanded to include 'Source Routing' toggles. 
+* Users can configure multiple IMAP profiles in the settings panel (Host, Port, SSL/TLS, and encrypted credential storage). 
+* The Knowledge Grid will introduce new border-color indicators (e.g., Green for IMAP/Self-Hosted, Red for Gmail) to quickly visually identify the origin of the artifact.
