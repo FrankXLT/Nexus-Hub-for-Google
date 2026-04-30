@@ -16,6 +16,7 @@ By leveraging Google's Gemini Large Language Models (LLMs) and a strictly govern
 
 *** NOTICE: As of Stage 45, development has shifted to Architectural Epics. Versioning has been reset to a YYYY.Epic.Major.Minor schema. Epic 0 (Baseline) = 2026.0.x.x, Epic 1 (Profiling) = 2026.1.x.x, Epic 2 (Graph API) = 2026.2.x.x, Epic 3 (Nexus UI) = 2026.3.x.x, Epic 4 (IaC) = 2026.4.x.x. ***
 
+- **v2026.3.1.0:** [Epic 3.1](#epic-3-prompt-1) - Migrated the Quota Governor into the new V3 UI prototype header and established the System Health badge.
 - **v2026.2.7.0:** [Epic 2.7](#epic-2-prompt-7) - Built the Zero-Shot Rule generation API for bulk UI tuning.
 - **v2026.2.6.0:** [Epic 2.6](#epic-2-prompt-6) - Added persistent user preferences to support dynamic frontend boot routing.
 - **v2026.2.5.0:** [Epic 2.5](#epic-2-prompt-5) - Engineered Mission Control API with SQLite temporal grouping.

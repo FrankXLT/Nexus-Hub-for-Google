@@ -1,20 +1,29 @@
 <style>
-  :root {
-    --primary-color: #1a73e8;
-    --primary-hover: #1557b0;
-    --surface-color: #ffffff;
-    --background-color: #f8f9fa;
-    --border-color: #dadce0;
-    --text-primary: #202124;
-    --text-secondary: #5f6368;
-    --success-color: #1e8e3e;
-    --warning-color: #f9ab00;
-    --error-color: #d93025;
+    :root {
+    --bg-dark: #121212;
+    --bg-panel: #1E1E1E;
+    --text-main: #E0E0E0;
+    --text-muted: #9E9E9E;
+    --accent-blue: #4A90E2; 
+    --accent-red: #E24A4A;  
+    --accent-alert: #F5A623;
+    --success: #27AE60;
+
+    --primary-color: var(--accent-blue);
+    --primary-hover: #357abd;
+    --surface-color: var(--bg-panel);
+    --background-color: var(--bg-dark);
+    --border-color: #333;
+    --text-primary: var(--text-main);
+    --text-secondary: var(--text-muted);
+    --success-color: var(--success);
+    --warning-color: var(--accent-alert);
+    --error-color: var(--accent-red);
     
-    --sidebar-width: 250px;
-    --header-height: 64px;
+    --sidebar-width: 280px;
+    --header-height: 70px;
     
-    font-family: 'Roboto', 'Segoe UI', Tahoma, sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -355,4 +364,152 @@
     transition: opacity 0.3s;
   }
   .toast.show { opacity: 1; pointer-events: auto; }
+
+  /* UPGRADED: Top Bar & Search Area */
+  .top-bar {
+      background-color: var(--bg-panel);
+      border-bottom: 1px solid #333;
+      display: flex;
+      flex-direction: column;
+      padding: 15px 30px;
+      gap: 12px;
+  }
+
+  .search-row {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      width: 100%;
+  }
+
+  /* Omnibox Wrapper with embedded icons */
+  .omnibox-wrapper {
+      flex-grow: 1;
+      max-width: 900px;
+      display: flex;
+      align-items: center;
+      background-color: var(--bg-dark);
+      border: 1px solid #444;
+      border-radius: 24px;
+      padding: 4px 16px;
+      transition: border-color 0.2s;
+  }
+
+  .omnibox-wrapper:focus-within {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+  }
+
+  .search-icon { color: var(--text-muted); margin-right: 8px; }
+
+  .omnibox {
+      flex-grow: 1;
+      background: transparent;
+      border: none;
+      color: white;
+      font-size: 15px;
+      padding: 10px 0;
+      outline: none;
+  }
+
+  .omnibox-actions {
+      display: flex;
+      gap: 8px;
+      margin-left: 10px;
+  }
+
+  .icon-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: 0.2s;
+  }
+
+  .icon-btn:hover { background-color: #333; color: white; }
+  .icon-btn.save:hover { color: var(--success); }
+
+  /* Interactive Search Chips */
+  .chips-row {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      margin-left: 42px; /* Aligns with input text */
+  }
+
+  .chip {
+      background-color: #2A2A2A;
+      border: 1px solid #444;
+      color: var(--text-main);
+      padding: 5px 12px;
+      border-radius: 16px;
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: 0.2s;
+  }
+
+  .chip:hover { background-color: #383838; border-color: #555; }
+  .chip.active { background-color: rgba(74, 144, 226, 0.15); border-color: var(--accent-blue); color: var(--accent-blue); }
+
+  /* View Controls */
+  .view-controls { display: flex; background: #121212; border-radius: 8px; padding: 4px; border: 1px solid #333; }
+  .view-btn { background: transparent; color: var(--text-muted); border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+  .view-btn.active { background: #333; color: white; }
+
+  /* Blueprint Sidebar Overrides */
+  .sidebar { width: 280px; background-color: var(--bg-panel); display: flex; flex-direction: column; border-right: 1px solid #333; transition: width 0.3s ease; overflow-x: hidden; }
+  .sidebar.collapsed { width: 70px; }
+  .brand-header { height: 70px; display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid #333; gap: 15px; white-space: nowrap; }
+  .menu-toggle { background: none; border: none; color: white; cursor: pointer; padding: 5px; display: flex; align-items: center; justify-content: center; }
+  .menu-toggle:hover { color: var(--accent-blue); }
+  .brand-text { font-size: 20px; font-weight: bold; color: white; transition: opacity 0.2s; }
+  .sidebar.collapsed .brand-text, .sidebar.collapsed .nav-text, .sidebar.collapsed .system-toggles { opacity: 0; pointer-events: none; display: none; }
+  
+  .nav-item { display: flex; align-items: center; padding: 12px; margin-bottom: 8px; border-radius: 6px; cursor: pointer; transition: background 0.2s; color: var(--text-main); white-space: nowrap; }
+  .nav-icon { min-width: 24px; display: flex; justify-content: center; margin-right: 15px; }
+  .nav-item.active { background-color: #333; color: white; border-radius: 6px; margin-right: 0;}
+  .nav-item:hover:not(.active) { background-color: #2A2A2A; }
+
+  /* Old specific dark mode fixes */
+  .data-grid th { background-color: var(--bg-panel); color: var(--text-muted); }
+  .data-grid tbody tr:hover { background-color: #2A2A2A; }
+  .data-grid tbody tr.selected { background-color: #333; }
+  .detail-group { background: var(--bg-panel); border: 1px solid #333; }
+  .detail-row { border-bottom: 1px solid #333; }
+  .json-chip { background-color: #333; border-color: #444; color: var(--text-main); }
+  
+  /* Inputs and Textareas in dark mode */
+  input[type="text"], select, textarea {
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    border: 1px solid #444;
+  }
+  
+  /* For elements with direct hardcoded background colors */
+  .tab-content [style*="background: #fff"], 
+  .tab-content [style*="background-color: #fff"], 
+  .tab-content [style*="background-color: #fefefe"] {
+      background-color: var(--bg-panel) !important;
+      border-color: #444 !important;
+  }
+  
+  /* Modals */
+  .modal > div {
+      background-color: var(--bg-panel) !important;
+      border-color: #444 !important;
+  }
+
+  /* Table Container */
+  .table-container { background-color: var(--bg-dark); }
+
 </style>

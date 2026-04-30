@@ -10,41 +10,112 @@
   <body>
     <!-- Material Design Shell -->
     <div class="app-container">
-      <!-- Sidebar -->
-      <nav class="sidebar">
-        <div class="sidebar-header">
-          <h2>Nexus Hub</h2>
+            <!-- Sidebar -->
+      <nav class="sidebar" id="sidebar">
+        <div class="brand-header">
+            <button class="menu-toggle" onclick="toggleSidebar()">
+                <i class="material-icons">menu</i>
+            </button>
+            <span class="brand-text">Nexus Hub</span>
         </div>
-        <ul class="nav-list">
-          <li class="nav-item active" onclick="appState.switchTab('grid', event)">
-            <i class="material-icons">grid_view</i> Workspace
-          </li>
-          <li class="nav-item" onclick="appState.switchTab('correspondent-review', event)">
-            <i class="material-icons">fact_check</i> Correspondent Review
-          </li>
-          <li class="nav-item" onclick="appState.switchTab('entity-management', event)">
-            <i class="material-icons">account_tree</i> Entity Management
-          </li>
-          <li class="nav-item" onclick="appState.switchTab('prompt-sandbox', event)">
-            <i class="material-icons">science</i> Prompt Sandbox
-          </li>
-          <li class="nav-item" onclick="appState.switchTab('pipeline-orchestrator', event)">
-            <i class="material-icons">tune</i> Pipeline Orchestrator
-          </li>
-          <li class="nav-item" onclick="appState.switchTab('inbox-cleanup', event)">
-            <i class="material-icons">delete_sweep</i> Inbox Cleanup
-          </li>
-          <li class="nav-item" onclick="appState.switchTab('audit', event)">
-            <i class="material-icons">history</i> Audit Timeline
-          </li>
-          <li class="nav-item" onclick="appActions.triggerDiagnostics()">
-            <i class="material-icons">health_and_safety</i> Diagnostics
-          </li>
-        </ul>
+        
+        <div class="nav-menu">
+            <div class="nav-item active" onclick="appState.switchTab('grid', event)">
+                <div class="nav-icon"><i class="material-icons">grid_view</i></div>
+                <span class="nav-text">Workspace</span>
+            </div>
+            <div class="nav-item" onclick="appState.switchTab('correspondent-review', event)">
+                <div class="nav-icon"><i class="material-icons">fact_check</i></div>
+                <span class="nav-text">Zero-Trust Review</span>
+            </div>
+            <div class="nav-item" onclick="appState.switchTab('entity-management', event)">
+                <div class="nav-icon"><i class="material-icons">account_tree</i></div>
+                <span class="nav-text">Entity Management</span>
+            </div>
+            <div class="nav-item" onclick="appState.switchTab('prompt-sandbox', event)">
+                <div class="nav-icon"><i class="material-icons">science</i></div>
+                <span class="nav-text">Prompt Sandbox</span>
+            </div>
+            <div class="nav-item" onclick="appState.switchTab('pipeline-orchestrator', event)">
+                <div class="nav-icon"><i class="material-icons">tune</i></div>
+                <span class="nav-text">Pipeline Orchestrator</span>
+            </div>
+            <div class="nav-item" onclick="appState.switchTab('inbox-cleanup', event)">
+                <div class="nav-icon"><i class="material-icons">delete_sweep</i></div>
+                <span class="nav-text">Inbox Cleanup</span>
+            </div>
+            <div class="nav-item" onclick="appState.switchTab('audit', event)">
+                <div class="nav-icon"><i class="material-icons">history</i></div>
+                <span class="nav-text">Audit Timeline</span>
+            </div>
+            <div class="nav-item" onclick="appState.switchTab('ai-assistant', event)">
+                <div class="nav-icon"><i class="material-icons">smart_toy</i></div>
+                <span class="nav-text">AI Assistant</span>
+            </div>
+        </div>
+
+        <div class="system-toggles">
+            <div style="font-size: 10px; text-transform: uppercase; color: #666; margin-bottom: 15px; font-weight: bold; letter-spacing: 1px;">Diagnostics</div>
+            <div class="nav-item" onclick="appActions.triggerDiagnostics()" style="margin: 0; padding: 12px 20px; background: transparent;">
+                <div class="nav-icon"><i class="material-icons">health_and_safety</i></div>
+                <span class="nav-text">Run Diagnostics</span>
+            </div>
+        </div>
       </nav>
 
       <!-- Main Content Area -->
       <main class="main-content">
+        <!-- Global Top Bar -->
+        <div class="top-bar">
+            <div class="search-row">
+                <div class="omnibox-wrapper">
+                    <i class="material-icons search-icon">search</i>
+                    <input type="text" id="ast-input" class="omnibox" placeholder="Search AST... (e.g., 'Purpose:Receipt AND Date:>2026-03')">
+                    
+                    <div class="omnibox-actions">
+                        <button class="icon-btn save" title="Save Query">
+                            <i class="material-icons">bookmark_border</i>
+                        </button>
+                        <button class="icon-btn" title="Advanced Search">
+                            <i class="material-icons">tune</i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- System Health Badge -->
+                <div id="system-health-badge" class="health-badge" style="background-color: var(--success); color: white; padding: 6px 12px; border-radius: 16px; font-size: 12px; display: flex; align-items: center; gap: 6px; cursor: help;" title="System Health: Checking...">
+                    <i class="material-icons" style="font-size: 16px;">health_and_safety</i>
+                    <span id="health-status-text">Health: OK</span>
+                </div>
+
+                <!-- Quota Governor Metric Card (Adapted for Header) -->
+                <div style="width: 250px; padding: 0 16px;" title="Historical batches are automatically throttled at 70% capacity to reserve bandwidth for real-time incoming Gmail webhooks.">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <strong style="font-size: 0.75rem;">Quota Governor</strong>
+                    <span id="quota-status" style="font-size: 0.75rem; color: var(--accent-blue); font-weight: bold;">Loading...</span>
+                  </div>
+                  <div style="background: #333; border-radius: 4px; height: 8px; width: 100%; overflow: hidden;">
+                    <div id="quota-bar" style="background: var(--accent-blue); height: 100%; width: 0%;"></div>
+                  </div>
+                  <div style="text-align: right; font-size: 0.65rem; color: var(--text-muted); margin-top: 2px;">
+                    <span id="quota-used">0</span> / <span id="quota-limit">10000</span> Calls
+                  </div>
+                </div>
+            </div>
+
+            <!-- Interactive Search Chips -->
+            <div class="chips-row">
+                <button class="chip" onclick="toggleChip(this, 'Action:Required')">
+                    <i class="material-icons" style="font-size: 14px;">error_outline</i> Action Needed
+                </button>
+                <button class="chip" onclick="toggleChip(this, 'Has:Attachment')">
+                    <i class="material-icons" style="font-size: 14px;">attachment</i> Has Attachment
+                </button>
+                <button class="chip" onclick="toggleChip(this, 'Source:Drive')">
+                    <i class="material-icons" style="font-size: 14px;">folder</i> Drive Files
+                </button>
+            </div>
+        </div>
         <!-- Split-Pane Layout for Workspace -->
         <div id="tab-grid" class="tab-content active">
           <div class="split-pane">
@@ -54,21 +125,7 @@
                 <button class="btn btn-primary" onclick="appActions.refreshData()"><i class="material-icons">refresh</i> Refresh</button>
               </div>
               
-              <!-- Quota Governor Metric Card -->
-              <div style="padding: 0 16px; margin-bottom: 10px;">
-                <div style="border: 1px solid #ccc; border-radius: 4px; padding: 12px; background: #fff;" title="Historical batches are automatically throttled at 70% capacity to reserve bandwidth for real-time incoming Gmail webhooks.">
-                  <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <strong style="font-size: 0.875rem;">Quota Governor</strong>
-                    <span id="quota-status" style="font-size: 0.875rem; color: #1a73e8; font-weight: bold;">Loading...</span>
-                  </div>
-                  <div style="background: #e8eaed; border-radius: 4px; height: 12px; width: 100%; overflow: hidden;">
-                    <div id="quota-bar" style="background: #1a73e8; height: 100%; width: 0%;"></div>
-                  </div>
-                  <div style="text-align: right; font-size: 0.75rem; color: #5f6368; margin-top: 4px;">
-                    <span id="quota-used">0</span> / <span id="quota-limit">10000</span> API Calls
-                  </div>
-                </div>
-              </div>
+              
 
               <!-- Historical Import Widget -->
               <div style="padding: 0 16px; margin-bottom: 10px;">

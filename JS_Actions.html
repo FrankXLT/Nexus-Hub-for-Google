@@ -8,6 +8,37 @@ const appActions = {
     this.refreshData(); // Fetch initial data
     this.loadPipelineSettings(); // Fetch UI configurations
     this.loadQuotaGovernor();
+    this.startHealthPing();
+  },
+
+  startHealthPing: function() {
+    this.pingHealth();
+    setInterval(() => this.pingHealth(), 60000);
+  },
+
+  pingHealth: function() {
+    google.script.run
+      .withSuccessHandler((result) => {
+        const badge = document.getElementById('system-health-badge');
+        const text = document.getElementById('health-status-text');
+        if (result && result.status === 'success') {
+           badge.style.backgroundColor = 'var(--success)';
+           text.textContent = 'Health: OK';
+           badge.title = 'System is operating normally.';
+        } else {
+           badge.style.backgroundColor = 'var(--accent-red)';
+           text.textContent = 'Health: Error';
+           badge.title = 'Failed to reach API';
+        }
+      })
+      .withFailureHandler((error) => {
+        const badge = document.getElementById('system-health-badge');
+        const text = document.getElementById('health-status-text');
+        badge.style.backgroundColor = 'var(--accent-red)';
+        text.textContent = 'Health: Error';
+        badge.title = error.message;
+      })
+      .pingHealthAPI();
   },
 
   showToast: function(message, duration = 3000) {
@@ -734,10 +765,54 @@ const appActions = {
       })
       .runSystemDiagnostics();
   }
+  toggleSidebar: function() { document.getElementById('sidebar').classList.toggle('collapsed'); },
+  toggleChip: function(button, astString) {
+      button.classList.toggle('active');
+      const input = document.getElementById('ast-input');
+      let currentVal = input.value.trim();
+
+      if (button.classList.contains('active')) {
+          if (!currentVal.includes(astString)) {
+              input.value = currentVal ? `${currentVal} AND ${astString}` : astString;
+          }
+      } else {
+          let regex = new RegExp(`( AND )?${astString}( AND )?`);
+          input.value = currentVal.replace(regex, function(match, p1, p2) {
+              return (p1 && p2) ? ' AND ' : '';
+          }).trim();
+      }
+      input.focus();
+  }
 };
+
+window.toggleSidebar = function() { appActions.toggleSidebar(); };
+window.toggleChip = function(btn, str) { appActions.toggleChip(btn, str); };
+
 </script>00);
       })
       .runSystemDiagnostics();
   }
+  toggleSidebar: function() { document.getElementById('sidebar').classList.toggle('collapsed'); },
+  toggleChip: function(button, astString) {
+      button.classList.toggle('active');
+      const input = document.getElementById('ast-input');
+      let currentVal = input.value.trim();
+
+      if (button.classList.contains('active')) {
+          if (!currentVal.includes(astString)) {
+              input.value = currentVal ? `${currentVal} AND ${astString}` : astString;
+          }
+      } else {
+          let regex = new RegExp(`( AND )?${astString}( AND )?`);
+          input.value = currentVal.replace(regex, function(match, p1, p2) {
+              return (p1 && p2) ? ' AND ' : '';
+          }).trim();
+      }
+      input.focus();
+  }
 };
+
+window.toggleSidebar = function() { appActions.toggleSidebar(); };
+window.toggleChip = function(btn, str) { appActions.toggleChip(btn, str); };
+
 </script>
