@@ -16,6 +16,8 @@ By leveraging Google's Gemini Large Language Models (LLMs) and a strictly govern
 
 *** NOTICE: As of Stage 45, development has shifted to Architectural Epics. Versioning has been reset to a YYYY.Epic.Major.Minor schema. Epic 0 (Baseline) = 2026.0.x.x, Epic 1 (Profiling) = 2026.1.x.x, Epic 2 (Graph API) = 2026.2.x.x, Epic 3 (Nexus UI) = 2026.3.x.x, Epic 4 (IaC) = 2026.4.x.x. ***
 
+- **v2026.2.3.0:** [Epic 2.3](#epic-2-prompt-3) - Engineered the Backend Search AST supporting exclusions, temporal parsing, and pagination.
+- **v2026.2.2.0:** [Epic 2.2](#epic-2-prompt-2) - Engineered the ROI Analytics endpoint.
 - **v2026.2.1.0:** [Epic 2.1](#epic-2-prompt-1) - Upgraded database schema and workers to capture execution telemetry.
 - **v2026.1.8.0:** [Epic 1.8](#epic-1-prompt-8) - Engineered the Google Tasks Action Engine for autonomous workflow generation.
 - **v2026.1.7.0:** [Epic 1.7](#epic-1-prompt-7) - Engineered the Materialization Pipeline, Lineage Tracking, and Workflow Hub to normalize HTML emails into Drive PDFs.
@@ -81,6 +83,7 @@ Licensed under the **GNU General Public License, Version 3.0 (GPLv3)**. See the 
 * [5. The Synchronization Engine](#5-the-synchronization-engine)
 * [6. The Intelligent Quota Governor](#6-the-intelligent-quota-governor)
 * [7. The AI & Dynamic Prompt Pipeline](#7-the-ai-dynamic-prompt-pipeline)
+  * [7.1 The Query-First Omnibox & AST](#71-the-query-first-omnibox--ast)
 * [8. VM Lifecycle & Containerization](#8-vm-lifecycle-containerization)
   * [8.1 Fail-Fast Provisioning](#81-fail-fast-provisioning)
 * [9. Telemetry, Diagnostics & Notifications](#9-telemetry-diagnostics-notifications)
@@ -752,4 +755,6 @@ Below is a complete example of a compliant execution prompt (using a hypothetica
 
 ng and writing without locking).
 * **WCAG (Web Content Accessibility Guidelines):** Contrast requirements to ensure branded colors remain readable on the UI and inside Gmail labels.
+
+anded colors remain readable on the UI and inside Gmail labels.
 

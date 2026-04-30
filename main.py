@@ -220,12 +220,111 @@ async def materialize_items(request: Request, background_tasks: BackgroundTasks)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/artifacts/search")
-async def search_artifacts(request: Request):
+async def search_artifacts(q: str = "", limit: int = 50, offset: int = 0):
     """
     AST Parser search endpoint.
     By default, appends a SQL clause to exclude lifecycle_status = 'MATERIALIZED'
     """
-    return JSONResponse(content={"status": "not_implemented", "message": "Epic 2 endpoint stubbed."})
+    try:
+        import calendar
+        import datetime
+        import re
+        
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        conditions = ["w.status != 'MATERIALIZED'"]
+        params = []
+        
+        if not q.strip():
+            thirty_days_ago = (datetime.datetime.utcnow() - datetime.timedelta(days=30)).strftime('%Y-%m-%d')
+            conditions.append("json_extract(w.custom_data, '$.document_date') >= ?")
+            params.append(thirty_days_ago)
+        else:
+            parts = re.findall(r'(!?[a-zA-Z]+):(?:"([^"]+)"|([^\s]+))', q)
+            clean_q = re.sub(r'!?[a-zA-Z]+:(?:"[^"]+"|[^\s]+)', '', q).strip()
+            
+            if clean_q:
+                conditions.append("(w.summary LIKE ? OR w.raw_text LIKE ?)")
+                params.append(f"%{clean_q}%")
+                params.append(f"%{clean_q}%")
+                
+            for match in parts:
+                key = match[0]
+                val = match[1] or match[2]
+                
+                is_exclude = key.startswith('!')
+                actual_key = key.lstrip('!')
+                operator = "!=" if is_exclude else "="
+                
+                if actual_key.lower() == 'correspondent':
+                    conditions.append(f"tc.name {operator} ?")
+                    params.append(val)
+                elif actual_key.lower() == 'purpose':
+                    conditions.append(f"tp.name {operator} ?")
+                    params.append(val)
+                elif actual_key.lower() == 'date':
+                    if len(val) == 7 and '-' in val:
+                        y, m = map(int, val.split('-'))
+                        last_day = calendar.monthrange(y, m)[1]
+                        start_date = f"{y:04d}-{m:02d}-01"
+                        end_date = f"{y:04d}-{m:02d}-{last_day:02d}"
+                        if is_exclude:
+                            conditions.append("json_extract(w.custom_data, '$.document_date') NOT BETWEEN ? AND ?")
+                        else:
+                            conditions.append("json_extract(w.custom_data, '$.document_date') BETWEEN ? AND ?")
+                        params.extend([start_date, end_date])
+                    elif len(val) == 10:
+                        conditions.append(f"json_extract(w.custom_data, '$.document_date') {operator} ?")
+                        params.append(val)
+        
+        where_clause = " WHERE " + " AND ".join(conditions)
+        
+        join_clause = """
+            FROM Workspace_Artifacts w
+            LEFT JOIN Taxonomy_Purposes tp ON w.purpose_id = tp.id
+            LEFT JOIN Taxonomy_Correspondents tc ON tp.correspondent_id = tc.id
+        """
+        
+        count_query = f"SELECT COUNT(*) as total {join_clause} {where_clause}"
+        cursor.execute(count_query, params)
+        total_matches = cursor.fetchone()['total']
+        
+        data_query = f"""
+            SELECT w.artifact_id, w.summary, w.custom_data, w.status,
+                   tp.name as purpose_name, tc.name as correspondent_name
+            {join_clause}
+            {where_clause}
+            ORDER BY json_extract(w.custom_data, '$.document_date') DESC
+            LIMIT ? OFFSET ?
+        """
+        data_params = params + [limit, offset]
+        
+        cursor.execute(data_query, data_params)
+        rows = cursor.fetchall()
+        
+        results = []
+        for row in rows:
+            import json
+            r = dict(row)
+            try:
+                r['custom_data'] = json.loads(r['custom_data']) if r['custom_data'] else {}
+            except json.JSONDecodeError:
+                r['custom_data'] = {}
+            results.append(r)
+            
+        conn.close()
+        
+        return JSONResponse(content={
+            "status": "success",
+            "total_matches": total_matches,
+            "limit": limit,
+            "offset": offset,
+            "results": results
+        })
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/analytics/threads")
 async def analytics_threads(request: Request):

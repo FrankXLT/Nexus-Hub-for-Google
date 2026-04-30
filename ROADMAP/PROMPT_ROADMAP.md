@@ -1536,3 +1536,40 @@
 > **Output Actions:**
 > 1. Silently execute the code implementation across `db_init.py`, `sync_engine.py`, `retention_worker.py`, and the frontend UI.
 > 2. Silently update `README.md` exactly as instructed."
+
+<a id="epic-5-prompt-2"></a>
+### Epic 5 - Prompt 2: Master Architectural & UI Data Binding Audit
+> "Act as a Lead QA Architect. We have completed the core infrastructure for 'Nexus Hub' (Epics 0 through 5.1) and are preparing for a live cloud deployment. I need you to perform a deep, read-only static analysis of the entire workspace. Do not write or alter any code.
+> 
+> **Context: The Nexus Hub File Manifest & Dependency Graph**
+> To aid your audit, here is the architectural specification of how the files must interact:
+> * **Backend Services:**
+>   * `db_init.py`: The single source of truth for the SQLite schema (`Workspace_Artifacts`, `Config_System`, `Ingestion_Queue`, taxonomy tables).
+>   * `main.py`: The FastAPI master router. Handles HMAC/CORS security, serves the AST Search engine (`/api/artifacts/search`), Analytics/Sankey data, and Zero-Shot rules. Depends on `db_init.py` for queries.
+>   * `sync_engine.py`: The core ingestion daemon. Manages Gmail delta-syncs, Drive relocations, the Historical Import Queue, the Materialization Engine (HTML-to-PDF), and pushes to Google Tasks.
+>   * `llm_engine.py`: The Gemini AI interface. Executes Entity Profiling and taxonomy classification. Called by `sync_engine.py`.
+>   * `retention_worker.py`: Autonomous daemon querying `Config_Retention_Rules` to sweep the Gmail inbox.
+> * **Frontend (The Nexus Paradigm UI):**
+>   * `Index.html` / `CSS_Styles.html`: The visual DOM. Contains the Omnibox, the Knowledge Grid (Cards), the Aggregate Drawer, Mission Control (Chart.js), and Threads (Google Charts Sankey).
+>   * `JS_State.html` / `JS_Actions.html`: Manages `appState`, multi-select logic, AST query string compilation, and executes `fetch()` calls to `main.py`.
+> 
+> **Your Task: Generate `audit/AUDIT_REPORT_PRE_FLIGHT.md`**
+> Please scan the codebase and generate a highly detailed Markdown report covering the following criteria:
+> 
+> **1. Interface to Backend Data Binding (The UI Trace):**
+> * **The Omnibox:** Trace the search input. Is the 'Enter' key properly bound to execute a fetch to `GET /api/artifacts/search`? Does the JS properly append the `limit` and `offset` parameters?
+> * **The Knowledge Grid:** Check the DOM rendering loop. Are Gmail artifacts visually distinguished from Drive artifacts (e.g., dynamic CSS borders)? Is the `parent_artifact_id` evaluated to render "Stacked Cards" or Lineage badges for materialized items?
+> * **The Aggregate Drawer:** Trace the multi-select logic. If `appState.selectedIds` > 1, does the 'Submit with AI' button correctly map to `POST /api/taxonomy/zero-shot-rule` with the proper JSON payload?
+> * **The Dashboards:** Check the Chart.js and Google Charts implementations. Are they successfully fetching from `/api/analytics/roi-dashboard` and `/api/analytics/threads`? Does the Sankey chart successfully parse the `brand_color` for rgba weaving?
+> 
+> **2. Epic 5.1 Feature Flag Verification:**
+> * Trace the 4 system toggles (`feature_retention_sweeper`, `feature_drive_relocator`, `feature_materialization`, `feature_google_tasks`) from `db_init.py`. 
+> * Are these toggles actively guarding the execution logic in `sync_engine.py` and `retention_worker.py`? If a flag is '0', does the system gracefully bypass the function?
+> * Are these toggles wired to the UI in the Settings/Mission Control tab so the user can change them?
+> 
+> **3. Queue & Worker Resilience:**
+> * In `main.py`, verify `POST /api/ingestion/queue-historical` successfully writes to `Ingestion_Queue`.
+> * Verify `sync_engine.py` queries `status = 'PENDING'` and securely updates to `PROCESSING`, `COMPLETE`, or `FAILED`.
+> 
+> **Output Requirements:**
+> Do not change any code. Output the findings in a strict Markdown document titled `AUDIT_REPORT_PRE_FLIGHT.md` and save it directly into the `audit/` directory (create the directory if it does not already exist). Highlight any disconnected UI elements, missing API routes, or bypassed feature flags. Conclude with a prioritized list of 'Go/No-Go Deployment Blockers'."
