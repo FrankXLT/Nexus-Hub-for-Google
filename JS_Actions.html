@@ -120,6 +120,30 @@ const appActions = {
       .savePipelineSettings(payload);
   },
 
+  queueHistoricalImport: function() {
+    const query = document.getElementById('historical-search').value;
+    if(!query) {
+      this.showToast("Please enter a search query.");
+      return;
+    }
+    this.showToast("Queueing historical import...");
+    
+    google.script.run
+      .withSuccessHandler((result) => {
+        if(result && result.success && result.data && result.data.status === 'success') {
+          this.showToast("Import queued: " + result.data.queued + " items.");
+          const countEl = document.getElementById('queue-pending-count');
+          countEl.textContent = parseInt(countEl.textContent) + result.data.queued;
+        } else {
+          this.showToast("Failed to queue: " + (result.error || result.data?.error || "Unknown"));
+        }
+      })
+      .withFailureHandler((error) => {
+        this.showToast("Apps Script Error: " + error.message);
+      })
+      .queueHistoricalImport(query);
+  },
+
   /**
    * Generates mock data for development.
    * In a real flow, this would call `google.script.run.getNexusData(...)`
@@ -501,6 +525,36 @@ const appActions = {
         this.showToast("Apps Script Error: " + error.message);
       })
       .bulkUpdateArtifacts(payload);
+  },
+
+  materializeSelected: function() {
+    if (appState.selectedIds.size === 0) {
+      this.showToast("No artifacts selected for materialization.");
+      return;
+    }
+    
+    document.getElementById('workflow-hub-modal').style.display = 'none';
+    this.showToast("Queueing materialization pipeline...");
+    
+    const payload = {
+      artifact_ids: Array.from(appState.selectedIds)
+    };
+    
+    google.script.run
+      .withSuccessHandler((result) => {
+        if(result.success) {
+          this.showToast(result.data.message || "Materialization Queued.");
+          appState.selectedIds.clear();
+          document.getElementById('select-all').checked = false;
+          this.renderGrid();
+        } else {
+          this.showToast("Materialization Failed: " + result.error);
+        }
+      })
+      .withFailureHandler((error) => {
+        this.showToast("Apps Script Error: " + error.message);
+      })
+      .materializeSelectedItems(payload);
   },
 
   runSandbox: function() {

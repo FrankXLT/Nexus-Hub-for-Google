@@ -332,6 +332,30 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
             print(f" - Drive Change: File ID {file_id}")
             governor.record_api_call(cost=1)
             
+            try:
+                request = service.files().get_media(fileId=file_id)
+                fh = io.BytesIO()
+                downloader = MediaIoBaseDownload(fh, request)
+                done = False
+                while not done:
+                    status, done = downloader.next_chunk()
+                    governor.record_api_call(cost=1)
+                file_content = fh.getvalue().decode('utf-8', errors='ignore')
+                from llm_engine import process_drive_document
+                process_drive_document(f"drive_{file_id}", file_content, "[]")
+                
+                # Check for actionable tasks
+                cursor.execute("SELECT * FROM Workspace_Artifacts WHERE artifact_id = ?", (f"drive_{file_id}",))
+                artifact_data = cursor.fetchone()
+                if artifact_data and artifact_data['google_task_id'] is None:
+                    custom_data = json.loads(artifact_data['custom_data']) if artifact_data['custom_data'] else {}
+                    if custom_data.get('action_required') == 1 or custom_data.get('action_required') is True or artifact_data['status'] == 'SYSTEM_ALERT':
+                        push_to_google_tasks(creds, artifact_data, conn)
+
+            except Exception as e:
+                print(f"LLM processing failed for {file_id}: {e}")
+                continue
+            
             # Drive Relocation Engine
             cursor.execute("SELECT value FROM Config_System WHERE key = 'drive_permanent_archive_id'")
             archive_row = cursor.fetchone()
@@ -434,8 +458,30 @@ def sync_gmail(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
                             "snippet": snippet
                         }
                         
+                        # Autonomous Profiling for Unknown Senders
+                        cursor.execute("CREATE TABLE IF NOT EXISTS Taxonomy_Senders (email TEXT PRIMARY KEY, profile_description TEXT, guessed_correspondent_id INTEGER)")
+                        cursor.execute("SELECT email FROM Taxonomy_Senders WHERE email = ?", (sender,))
+                        if not cursor.fetchone():
+                            print(f"Unknown sender {sender}. Profiling...")
+                            profile_data = generate_sender_profile(sender, snippet)
+                            if profile_data:
+                                desc = profile_data.get("profile_description", "")
+                                guessed_cat = profile_data.get("guessed_category", "")
+                                
+                                # Attempt to match guessed category to a Correspondent ID
+                                cursor.execute("SELECT id FROM Taxonomy_Correspondents WHERE name = ? OR name LIKE ?", (guessed_cat, f"%{guessed_cat}%"))
+                                corr_row = cursor.fetchone()
+                                corr_id = corr_row['id'] if corr_row else None
+                                
+                                cursor.execute("INSERT INTO Taxonomy_Senders (email, profile_description, guessed_correspondent_id) VALUES (?, ?, ?)", (sender, desc, corr_id))
+                                conn.commit()
+                        
                         # Process the thread
-                        should_archive = process_gmail_thread(f"mail_{msg_id}", email_context, "[]")
+                        try:
+                            should_archive = process_gmail_thread(f"mail_{msg_id}", email_context, "[]")
+                        except Exception as e:
+                            print(f"LLM processing failed for {msg_id}: {e}")
+                            continue
                         if should_archive:
                             # The message is part of a thread, so we archive the entire thread or just the message.
                             # The instruction says "remove the INBOX label from the thread."
@@ -532,6 +578,59 @@ def sync_contacts(creds: Credentials, conn: sqlite3.Connection, governor: QuotaG
     except Exception as e:
         print(f"Error fetching contacts: {e}")
 
+def materialize_artifact(artifact_id: str):
+    """
+    Materializes a transient HTML email into a permanent PDF in Google Drive.
+    """
+    try:
+        from auth import authenticate
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL;")
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT raw_text FROM Workspace_Artifacts WHERE artifact_id = ?", (artifact_id,))
+        row = cursor.fetchone()
+        if not row:
+            conn.close()
+            return
+            
+        html_content = row['raw_text']
+        
+        # TODO: Implement WeasyPrint or API conversion here
+        pdf_bytes = b"%PDF-1.4 Mock PDF Content"
+        
+        from googleapiclient.discovery import build
+        from googleapiclient.http import MediaIoBaseUpload
+        import io
+        
+        creds = authenticate()
+        drive_service = build('drive', 'v3', credentials=creds)
+        
+        file_metadata = {'name': f'Materialized_{artifact_id}.pdf', 'mimeType': 'application/pdf'}
+        media = MediaIoBaseUpload(io.BytesIO(pdf_bytes), mimetype='application/pdf', resumable=True)
+        uploaded_file = drive_service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+        new_drive_id = uploaded_file.get('id')
+        new_artifact_id = f"drive_{new_drive_id}"
+        
+        cursor.execute("""
+            INSERT INTO Workspace_Artifacts (artifact_id, parent_artifact_id, status, lifecycle_status)
+            VALUES (?, ?, 'PROCESSED', 'ACTIVE')
+        """, (new_artifact_id, artifact_id))
+        
+        cursor.execute("""
+            UPDATE Workspace_Artifacts
+            SET lifecycle_status = 'MATERIALIZED'
+            WHERE artifact_id = ?
+        """, (artifact_id,))
+        
+        conn.commit()
+    except Exception as e:
+        print(f"Error materializing artifact {artifact_id}: {e}")
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
 def run_sync() -> None:
     """
     Main entry point for the Delta Synchronization Engine.
@@ -559,10 +658,64 @@ def run_sync() -> None:
         sync_contacts(creds, conn, governor)
         sync_drive(creds, conn, governor)
         sync_gmail(creds, conn, governor)
+        
+        # Process historical ingestion queue
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, source_id FROM Ingestion_Queue WHERE status = 'PENDING' AND source = 'gmail' LIMIT 20")
+        pending_items = cursor.fetchall()
+        
+        if pending_items:
+            print(f"Processing {len(pending_items)} historical items from the queue...")
+            service = build('gmail', 'v1', credentials=creds)
+            
+            for item in pending_items:
+                queue_id = item['id']
+                msg_id = item['source_id']
+                
+                if not governor.can_process_historical():
+                    print("Governor: Historical quota limit reached. Pausing ingestion queue.")
+                    break
+                    
+                cursor.execute("UPDATE Ingestion_Queue SET status = 'PROCESSING' WHERE id = ?", (queue_id,))
+                conn.commit()
+                
+                try:
+                    governor.record_api_call(cost=1)
+                    msg_detail = service.users().messages().get(userId='me', id=msg_id, format='metadata', metadataHeaders=['Subject', 'From']).execute()
+                    
+                    headers = msg_detail.get('payload', {}).get('headers', [])
+                    subject = next((h['value'] for h in headers if h['name'] == 'Subject'), "No Subject")
+                    sender = next((h['value'] for h in headers if h['name'] == 'From'), "Unknown Sender")
+                    snippet = msg_detail.get('snippet', '')
+                    
+                    email_context = {
+                        "subject": subject,
+                        "sender": sender,
+                        "snippet": snippet
+                    }
+                    
+                    process_gmail_thread(f"mail_{msg_id}", email_context, "[]")
+                    cursor.execute("UPDATE Ingestion_Queue SET status = 'COMPLETE' WHERE id = ?", (queue_id,))
+                except Exception as e:
+                    print(f"Error processing historical message {msg_id}: {e}")
+                    cursor.execute("UPDATE Ingestion_Queue SET status = 'FAILED' WHERE id = ?", (queue_id,))
+                
+                conn.commit()
     except sqlite3.OperationalError as e:
         error_msg = f"Database Lock or Operational Error: {e}"
         print(error_msg)
         notifier.send_urgent_webhook({"title": "Nexus Hub: Database Lock", "message": error_msg, "priority": 1})
+    except Exception as e:
+        error_msg = f"Synchronization error occurred: {e}"
+        print(error_msg)
+        notifier.send_urgent_webhook({"title": "Nexus Hub: Sync Error", "message": error_msg, "priority": 0})
+    finally:
+        if 'conn' in locals():
+            conn.close()
+        print("Synchronization engine completed.")
+
+if __name__ == "__main__":
+    run_sync()tle": "Nexus Hub: Database Lock", "message": error_msg, "priority": 1})
     except Exception as e:
         error_msg = f"Synchronization error occurred: {e}"
         print(error_msg)

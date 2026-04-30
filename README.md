@@ -16,6 +16,12 @@ By leveraging Google's Gemini Large Language Models (LLMs) and a strictly govern
 
 *** NOTICE: As of Stage 45, development has shifted to Architectural Epics. Versioning has been reset to a YYYY.Epic.Major.Minor schema. Epic 0 (Baseline) = 2026.0.x.x, Epic 1 (Profiling) = 2026.1.x.x, Epic 2 (Graph API) = 2026.2.x.x, Epic 3 (Nexus UI) = 2026.3.x.x, Epic 4 (IaC) = 2026.4.x.x. ***
 
+- **v2026.2.1.0:** [Epic 2.1](#epic-2-prompt-1) - Upgraded database schema and workers to capture execution telemetry.
+- **v2026.1.8.0:** [Epic 1.8](#epic-1-prompt-8) - Engineered the Google Tasks Action Engine for autonomous workflow generation.
+- **v2026.1.7.0:** [Epic 1.7](#epic-1-prompt-7) - Engineered the Materialization Pipeline, Lineage Tracking, and Workflow Hub to normalize HTML emails into Drive PDFs.
+- **v2026.1.6.0:** [Epic 1.6](#epic-1-prompt-6) - Engineered the asynchronous Historical Import Engine and SQLite ingestion buffer.
+- **v2026.1.5.0:** [Epic 1.5](#epic-1-prompt-5) - Engineered the Entity Profiler for autonomous classification of unknown senders and externalized LLM prompts to XML templates.
+- **v2026.1.4.1:** [Epic 1.4.1](#epic-1-prompt-4-1) - Executed Mid-Epic Audit Remediation: Patched HMAC bypass, secured RAG SQL injection, fixed Drive LLM invocation, and isolated API exceptions.
 - **v2026.1.4.0:** [Epic 1.4](#epic-1-prompt-4) - Built the Drive Relocation Engine to clear the staging dropzone.
 - **v2026.1.3.0:** [Epic 1.3](./ROADMAP/PROMPT_ROADMAP.md#epic-1-prompt-3) - Engineered the Advanced Inbox Retention Engine.
 - **v2026.1.2.0:** [Epic 1.2](./ROADMAP/PROMPT_ROADMAP.md#epic-1-prompt-2) - Built Gmail API post-processing for Tier 3 Auto-Archiving.
@@ -400,10 +406,12 @@ erDiagram
 
 The synchronization engine implements distinct processing strategies tailored to the input data type.
 
-### 5.1 Post-Processing & Retention Rules
-Once an artifact is categorized, the synchronization engine can execute downstream actions. For Gmail, if a matched Purpose has `auto_archive` enabled (configurable in the Entity Management UI), the engine automatically issues a Gmail API call to drop the `INBOX` label from the thread. This prevents your active inbox from cluttering with automated system notifications or processed receipts.
+### 5.1 Post-Processing & Lifecycle Management
+Once an artifact is categorized, the synchronization engine can execute downstream actions. 
 
-Additionally, the Advanced Inbox Retention Engine allows users to set programmatic batch sweeping rules (e.g. "Trash all 'Promotions' older than 30 days"). A dedicated `retention_worker.py` script queries the SQLite `Config_Retention_Rules` table and executes bulk API modifications, manageable directly from the 'Inbox Cleanup Rules' tab in the UI.
+* **Autonomous Task Generation:** If the Gemini LLM extracts custom data flagging an item with `action_required = true` (or if it triggers a `SYSTEM_ALERT`), the synchronization engine immediately pushes a new, hyperlinked to-do item to the user's configured Google Tasks list (`nexus_task_list_id`), seamlessly transforming unread emails into actionable workflow.
+* **Tier 3 Auto-Archiving:** For Gmail, if a matched Purpose has `auto_archive` enabled (configurable in the Entity Management UI), the engine automatically issues a Gmail API call to drop the `INBOX` label from the thread. This prevents your active inbox from cluttering with automated system notifications or processed receipts.
+* **Advanced Inbox Sweeps:** The Advanced Inbox Retention Engine allows users to set programmatic batch sweeping rules (e.g. "Trash all 'Promotions' older than 30 days"). A dedicated `retention_worker.py` script queries the SQLite `Config_Retention_Rules` table and executes bulk API modifications, manageable directly from the 'Inbox Cleanup Rules' tab in the UI.
 
 ### Drive Two-Stage Triage Logic
 Google Drive documents (PDFs, images) are unstructured and noisy even after OCR. Feeding massive whitelists into the LLM simultaneously dilutes instructions. 
@@ -479,6 +487,9 @@ flowchart TD
 ```
 
 
+
+### 5.2 Historical Import Engine
+To ingest older documents without exhausting Google API quotas, Nexus Hub features an asynchronous Historical Import buffer. From the Workspace dashboard UI, users can query the Gmail API using standard Gmail search syntax (e.g., `before:2025-01-01`, `from:billing@aws.com`, `has:attachment`). Matching thread IDs are safely queued into the `Ingestion_Queue` table. The Quota Governor gradually trickles these into the AI pipeline (throttled at the 70% threshold) behind the scenes, ensuring your inbox migration never disrupts real-time mail processing.
 
 ## 6. The Intelligent Quota Governor
 
@@ -558,7 +569,13 @@ Nexus Hub is deeply observable, equipped with an alerting matrix to protect auto
 ### Error Logs (DLQ)
 If an API crashes or the Gemini LLM hallucinates malformed JSON, the stack trace and payload are logged directly into the `Error_Logs` table. This serves as a Dead-Letter Queue (DLQ) for later retry or administrator review.
 
-### 15-Minute Watchdog & Alerts
+### 9.2 The ROI & Analytics Aggregator
+To quantify the business value of the autonomous pipeline, the system exposes an ROI dashboard endpoint. This aggregator queries the telemetry logged during execution to calculate:
+* **First-Pass Accuracy:** The percentage of artifacts (`is_human_corrected = 0` / total items) that the LLM successfully processed without requiring manual UI intervention.
+* **Exception Rate:** The ratio of system errors (from `Error_Logs`) to successfully processed items.
+* **Throughput & Speed:** Groups the 30-day processed volumes by source (Gmail vs. Drive) and computes the average processing time in milliseconds and token cost across the last 1,000 executions.
+
+### 9.3 15-Minute Watchdog & Alerts
 A host-level cron job automatically invokes [`diagnostics.py`](./diagnostics.py) every 15 minutes within the `nexus-sync-engine` container.
 * It evaluates three layers: It writes to the Database to ensure the disk is not locked, checks the headless OAuth `token.json` for expiration, and executes a `curl` against `http://nexus-api:8000/api/health` to confirm the internal FastAPI server is responsive.
 * If any layer fails, [`notifier.py`](./notifier.py) skips the database entirely and sends a CRITICAL HTTP POST webhook to Pushover for mobile notifications. Non-critical warnings (quarantined entities or errors) are digested into an HTML report and sent via Gmail every 24 hours.

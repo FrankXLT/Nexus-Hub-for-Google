@@ -137,7 +137,10 @@ def init_db(db_path: str = DB_PATH) -> None:
             custom_data TEXT CHECK(json_valid(custom_data)),
             status TEXT,
             locked_by_system INTEGER DEFAULT 0,
-            FOREIGN KEY (purpose_id) REFERENCES Taxonomy_Purposes (id) ON DELETE CASCADE
+            parent_artifact_id TEXT,
+            lifecycle_status TEXT DEFAULT 'ACTIVE',
+            FOREIGN KEY (purpose_id) REFERENCES Taxonomy_Purposes (id) ON DELETE CASCADE,
+            FOREIGN KEY (parent_artifact_id) REFERENCES Workspace_Artifacts (artifact_id) ON DELETE SET NULL
         ) STRICT;
     """)
     
@@ -152,6 +155,9 @@ def init_db(db_path: str = DB_PATH) -> None:
             action_type TEXT NOT NULL,
             previous_state TEXT CHECK(json_valid(previous_state)),
             new_state TEXT CHECK(json_valid(new_state)),
+            processing_time_ms INTEGER,
+            api_tokens_used INTEGER,
+            is_human_corrected BOOLEAN DEFAULT 0,
             FOREIGN KEY (artifact_id) REFERENCES Workspace_Artifacts (artifact_id) ON DELETE CASCADE
         ) STRICT;
     """)
@@ -168,6 +174,18 @@ def init_db(db_path: str = DB_PATH) -> None:
             error_message TEXT NOT NULL,
             stack_trace TEXT CHECK(json_valid(stack_trace)),
             FOREIGN KEY (artifact_id) REFERENCES Workspace_Artifacts (artifact_id) ON DELETE CASCADE
+        ) STRICT;
+    """)
+
+    # 8. Ingestion_Queue
+    # -- Asynchronous buffering system to handle massive historical data ingestion
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Ingestion_Queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source TEXT NOT NULL,
+            source_id TEXT NOT NULL,
+            status TEXT DEFAULT 'PENDING',
+            added_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         ) STRICT;
     """)
     
@@ -192,6 +210,8 @@ def seed_default_configs(conn: sqlite3.Connection) -> None:
         ('ui_post_processing', '{"auto_archive_gmail": false, "quarantine_unconfident": true}', 'Post-processing actions'))
     cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)",
         ('drive_permanent_archive_id', '""', 'Permanent Archive Folder ID'))
+    cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)",
+        ('nexus_task_list_id', '""', 'Google Tasks List ID for actionable items'))
 
 
 def seed_universal_purposes(conn):

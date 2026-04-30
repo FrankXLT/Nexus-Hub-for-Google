@@ -69,6 +69,18 @@
                   </div>
                 </div>
               </div>
+
+              <!-- Historical Import Widget -->
+              <div style="padding: 0 16px; margin-bottom: 10px;">
+                <div style="border: 1px solid #ccc; border-radius: 4px; padding: 12px; background: #fff;">
+                  <strong style="font-size: 0.875rem;">Historical Import</strong>
+                  <div style="display: flex; gap: 10px; margin-top: 8px; align-items: center;">
+                    <input type="text" id="historical-search" placeholder="Gmail search query (e.g. before:2025-01-01)" style="flex: 1; padding: 5px;">
+                    <button class="btn btn-primary" onclick="appActions.queueHistoricalImport()">Queue Import</button>
+                    <span style="font-size: 0.875rem; color: #5f6368;">Pending: <strong id="queue-pending-count">0</strong></span>
+                  </div>
+                </div>
+              </div>
               <div class="filter-bar" style="display:flex; gap:10px; margin-bottom: 10px; padding: 0 16px;">
                 <select id="filter-category" onchange="appActions.onCategoryChange()" style="padding: 5px; flex: 1;">
                   <option value="">All Categories</option>
@@ -289,6 +301,23 @@
         <div style="display: flex; justify-content: flex-end; gap: 8px;">
           <button class="btn btn-secondary" onclick="document.getElementById('manual-review-modal').style.display='none'">Cancel</button>
           <button class="btn btn-primary" onclick="appActions.submitManualReview()">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Workflow Hub Modal -->
+    <div id="workflow-hub-modal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
+      <div style="background-color: #fefefe; margin: 10% auto; padding: 20px; border: 1px solid #888; width: 500px; border-radius: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 16px;">
+          <h3 style="margin: 0;">Workflow Hub</h3>
+          <i class="material-icons" style="cursor: pointer;" onclick="document.getElementById('workflow-hub-modal').style.display='none'">close</i>
+        </div>
+        
+        <h4>Materialization Pipeline</h4>
+        <p style="font-size: 0.875rem; color: #666;">Convert transient HTML emails into permanent PDFs in Google Drive. Creates a strict lineage between the source and the new artifact.</p>
+        
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
+          <button class="btn btn-primary" onclick="appActions.materializeSelected()">Materialize Selected Items</button>
         </div>
       </div>
     </div>

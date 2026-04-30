@@ -62,7 +62,7 @@ def get_genai_client() -> genai.Client:
     return genai.Client()
 
 @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3))
-def call_gemini(prompt: str, context: str) -> Optional[Dict[str, Any]]:
+def call_gemini(prompt: str, context: str) -> Tuple[Optional[Dict[str, Any]], Dict[str, int]]:
     """
     Calls the Gemini API with exponential backoff and forces JSON output.
     Safely handles parsing errors with a try/except block to catch hallucinated text.
@@ -72,9 +72,11 @@ def call_gemini(prompt: str, context: str) -> Optional[Dict[str, Any]]:
         context (str): The payload data (OCR text, email body, entity profiles).
         
     Returns:
-        Optional[Dict[str, Any]]: The parsed JSON dictionary from Gemini, or None if it fails formatting.
+        Tuple[Optional[Dict[str, Any]], Dict[str, int]]: The parsed JSON dictionary from Gemini, and telemetry metadata.
     """
     client = get_genai_client()
+    import time
+    start_time = time.time()
     try:
         response = client.models.generate_content(
             model='gemini-2.5-flash',
@@ -83,12 +85,16 @@ def call_gemini(prompt: str, context: str) -> Optional[Dict[str, Any]]:
                 response_mime_type="application/json",
             ),
         )
-        return json.loads(response.text)
+        end_time = time.time()
+        elapsed_ms = int((end_time - start_time) * 1000)
+        tokens = response.usage_metadata.total_token_count if hasattr(response, 'usage_metadata') and response.usage_metadata else 0
+        telemetry = {"processing_time_ms": elapsed_ms, "api_tokens_used": tokens}
+        return json.loads(response.text), telemetry
     except json.JSONDecodeError as e:
         print(f"JSON Parsing Error. Hallucinated format: {e}")
         if response and response.text:
             print(f"Raw Output: {response.text}")
-        return None
+        return None, {}
     except Exception as e:
         print(f"Gemini API Error: {e}")
         raise # Raise to trigger tenacity retry
@@ -120,7 +126,8 @@ def run_sandbox_prompt(artifact_id: str, prompt_string: str) -> Optional[Dict[st
         
     raw_text = row['raw_text']
     context = f"Raw Text:\n{raw_text}"
-    return call_gemini(prompt_string, context)
+    result, _ = call_gemini(prompt_string, context)
+    return result
 
 # ---------------------------------------------------------------------------
 # Database Operations
@@ -142,7 +149,7 @@ def update_artifact_status(artifact_id: str, status: str) -> None:
     conn.commit()
     conn.close()
 
-def persist_llm_results(artifact_id: str, summary: str, custom_data: Dict[str, Any], status: str) -> None:
+def persist_llm_results(artifact_id: str, summary: str, custom_data: Dict[str, Any], status: str, telemetry: Dict[str, int] = {}) -> None:
     """
     Writes the successful extraction to Workspace_Artifacts and logs the change to Artifact_History
     for strict immutable auditing.
@@ -181,10 +188,12 @@ def persist_llm_results(artifact_id: str, summary: str, custom_data: Dict[str, A
     
     # 3. Insert into Artifact_History
     now = int(time.time())
+    processing_time_ms = telemetry.get('processing_time_ms')
+    api_tokens_used = telemetry.get('api_tokens_used')
     cursor.execute("""
-        INSERT INTO Artifact_History (artifact_id, timestamp, actor, action_type, previous_state, new_state)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (artifact_id, now, "LLM_ENGINE", "AI_EXTRACTION", previous_state_json, new_state_json))
+        INSERT INTO Artifact_History (artifact_id, timestamp, actor, action_type, previous_state, new_state, processing_time_ms, api_tokens_used)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (artifact_id, now, "LLM_ENGINE", "AI_EXTRACTION", previous_state_json, new_state_json, processing_time_ms, api_tokens_used))
     
     conn.commit()
     conn.close()
@@ -230,7 +239,7 @@ async def generate_tuning_rule(artifact_id: str, original_json: Dict[str, Any], 
 **Output:** ONLY valid JSON: {{ "error_analysis": "string", "new_routing_rule": "string" }}"""
 
     # We call the synchronous call_gemini. In a fully async system, we'd use run_in_threadpool.
-    result = call_gemini(prompt, "")
+    result, _ = call_gemini(prompt, "")
     
     if result and "new_routing_rule" in result:
         new_rule = result["new_routing_rule"]
@@ -256,6 +265,16 @@ async def generate_tuning_rule(artifact_id: str, original_json: Dict[str, Any], 
 # ---------------------------------------------------------------------------
 # Processing Pipelines
 # ---------------------------------------------------------------------------
+
+def generate_sender_profile(sender_email: str, email_body: str) -> Optional[Dict[str, Any]]:
+    """
+    Uses the entity_profiler.tmpl to generate a profile for an unknown sender.
+    """
+    with open(os.path.join("prompts", "entity_profiler.tmpl"), "r", encoding="utf-8") as f:
+        prompt = f.read()
+    context = f"Sender Email: {sender_email}\n\nEmail Body:\n{email_body}"
+    result, _ = call_gemini(prompt, context)
+    return result
 
 def normalize_taxonomy(extracted_tag: str, whitelist_str: str) -> str:
     """
@@ -365,7 +384,8 @@ def process_gmail_thread(artifact_id: str, email_context: Dict[str, Any], dynami
     whitelist_str = "\n".join(whitelist_paths)
     profiles_str = json.dumps(entity_profiles, indent=2)
 
-    prompt = fetch_active_prompt('GMAIL').replace("[DYNAMIC_ARRAY]", dynamic_array_str)
+    with open(os.path.join("prompts", "gmail_extraction.tmpl"), "r", encoding="utf-8") as f:
+        prompt = f.read().replace("[DYNAMIC_ARRAY]", dynamic_array_str)
     prompt = prompt.replace("[ENTITY_PROFILES]", profiles_str)
     
     full_context = f"Entity Profiles:\n{profiles_str}\n\nEmail Context:\n{json.dumps(email_context, indent=2)}"
@@ -376,7 +396,7 @@ def process_gmail_thread(artifact_id: str, email_context: Dict[str, Any], dynami
     # Because Gmail already provides heavily structured context (explicit verified Senders, Subjects),
     # the LLM can confidently route the document to the deepest Purpose node in a single request,
     # optimizing API latency and cost.
-    result = call_gemini(prompt, full_context)
+    result, telemetry = call_gemini(prompt, full_context)
     
     if result:
         # Normalize the taxonomy mapping
@@ -397,7 +417,8 @@ def process_gmail_thread(artifact_id: str, email_context: Dict[str, Any], dynami
             artifact_id=artifact_id,
             summary=result.get("summary", ""),
             custom_data=result, # Storing the entire result including requires_action, taxonomy_path
-            status=status
+            status=status,
+            telemetry=telemetry
         )
         print(f"Successfully processed {artifact_id}")
         return auto_archive_map.get(normalized_path, False)
@@ -459,7 +480,7 @@ def process_drive_document(artifact_id: str, ocr_text: str, dynamic_array_str: s
     # the Vendor/Correspondent first.
     prompt_s1 = fetch_active_prompt('DRIVE_STAGE_1').replace("[ENTITY_PROFILES]", profiles_str)
     context_s1 = f"Entity Profiles:\n{profiles_str}\n\nOCR Text:\n{ocr_text}"
-    result_s1 = call_gemini(prompt_s1, context_s1)
+    result_s1, telemetry_s1 = call_gemini(prompt_s1, context_s1)
     
     if not result_s1 or not result_s1.get("correspondent"):
         update_artifact_status(artifact_id, "ERROR_STAGE_1_FAILED")
@@ -474,7 +495,7 @@ def process_drive_document(artifact_id: str, ocr_text: str, dynamic_array_str: s
         discovered = result_s1.get("discovered_correspondent")
         if discovered:
             custom_data = {"pending_discovery": discovered}
-            persist_llm_results(artifact_id, "Pending Discovery", custom_data, "Correspondent/Review")
+            persist_llm_results(artifact_id, "Pending Discovery", custom_data, "Correspondent/Review", telemetry_s1)
             print(f"Unknown correspondent for {artifact_id}, routed to Correspondent/Review with discovery: {discovered}")
         else:
             update_artifact_status(artifact_id, "UNKNOWN_CORRESPONDENT")
@@ -525,7 +546,11 @@ def process_drive_document(artifact_id: str, ocr_text: str, dynamic_array_str: s
     if extra_rules:
         prompt_s2 += f"\n\n{extra_rules}"
     context_s2 = f"Purpose Whitelist:\n{purpose_whitelist_str}\n\nOCR Text:\n{ocr_text}"
-    result_s2 = call_gemini(prompt_s2, context_s2)
+    result_s2, telemetry_s2 = call_gemini(prompt_s2, context_s2)
+    combined_telemetry = {
+        'processing_time_ms': telemetry_s1.get('processing_time_ms', 0) + telemetry_s2.get('processing_time_ms', 0),
+        'api_tokens_used': telemetry_s1.get('api_tokens_used', 0) + telemetry_s2.get('api_tokens_used', 0)
+    }
     
     if result_s2:
         # Normalize purpose
@@ -556,7 +581,8 @@ def process_drive_document(artifact_id: str, ocr_text: str, dynamic_array_str: s
             artifact_id=artifact_id,
             summary=result_s2.get("title", ""),
             custom_data=custom_data,
-            status=status
+            status=status,
+            telemetry=combined_telemetry
         )
         print(f"Successfully processed {artifact_id}")
         return auto_archive_map.get(normalized_path, False)
@@ -588,11 +614,15 @@ Question: {question}
 Return ONLY valid JSON containing the SQL query. Do not return anything else. Limit results to 10.
 {{ "sql": "SELECT ... LIMIT 10" }}"""
 
-    sql_json = call_gemini(prompt_sql, "")
+    sql_json, _ = call_gemini(prompt_sql, "")
     if not sql_json or "sql" not in sql_json:
         return "Sorry, I couldn't generate a query for that."
         
     sql = sql_json["sql"]
+    
+    assert sql.upper().startswith("SELECT"), "Query must start with SELECT"
+    if any(keyword in sql.upper() for keyword in ["DROP", "DELETE", "UPDATE", "INSERT", "ALTER"]):
+        raise ValueError("Destructive queries are not allowed.")
     
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -618,7 +648,7 @@ Database Rows: {json.dumps(fetched_data, indent=2)}
 Return ONLY valid JSON containing the answer.
 {{ "answer": "Your human-readable summary" }}"""
 
-    summary_json = call_gemini(prompt_summary, "")
+    summary_json, _ = call_gemini(prompt_summary, "")
     if summary_json and "answer" in summary_json:
         return summary_json["answer"]
     

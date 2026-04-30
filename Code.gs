@@ -155,6 +155,20 @@ function runSandboxPrompt(payload) {
 }
 
 /**
+ * Queues items for the materialization pipeline.
+ * @param {Object} payload - The object containing artifact_ids.
+ * @returns {Object} The JSON response.
+ */
+function materializeSelectedItems(payload) {
+  try {
+    const result = sendToNexusVM("/api/workflows/materialize", payload);
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * Bulk updates multiple artifacts using continuation tokens for timeout protection.
  * 
  * @param {Object} payload - The object containing artifact_ids and metadata.
@@ -233,6 +247,19 @@ function savePipelineSettings(payload) {
   }
 }
 
+/**
+ * Queues a historical import based on a Gmail search string.
+ * @param {string} query - The search query.
+ * @returns {Object} The JSON response.
+ */
+function queueHistoricalImport(query) {
+  try {
+    const result = sendToNexusVM("/api/ingestion/queue-historical", { search_query: query });
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
 
 /**
  * Updates custom extraction rules for a specific entity.

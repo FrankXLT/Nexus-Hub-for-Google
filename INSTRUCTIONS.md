@@ -10,7 +10,8 @@ Navigate to **APIs & Services > Library** in the GCP Console and enable the foll
 * Google Drive API
 * Cloud Pub/Sub API
 * Document AI API
-* **Google People API** (Required for contact bootstrapping)
+* Google People API (Required for contact bootstrapping)
+* **Google Tasks API** (Required for autonomous to-do generation)
 
 ![Enable APIs Screenshot](docs/img/gcp_enable_apis.png)
 
@@ -18,7 +19,7 @@ Navigate to **APIs & Services > Library** in the GCP Console and enable the foll
 Because this is an internal tool, configure the OAuth screen for "Internal" use to bypass Google's app verification process.
 1. Navigate to **APIs & Services > OAuth consent screen**.
 2. Select **Internal** and click Create.
-3. Under Scopes, manually add `https://www.googleapis.com/auth/gmail.modify` and `https://www.googleapis.com/auth/drive`.
+3. Under Scopes, manually add `https://www.googleapis.com/auth/gmail.modify`, `https://www.googleapis.com/auth/drive`, and `https://www.googleapis.com/auth/tasks`.
 
 ![OAuth Scopes Screenshot](docs/img/gcp_oauth_scopes.png)
 

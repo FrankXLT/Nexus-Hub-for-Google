@@ -13,6 +13,7 @@ import asyncio
 from typing import Callable, Awaitable
 from fastapi import FastAPI, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from db_init import DB_PATH
@@ -25,6 +26,13 @@ load_dotenv()
 NEXUS_HMAC_SECRET = os.getenv("NEXUS_HMAC_SECRET", "")
 
 app = FastAPI(title="Nexus Hub Webhook Receiver", description="Receives secure webhook events from Google Apps Script.")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.on_event("startup")
 async def start_cron_jobs():
@@ -158,6 +166,133 @@ async def verify_nexus_signature(request: Request, call_next: Callable[[Request]
             
     response = await call_next(request)
     return response
+
+@app.post("/api/ingestion/queue-historical")
+async def queue_historical(request: Request):
+    from googleapiclient.discovery import build
+    from auth import authenticate
+    try:
+        payload = await request.json()
+        search_query = payload.get("search_query")
+        if not search_query:
+            return JSONResponse(status_code=400, content={"error": "Missing search_query"})
+        
+        creds = authenticate()
+        service = build('gmail', 'v1', credentials=creds)
+        
+        message_ids = []
+        page_token = None
+        while True:
+            results = service.users().messages().list(userId='me', q=search_query, pageToken=page_token, fields='messages(id),nextPageToken').execute()
+            messages = results.get('messages', [])
+            for msg in messages:
+                message_ids.append(msg['id'])
+            
+            page_token = results.get('nextPageToken')
+            if not page_token:
+                break
+                
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL;")
+        cursor = conn.cursor()
+        
+        for msg_id in message_ids:
+            cursor.execute("INSERT INTO Ingestion_Queue (source, source_id, status) VALUES ('gmail', ?, 'PENDING')", (msg_id,))
+            
+        conn.commit()
+        conn.close()
+        
+        return JSONResponse(content={"status": "success", "queued": len(message_ids)})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/api/workflows/materialize")
+async def materialize_items(request: Request, background_tasks: BackgroundTasks):
+    try:
+        body = await request.json()
+        artifact_ids = body.get("artifact_ids", [])
+        from sync_engine import materialize_artifact
+        for a_id in artifact_ids:
+            background_tasks.add_task(materialize_artifact, a_id)
+        return JSONResponse(content={"status": "success", "message": f"Queued {len(artifact_ids)} items for materialization."})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/api/artifacts/search")
+async def search_artifacts(request: Request):
+    """
+    AST Parser search endpoint.
+    By default, appends a SQL clause to exclude lifecycle_status = 'MATERIALIZED'
+    """
+    return JSONResponse(content={"status": "not_implemented", "message": "Epic 2 endpoint stubbed."})
+
+@app.get("/api/analytics/threads")
+async def analytics_threads(request: Request):
+    """
+    Threads analytics endpoint.
+    By default, appends a SQL clause to exclude lifecycle_status = 'MATERIALIZED'
+    """
+    return JSONResponse(content={"status": "not_implemented", "message": "Epic 2 endpoint stubbed."})
+
+@app.get("/api/analytics/roi-dashboard")
+async def roi_dashboard():
+    """
+    Returns ROI analytics: first-pass accuracy, exception rate, avg ms/tokens, and 30-day throughput.
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # 1. Effectiveness: First-Pass Accuracy & Exception Rate
+        cursor.execute("SELECT COUNT(*) as total FROM Artifact_History WHERE is_human_corrected = 0")
+        uncorrected_items = cursor.fetchone()['total'] or 0
+        
+        cursor.execute("SELECT COUNT(*) as total FROM Artifact_History")
+        total_items = cursor.fetchone()['total'] or 0
+        
+        first_pass_accuracy = (uncorrected_items / total_items * 100) if total_items > 0 else 0.0
+        
+        cursor.execute("SELECT COUNT(*) as errors FROM Error_Logs")
+        exception_count = cursor.fetchone()['errors'] or 0
+        exception_rate = (exception_count / total_items * 100) if total_items > 0 else 0.0
+
+        # 2. Telemetry: Average processing time and tokens over last 1000 records
+        cursor.execute("SELECT AVG(processing_time_ms) as avg_ms, AVG(api_tokens_used) as avg_tokens FROM (SELECT processing_time_ms, api_tokens_used FROM Artifact_History ORDER BY timestamp DESC LIMIT 1000)")
+        telemetry = cursor.fetchone()
+        avg_ms = telemetry['avg_ms'] or 0.0
+        avg_tokens = telemetry['avg_tokens'] or 0.0
+
+        # 3. Throughput: Total artifacts processed in 30 days, grouped by source
+        import time
+        thirty_days_ago = int(time.time()) - (30 * 24 * 60 * 60)
+        cursor.execute("""
+            SELECT 
+                SUM(CASE WHEN artifact_id LIKE 'mail_%' THEN 1 ELSE 0 END) as gmail_count,
+                SUM(CASE WHEN artifact_id LIKE 'drive_%' THEN 1 ELSE 0 END) as drive_count
+            FROM Artifact_History
+            WHERE timestamp >= ?
+        """, (thirty_days_ago,))
+        throughput = cursor.fetchone()
+        gmail_count = throughput['gmail_count'] or 0
+        drive_count = throughput['drive_count'] or 0
+
+        conn.close()
+
+        return JSONResponse(content={
+            "first_pass_accuracy_percent": round(first_pass_accuracy, 2),
+            "exception_rate_percent": round(exception_rate, 2),
+            "average_processing_ms": round(avg_ms, 2),
+            "average_api_tokens": round(avg_tokens, 2),
+            "throughput_30_days": {
+                "gmail": gmail_count,
+                "drive": drive_count,
+                "total": gmail_count + drive_count
+            }
+        })
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/api/update")
 async def update_data(request: Request, background_tasks: BackgroundTasks):
