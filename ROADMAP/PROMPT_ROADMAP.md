@@ -1610,8 +1610,53 @@
 > 3. Add a new secondary button next to it: `<button class="btn btn-secondary" onclick="document.getElementById('workflow-hub-modal').style.display='block'"><i class="material-icons">auto_fix_high</i> Workflow Hub</button>`.
 > 
 > **Task 3: Roadmap Anchors & Version History**
-> * **In `README.md`:** Add to Version History: `- **v2026.5.3.0:** [Epic 5.3](#epic-5-prompt-3) - Executed Melding Audit Remediation: Wired dead Omnibox buttons and restored access to the Workflow Hub modal.`
+> 1. * **In `README.md`:** Add to Version History: `- **v2026.5.3.0:** [Epic 5.3](#epic-5-prompt-3) - Executed Melding Audit Remediation: Wired dead Omnibox buttons and restored access to the Workflow Hub modal.`
 > 
 > **Output Actions:**
 > 1. Silently update `Index.html`.
 > 2. Silently update `README.md`."
+
+
+<a id="epic-2-prompt-8"></a>
+### Epic 2 - Prompt 8: Semantic Clustering Engine & Auto-Resolution (Backend)
+>"I am the Lead Architect. We are upgrading the Zero-Trust Quarantine queue to include a 'Semantic Clustering & Auto-Resolution Engine'. This prevents alert fatigue by grouping quarantined artifacts and using AI to establish consensus.
+>
+>Task 1: The Prompt Template
+>1. Ensure PROMPTS/quarantine_consolidation.tmpl exists (the user has already created this file).
+>Task 2: Database Initialization (db_init.py)
+>1. In seed_default_config(), add a new key: auto_approve_quarantine_threshold with a default value of 10.
+>2. In seed_default_prompts(), ensure the new quarantine_consolidation.tmpl file is read and seeded into the Config_Prompts table.
+>
+>Task 3: The Nightly Janitor (sync_engine.py)
+>1. Create a new background worker function: evaluate_quarantine_clusters().
+>2. Logic: Query all artifacts where status = 'QUARANTINED'. Group them by domain/sender.
+>3. AI Consensus: If a domain has multiple artifacts with differing AI guesses in their custom_data, fetch the consolidation prompt from the DB, run it through the LLM engine, and overwrite the custom_data of all artifacts in that cluster with the unified consensus.
+>4. Auto-Resolution: Check the cluster size against auto_approve_quarantine_threshold. If the cluster size >= the threshold, autonomously execute INSERT INTO Taxonomy_Correspondents, map the artifacts to the new ID, and update their status to COMPLETE.
+>
+>Task 4: Versioning
+>1. In README.md: Add to Version History: - **v2026.2.8.0:** [Epic 2.8](#epic-2-prompt-8) - Built the Semantic Clustering & Auto-Resolution backend engine for the Quarantine Queue.
+>
+>Output Actions:
+>1. Silently execute the code implementation.
+>2. Silently update README.md."
+
+
+<a id="epic-3-prompt-10"></a>
+Epic 3 - Prompt 10: Quarantine Cluster Cards & UI Data Binding
+>"I am the Lead Architect. We are updating the Zero-Trust Review UI to render 'Cluster Cards' based on the Semantic Clustering engine built in Epic 2.8.
+>
+>Task 1: Cluster Aggregation (JS_Actions.html)
+>1. Update the JS function that renders the Zero-Trust Queue. Instead of rendering one card per artifact, group the fetched artifacts by the consensus_correspondent (or proposed_correspondent) found in their custom_data JSON.
+>2. Render a single 'Cluster Card' per group. The card should display the Proposed Entity name, the volume of pending artifacts in that cluster, and the originating domain/sender.
+>
+>Task 2: The Context Drawer (JS_Actions.html & Index.html)
+>1. Wire the Cluster Card so that clicking it opens the right-hand Aggregate Context Drawer.
+>2. Title Listing: Inside the drawer, dynamically generate a bulleted list displaying the title (or subject line/filename) of every individual artifact contained within that cluster so the user knows exactly what documents are affected.
+>3. Action Buttons: Add two primary buttons to the drawer: [Approve Cluster & Map All] and [Reject Cluster]. Bind these to a bulk update function that hits the taxonomy API (e.g., POST /api/taxonomy/zero-shot-rule).
+>
+>Task 3: Versioning
+>1. In README.md: Add to Version History: - **v2026.3.10.0:** [Epic 3.10](#epic-3-prompt-10) - Upgraded Zero-Trust UI to use Cluster Cards and mapped artifact titles to the context drawer.
+>
+>Output Actions:
+>1. Silently execute the code implementation.
+>2. Silently update README.md."
