@@ -8,57 +8,6 @@
 <details open>
 <summary><h2>Planned</h2></summary>
 
-<details open>
-<summary><h3><a name="epic-2-prompt-8"></a>Epic 2 - Prompt 8: Semantic Clustering Engine & Auto-Resolution (Backend)</h3></summary>
-
-**Copy/Paste this to Gemini Code Assist:**
-> "I am the Lead Architect. We are upgrading the Zero-Trust Quarantine queue to include a 'Semantic Clustering & Auto-Resolution Engine'. This prevents alert fatigue by grouping quarantined artifacts and using AI to establish consensus.
->
->Task 1: The Prompt Template
->1. Ensure PROMPTS/quarantine_consolidation.tmpl exists (the user has already created this file).
->Task 2: Database Initialization (db_init.py)
->1. In seed_default_config(), add a new key: auto_approve_quarantine_threshold with a default value of 10.
->2. In seed_default_prompts(), ensure the new quarantine_consolidation.tmpl file is read and seeded into the Config_Prompts table.
->
->Task 3: The Nightly Janitor (sync_engine.py)
->1. Create a new background worker function: evaluate_quarantine_clusters().
->2. Logic: Query all artifacts where status = 'QUARANTINED'. Group them by domain/sender.
->3. AI Consensus: If a domain has multiple artifacts with differing AI guesses in their custom_data, fetch the consolidation prompt from the DB, run it through the LLM engine, and overwrite the custom_data of all artifacts in that cluster with the unified consensus.
->4. Auto-Resolution: Check the cluster size against auto_approve_quarantine_threshold. If the cluster size >= the threshold, autonomously execute INSERT INTO Taxonomy_Correspondents, map the artifacts to the new ID, and update their status to COMPLETE.
->
->Task 4: Versioning
->1. In README.md: Add to Version History: - **v2026.2.8.0:** [Epic 2.8](#epic-2-prompt-8) - Built the Semantic Clustering & Auto-Resolution backend engine for the Quarantine Queue.
->
->Output Actions:
->1. Silently execute the code implementation.
->2. Silently update README.md."
-
-</details>
-
-<details open>
-<summary><h3><a name="epic-3-prompt-10"></a>Epic 3 - Prompt 10: Quarantine Cluster Cards & UI Data Binding</h3></summary>
-
-**Copy/Paste this to Gemini Code Assist:**
-> "I am the Lead Architect. We are updating the Zero-Trust Review UI to render 'Cluster Cards' based on the Semantic Clustering engine built in Epic 2.8.
->
->Task 1: Cluster Aggregation (JS_Actions.html)
->1. Update the JS function that renders the Zero-Trust Queue. Instead of rendering one card per artifact, group the fetched artifacts by the consensus_correspondent (or proposed_correspondent) found in their custom_data JSON.
->2. Render a single 'Cluster Card' per group. The card should display the Proposed Entity name, the volume of pending artifacts in that cluster, and the originating domain/sender.
->
->Task 2: The Context Drawer (JS_Actions.html & Index.html)
->1. Wire the Cluster Card so that clicking it opens the right-hand Aggregate Context Drawer.
->2. Title Listing: Inside the drawer, dynamically generate a bulleted list displaying the title (or subject line/filename) of every individual artifact contained within that cluster so the user knows exactly what documents are affected.
->3. Action Buttons: Add two primary buttons to the drawer: [Approve Cluster & Map All] and [Reject Cluster]. Bind these to a bulk update function that hits the taxonomy API (e.g., POST /api/taxonomy/zero-shot-rule).
->
->Task 3: Versioning
->1. In README.md: Add to Version History: - **v2026.3.10.0:** [Epic 3.10](#epic-3-prompt-10) - Upgraded Zero-Trust UI to use Cluster Cards and mapped artifact titles to the context drawer.
->
->Output Actions:
->1. Silently execute the code implementation.
->2. Silently update README.md."
-
-</details>
-
 </details>
 
 <details>
@@ -1425,6 +1374,31 @@
 > 1. Silently update `main.py` and `llm_engine.py`.
 > 2. Silently update `README.md`."
 
+<a id="epic-2-prompt-8"></a>
+### Epic 2 - Prompt 8: Semantic Clustering Engine & Auto-Resolution (Backend)
+
+**Copy/Paste this to Gemini Code Assist:**
+> "I am the Lead Architect. We are upgrading the Zero-Trust Quarantine queue to include a 'Semantic Clustering & Auto-Resolution Engine'. This prevents alert fatigue by grouping quarantined artifacts and using AI to establish consensus.
+>
+>Task 1: The Prompt Template
+>1. Ensure PROMPTS/quarantine_consolidation.tmpl exists (the user has already created this file).
+>Task 2: Database Initialization (db_init.py)
+>1. In seed_default_config(), add a new key: auto_approve_quarantine_threshold with a default value of 10.
+>2. In seed_default_prompts(), ensure the new quarantine_consolidation.tmpl file is read and seeded into the Config_Prompts table.
+>
+>Task 3: The Nightly Janitor (sync_engine.py)
+>1. Create a new background worker function: evaluate_quarantine_clusters().
+>2. Logic: Query all artifacts where status = 'QUARANTINED'. Group them by domain/sender.
+>3. AI Consensus: If a domain has multiple artifacts with differing AI guesses in their custom_data, fetch the consolidation prompt from the DB, run it through the LLM engine, and overwrite the custom_data of all artifacts in that cluster with the unified consensus.
+>4. Auto-Resolution: Check the cluster size against auto_approve_quarantine_threshold. If the cluster size >= the threshold, autonomously execute INSERT INTO Taxonomy_Correspondents, map the artifacts to the new ID, and update their status to COMPLETE.
+>
+>Task 4: Versioning
+>1. In README.md: Add to Version History: - **v2026.2.8.0:** [Epic 2.8](#epic-2-prompt-8) - Built the Semantic Clustering & Auto-Resolution backend engine for the Quarantine Queue.
+>
+>Output Actions:
+>1. Silently execute the code implementation.
+>2. Silently update README.md."
+
 ---
 
 </details>
@@ -1432,6 +1406,29 @@
 <details>
 <summary><h2>EPIC 3: The Nexus Paradigm Frontend (v3.x.x)</h2></summary>
 *Notice to AI: We are now executing Epic 3. Update the README version history to v3.x.x for the following prompts.* *CRITICAL UI DIRECTIVE: You have already built functional UI elements, state management, and settings modals in Epics 0-2. DO NOT delete or overwrite existing functionality. You must use `roadmap/Index.html` as a structural and stylistic blueprint (CSS variables, grid layout, sidebar mechanics), but your objective is to MELD our existing UI components into this new responsive shell, preserving all prior features.*
+
+<a id="epic-3-prompt-10"></a>
+### Epic 3 - Prompt 10: Quarantine Cluster Cards & UI Data Binding
+
+**Copy/Paste this to Gemini Code Assist:**
+> "I am the Lead Architect. We are updating the Zero-Trust Review UI to render 'Cluster Cards' based on the Semantic Clustering engine built in Epic 2.8.
+>
+>Task 1: Cluster Aggregation (JS_Actions.html)
+>1. Update the JS function that renders the Zero-Trust Queue. Instead of rendering one card per artifact, group the fetched artifacts by the consensus_correspondent (or proposed_correspondent) found in their custom_data JSON.
+>2. Render a single 'Cluster Card' per group. The card should display the Proposed Entity name, the volume of pending artifacts in that cluster, and the originating domain/sender.
+>
+>Task 2: The Context Drawer (JS_Actions.html & Index.html)
+>1. Wire the Cluster Card so that clicking it opens the right-hand Aggregate Context Drawer.
+>2. Title Listing: Inside the drawer, dynamically generate a bulleted list displaying the title (or subject line/filename) of every individual artifact contained within that cluster so the user knows exactly what documents are affected.
+>3. Action Buttons: Add two primary buttons to the drawer: [Approve Cluster & Map All] and [Reject Cluster]. Bind these to a bulk update function that hits the taxonomy API (e.g., POST /api/taxonomy/zero-shot-rule).
+>
+>Task 3: Versioning
+>1. In README.md: Add to Version History: - **v2026.3.10.0:** [Epic 3.10](#epic-3-prompt-10) - Upgraded Zero-Trust UI to use Cluster Cards and mapped artifact titles to the context drawer.
+>
+>Output Actions:
+>1. Silently execute the code implementation.
+>2. Silently update README.md.
+>3. Move the Epic 2.8 prompt from planned to completed within PROMPT_ROADMAP.md"
 
 <a id="epic-3-prompt-1"></a>
 ### Epic 3 - Prompt 1: Global Observability & Quota Dashboards

@@ -259,13 +259,26 @@
 
         <!-- Zero-Trust Review Tab (Replaces Correspondent/Purpose Review conceptually) -->
         <div id="tab-correspondent-review" class="tab-content">
-          <div class="pane-header">
-            <h3>Zero-Trust Review Queue</h3>
-          </div>
-          <div style="padding: 16px;">
-            <p>Review and enable newly discovered routing paths. Items with both Gmail and Drive toggles disabled remain quarantined.</p>
-            <div id="zero-trust-queue">
-              <!-- Rendered via JS -->
+          <div class="split-pane">
+            <div class="pane pane-left">
+              <div class="pane-header">
+                <h3>Zero-Trust Review Queue</h3>
+                <button class="btn btn-primary" onclick="appActions.refreshData()"><i class="material-icons">refresh</i> Refresh</button>
+              </div>
+              <div style="padding: 16px; padding-bottom: 0;">
+                <p>Review and enable newly discovered routing paths based on semantic clustering.</p>
+              </div>
+              <div id="zero-trust-queue" style="padding: 16px;">
+                <!-- Rendered via JS -->
+              </div>
+            </div>
+            <div class="pane pane-right resize-handle">
+              <div class="pane-header">
+                <h3>Aggregate Context Drawer</h3>
+              </div>
+              <div id="zt-details-view" class="details-content">
+                <p class="placeholder-text">Select a cluster to view details</p>
+              </div>
             </div>
           </div>
         </div>

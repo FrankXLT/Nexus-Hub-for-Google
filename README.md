@@ -450,9 +450,11 @@ Development is tracked via Architectural Epics following a `YYYY.Epic.Major.Mino
 | **v2026.5.0.0** | Epic 5.0 | Executed Pre-Flight Remediation: Patched schemas, Safe Mode gatekeepers. |
 | **v2026.4.2.0** | Epic 4.2 | Engineered CI/CD deploy script integrating clasp and gcloud. |
 | **v2026.4.1.0** | Epic 4.1 | Built the Zero-Touch Provisioner for automated GCP VM deployment. |
+| **v2026.3.10.0**| Epic 3.10| Upgraded Zero-Trust UI to use Cluster Cards and mapped artifact titles to the context drawer. |
 | **v2026.3.8.0** | Epic 3.8 | Finalized the collapsible sidebar, consolidated modals, dynamic boot routing. |
 | **v2026.3.7.0** | Epic 3.7 | Implemented the Threads UI Sankey diagram with interactive routing. |
 | **v2026.3.6.0** | Epic 3.6 | Implemented the System Analytics Dashboard using Chart.js. |
+| **v2026.2.8.0** | Epic 2.8 | Built the Semantic Clustering & Auto-Resolution backend engine for the Quarantine Queue. |
 | **v2026.2.7.0** | Epic 2.7 | Built the Zero-Shot Rule generation API for bulk UI tuning. |
 | **v2026.1.8.0** | Epic 1.8 | Engineered the Google Tasks Action Engine. |
 | **v2026.0.45.0**| Epic 0 | Baseline Webhook and Architecture completed. |

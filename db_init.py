@@ -313,6 +313,13 @@ def seed_default_prompts(conn: sqlite3.Connection) -> None:
     cursor.execute("INSERT OR IGNORE INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('DRIVE_STAGE_1', PROMPT_DRIVE_STAGE_1))
     cursor.execute("INSERT OR IGNORE INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('DRIVE_STAGE_2', PROMPT_DRIVE_STAGE_2))
 
+    try:
+        with open(os.path.join('PROMPTS', 'quarantine_consolidation.tmpl'), 'r') as f:
+            consolidation_tmpl = f.read()
+        cursor.execute("INSERT OR IGNORE INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('QUARANTINE_CONSOLIDATION', consolidation_tmpl))
+    except Exception as e:
+        print(f"Failed to seed QUARANTINE_CONSOLIDATION prompt: {e}")
+
 # Execute the initialization if the script is run directly.
 if __name__ == "__main__":
     init_db()

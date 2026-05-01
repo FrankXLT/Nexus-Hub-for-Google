@@ -766,6 +766,10 @@ def run_sync() -> None:
         notifier.send_urgent_webhook({"title": "Nexus Hub: Sync Error", "message": error_msg, "priority": 0})
     finally:
         if 'conn' in locals():
+            try:
+                evaluate_quarantine_clusters(conn)
+            except Exception as qc_e:
+                print(f"Error evaluating quarantine clusters: {qc_e}")
             conn.close()
         print("Synchronization engine completed.")
 

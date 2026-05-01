@@ -520,45 +520,126 @@ const appActions = {
     const container = document.getElementById('zero-trust-queue');
     container.innerHTML = '';
     
-    if (appState.zeroTrustQueue.length === 0) {
+    const quarantined = appState.artifacts.filter(a => a.status === 'QUARANTINED');
+    
+    if (quarantined.length === 0) {
       container.innerHTML = '<p class="placeholder-text">Queue is empty. No quarantined items.</p>';
       return;
     }
 
-    let html = '<table class="data-grid" style="width: 100%;"><thead><tr><th>Type</th><th>Path</th><th>Gmail Enabled</th><th>Drive Enabled</th><th>Action</th></tr></thead><tbody>';
-    
-    appState.zeroTrustQueue.forEach(item => {
-      html += `
-        <tr>
-          <td>${item.type}</td>
-          <td>${item.path}</td>
-          <td style="text-align: center;"><input type="checkbox" ${item.is_gmail_enabled ? 'checked' : ''} onchange="appActions.toggleEcosystem(${item.id}, 'gmail', this.checked)"></td>
-          <td style="text-align: center;"><input type="checkbox" ${item.is_drive_enabled ? 'checked' : ''} onchange="appActions.toggleEcosystem(${item.id}, 'drive', this.checked)"></td>
-          <td><button class="btn btn-primary" onclick="appActions.approveZeroTrust(${item.id})" style="padding: 4px 8px; font-size: 0.8rem;">Save</button></td>
-        </tr>
-      `;
+    const clusters = {};
+    quarantined.forEach(art => {
+       const cd = art.custom_data || {};
+       const correspondent = cd.consensus_correspondent || cd.proposed_correspondent || 'Unknown Entity';
+       const domain = cd.sender_domain || cd.sender || 'Unknown Sender';
+       const key = correspondent + '|' + domain;
+       
+       if(!clusters[key]) {
+           clusters[key] = {
+               entity: correspondent,
+               domain: domain,
+               artifacts: []
+           };
+       }
+       clusters[key].artifacts.push(art);
     });
+
+    let html = '<div class="grid-container" style="display:grid; gap:16px; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));">';
+    Object.values(clusters).forEach((cluster, index) => {
+        html += `
+          <div class="card stacked" onclick="appActions.openClusterDrawer(${index})" style="cursor: pointer; border-left: 4px solid var(--accent-blue);">
+              <div class="card-header">
+                  <h3 class="card-title">${cluster.entity}</h3>
+                  <span class="tag alert">${cluster.artifacts.length} Pending</span>
+              </div>
+              <div class="card-desc" style="margin-top: 8px;">Originating Domain: <strong>${cluster.domain}</strong></div>
+              <div class="card-meta" style="margin-top: 12px; display:flex; justify-content:space-between;">
+                  <span>Cluster Aggregation</span>
+                  <span style="color:var(--accent-red);">Review Required</span>
+              </div>
+          </div>
+        `;
+    });
+    html += '</div>';
     
-    html += '</tbody></table>';
+    appState.currentClusters = Object.values(clusters);
     container.innerHTML = html;
   },
 
-  toggleEcosystem: function(id, system, isChecked) {
-    const item = appState.zeroTrustQueue.find(i => i.id === id);
-    if (item) {
-      if (system === 'gmail') item.is_gmail_enabled = isChecked;
-      if (system === 'drive') item.is_drive_enabled = isChecked;
-    }
-  },
+  openClusterDrawer: function(index) {
+      const cluster = appState.currentClusters[index];
+      if(!cluster) return;
+      
+      const pane = document.getElementById('zt-details-view');
+      if(!pane) return;
 
-  approveZeroTrust: function(id) {
-    const item = appState.zeroTrustQueue.find(i => i.id === id);
-    if (item) {
-      this.showToast(`Saved toggles for ${item.path}`);
-      // In a real app, this would call google.script.run to update the DB
-      appState.zeroTrustQueue = appState.zeroTrustQueue.filter(i => i.id !== id);
-      this.renderZeroTrustQueue();
-    }
+      let listHtml = cluster.artifacts.map(art => {
+          const title = (art.custom_data && art.custom_data.title) || art.summary || art.artifact_id;
+          return \`<li style="font-size:0.875rem; margin-bottom:4px;">\${title}</li>\`;
+      }).join('');
+
+      const idsJson = JSON.stringify(cluster.artifacts.map(a => a.artifact_id)).replace(/"/g, '&quot;');
+
+      pane.innerHTML = \`
+        <div class="detail-group">
+          <h4>Cluster Context</h4>
+          <p style="font-size:0.875rem; margin-bottom: 4px;"><strong>Proposed Entity:</strong> \${cluster.entity}</p>
+          <p style="font-size:0.875rem; margin-bottom: 12px;"><strong>Sender:</strong> \${cluster.domain}</p>
+          <p style="font-size:0.875rem; margin-top: 12px; font-weight: bold; border-bottom: 1px solid #444; padding-bottom: 4px;">Affected Documents:</p>
+          <ul style="padding-left: 20px; color: var(--text-muted); max-height: 250px; overflow-y: auto;">
+             \${listHtml}
+          </ul>
+        </div>
+        <div class="detail-group" style="margin-top: 24px; display: flex; flex-direction: column; gap: 12px;">
+          <button class="btn btn-primary" onclick="appActions.approveCluster('\${cluster.entity}', '\${idsJson}')" style="width: 100%;">Approve Cluster & Map All</button>
+          <button class="btn btn-secondary" onclick="appActions.rejectCluster('\${idsJson}')" style="width: 100%;">Reject Cluster</button>
+        </div>
+      \`;
+  },
+  
+  approveCluster: function(entity, idsJsonStr) {
+      const ids = JSON.parse(idsJsonStr.replace(/&quot;/g, '"'));
+      const payload = {
+          instruction: "Approve cluster and map to " + entity,
+          artifact_ids: ids
+      };
+      this.showToast("Approving cluster...");
+      google.script.run
+        .withSuccessHandler((result) => {
+            if(result && result.success) {
+                this.showToast("Cluster Approved.");
+                // Remove approved items from local state mock
+                appState.artifacts = appState.artifacts.filter(a => !ids.includes(a.artifact_id));
+                this.renderZeroTrustQueue();
+                document.getElementById('zt-details-view').innerHTML = '<p class="placeholder-text">Select a cluster to view details</p>';
+            } else {
+                this.showToast("Failed to approve cluster.");
+            }
+        })
+        .withFailureHandler((err) => this.showToast("Error: " + err.message))
+        .submitZeroShotRule(payload);
+  },
+  
+  rejectCluster: function(idsJsonStr) {
+      const ids = JSON.parse(idsJsonStr.replace(/&quot;/g, '"'));
+      const payload = {
+          instruction: "Reject cluster mapping",
+          artifact_ids: ids
+      };
+      this.showToast("Rejecting cluster...");
+      google.script.run
+        .withSuccessHandler((result) => {
+            if(result && result.success) {
+                this.showToast("Cluster Rejected.");
+                appState.artifacts = appState.artifacts.filter(a => !ids.includes(a.artifact_id));
+                this.renderZeroTrustQueue();
+                document.getElementById('zt-details-view').innerHTML = '<p class="placeholder-text">Select a cluster to view details</p>';
+            } else {
+                this.showToast("Failed to reject cluster.");
+            }
+        })
+        .withFailureHandler((err) => this.showToast("Error: " + err.message))
+        .submitZeroShotRule(payload);
   },
 
   updateBulkEstimate: function() {
