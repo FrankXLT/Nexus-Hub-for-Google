@@ -1522,92 +1522,96 @@
 ## EPIC 5: Post-Deployment Hardening & Cleanup (v5.x.x)
 *Notice to AI: We are now executing Epic 5. Update the README version history to v5.x.x for the following prompts.*
 
-<a id="epic-5-prompt-1"></a>
-### Epic 5 - Prompt 1: Progressive Rollout (Feature Flags)
-> "I am the Lead Architect. We have completed the core infrastructure (Epics 0-4) and are preparing for our first live cloud deployment. To ensure a safe, debuggable boot, we are implementing a Progressive Rollout (Feature Flag) architecture to explicitly gate the advanced pipelines we built previously.
-> 
-> **Task 1: The Configuration Layer (`db_init.py`)**
-> 1. In the `seed_default_config()` function (or equivalent initialization), inject the following keys into `Config_System` with a default value of `'0'` (string representing disabled): `feature_retention_sweeper`, `feature_drive_relocator`, `feature_materialization`, `feature_google_tasks`.
-> 
-> **Task 2: The Execution Gatekeepers (`sync_engine.py` & `retention_worker.py`)**
-> 1. Locate the execution calls for the advanced features: the retention worker daemon, the drive relocator logic, `materialize_artifact()`, and `push_to_google_tasks()`.
-> 2. Wrap each of these functional blocks in a conditional check that queries `Config_System`.
-> 3. If the corresponding flag equals `'0'`, use `logger.debug()` to print that the feature is bypassed due to Safe Mode, and `continue` or `return` safely.
-> 
-> **Task 3: The Control Panel UI (`Index.html` & `JS_Actions.html`)**
-> 1. Add a 'System Toggles' section to the Settings modal (or Mission Control dashboard).
-> 2. Create UI toggle switches for each of the 4 features. Wire them to fetch the current state on boot and update the `Config_System` table via the backend API when clicked.
-> 
-> **Task 4: Documentation & Versioning**
-> 1. **In `README.md`:** Add to Version History: `- **v2026.5.1.0:** [Epic 5.1](#epic-5-prompt-1) - Implemented Progressive Rollout feature flags to safeguard the first-time cloud deployment.`
-> 2. Update the deployment instructions in the README to explicitly state that the system boots in "Safe Mode" and features must be toggled on manually via the UI.
-> 
-> **Output Actions:**
-> 1. Silently execute the code implementation across `db_init.py`, `sync_engine.py`, `retention_worker.py`, and the frontend UI.
-> 2. Silently update `README.md` exactly as instructed."
-
-<a id="epic-5-prompt-2"></a>
-### Epic 5 - Prompt 2: Master Architectural & UI Data Binding Audit
-> "Act as a Lead QA Architect. We have completed the core infrastructure for 'Nexus Hub' (Epics 0 through 5.1) and are preparing for a live cloud deployment. I need you to perform a deep, read-only static analysis of the entire workspace. Do not write or alter any code.
-> 
-> **Context: The Nexus Hub File Manifest & Dependency Graph**
-> To aid your audit, here is the architectural specification of how the files must interact:
-> * **Backend Services:**
->   * `db_init.py`: The single source of truth for the SQLite schema (`Workspace_Artifacts`, `Config_System`, `Ingestion_Queue`, taxonomy tables).
->   * `main.py`: The FastAPI master router. Handles HMAC/CORS security, serves the AST Search engine (`/api/artifacts/search`), Analytics/Sankey data, and Zero-Shot rules. Depends on `db_init.py` for queries.
->   * `sync_engine.py`: The core ingestion daemon. Manages Gmail delta-syncs, Drive relocations, the Historical Import Queue, the Materialization Engine (HTML-to-PDF), and pushes to Google Tasks.
->   * `llm_engine.py`: The Gemini AI interface. Executes Entity Profiling and taxonomy classification. Called by `sync_engine.py`.
->   * `retention_worker.py`: Autonomous daemon querying `Config_Retention_Rules` to sweep the Gmail inbox.
-> * **Frontend (The Nexus Paradigm UI):**
->   * `Index.html` / `CSS_Styles.html`: The visual DOM. Contains the Omnibox, the Knowledge Grid (Cards), the Aggregate Drawer, Mission Control (Chart.js), and Threads (Google Charts Sankey).
->   * `JS_State.html` / `JS_Actions.html`: Manages `appState`, multi-select logic, AST query string compilation, and executes `fetch()` calls to `main.py`.
-> 
-> **Your Task: Generate `audit/AUDIT_REPORT_PRE_FLIGHT.md`**
-> Please scan the codebase and generate a highly detailed Markdown report covering the following criteria:
-> 
-> **1. Interface to Backend Data Binding (The UI Trace):**
-> * **The Omnibox:** Trace the search input. Is the 'Enter' key properly bound to execute a fetch to `GET /api/artifacts/search`? Does the JS properly append the `limit` and `offset` parameters?
-> * **The Knowledge Grid:** Check the DOM rendering loop. Are Gmail artifacts visually distinguished from Drive artifacts (e.g., dynamic CSS borders)? Is the `parent_artifact_id` evaluated to render "Stacked Cards" or Lineage badges for materialized items?
-> * **The Aggregate Drawer:** Trace the multi-select logic. If `appState.selectedIds` > 1, does the 'Submit with AI' button correctly map to `POST /api/taxonomy/zero-shot-rule` with the proper JSON payload?
-> * **The Dashboards:** Check the Chart.js and Google Charts implementations. Are they successfully fetching from `/api/analytics/roi-dashboard` and `/api/analytics/threads`? Does the Sankey chart successfully parse the `brand_color` for rgba weaving?
-> 
-> **2. Epic 5.1 Feature Flag Verification:**
-> * Trace the 4 system toggles (`feature_retention_sweeper`, `feature_drive_relocator`, `feature_materialization`, `feature_google_tasks`) from `db_init.py`. 
-> * Are these toggles actively guarding the execution logic in `sync_engine.py` and `retention_worker.py`? If a flag is '0', does the system gracefully bypass the function?
-> * Are these toggles wired to the UI in the Settings/Mission Control tab so the user can change them?
-> 
-> **3. Queue & Worker Resilience:**
-> * In `main.py`, verify `POST /api/ingestion/queue-historical` successfully writes to `Ingestion_Queue`.
-> * Verify `sync_engine.py` queries `status = 'PENDING'` and securely updates to `PROCESSING`, `COMPLETE`, or `FAILED`.
-> 
-> **Output Requirements:**
-> Do not change any code. Output the findings in a strict Markdown document titled `AUDIT_REPORT_PRE_FLIGHT.md` and save it directly into the `audit/` directory (create the directory if it does not already exist). Highlight any disconnected UI elements, missing API routes, or bypassed feature flags. Conclude with a prioritized list of 'Go/No-Go Deployment Blockers'."
-
-<a id="epic-5-prompt-2"></a>
-### Epic 5 - Prompt 2: Bi-Directional Traceability Audit
-> "Act as a Lead QA Architect. We have completed the core infrastructure for 'Nexus Hub' and are preparing for a live cloud deployment. I need you to perform a deep, read-only static analysis of the entire workspace using a Bi-Directional Traceability method. Do not write or alter any code.
+<a id="epic-5-prompt-1a"></a>
+### Epic 5 - Prompt 1: The Master Bi-Directional Pre-Flight Audit
+> "Act as a Lead QA Architect. We have completed the core infrastructure for 'Nexus Hub' (Epics 0-4) and are preparing for our first live cloud deployment. I need you to perform an exhaustive, read-only static analysis of the entire workspace using a strict Bi-Directional Traceability method. Do not write or alter any code.
 > 
 > **Context: The Nexus Hub File Manifest**
-> * **Backend:** `db_init.py` (Schema), `main.py` (API/Security), `sync_engine.py` (Ingestion), `llm_engine.py` (AI), `retention_worker.py` (Sweeper).
-> * **Frontend:** `Index.html` (DOM/UI), `CSS_Styles.html`, `JS_State.html`, `JS_Actions.html`.
+> * **Backend:** `db_init.py` (Schema/Config), `main.py` (API/Security router), `sync_engine.py` (Ingestion/Tasks/Materialization), `llm_engine.py` (AI/Taxonomy), `retention_worker.py` (Inbox Sweeper).
+> * **Frontend:** `Index.html` (DOM/UI Blueprint), `CSS_Styles.html`, `JS_State.html`, `JS_Actions.html`.
 > 
-> **Your Task: Generate `audit/AUDIT_REPORT_PRE_FLIGHT.md`**
-> Execute the audit in two distinct phases and document your findings:
+> **Your Task: Generate `audit/AUDIT_REPORT_PRE_FLIGHT (GEMINI CLINE).md`**
+> Execute the audit in two distinct phases. If a connection is broken, flag it as a 'Deployment Blocker'.
 > 
 > **PHASE 1: Bottom-Up Audit (Ground Floor to UI)**
-> *Focus: Data Integrity, Schema Alignment, and API Exposure.*
-> 1. **Schema Check:** Map every column in `db_init.py` (`Workspace_Artifacts`, `Config_System`, `Ingestion_Queue`). Do the SQL queries in `main.py` and `llm_engine.py` accurately reflect these columns? (e.g., matching `purpose_id` vs `taxonomy_id`).
-> 2. **Execution Gatekeepers:** Trace the Epic 5 Safe Mode toggles from `Config_System`. Are they correctly wrapping the execution logic in `sync_engine.py` and `retention_worker.py` to prevent execution if set to '0'?
-> 3. **API Routing:** List all endpoints in `main.py`. Are there any endpoints that are completely orphaned (never called by `JS_Actions.html` or background workers)? 
+> *Focus: Data Integrity, Schema Alignment, Worker Resilience, and API Exposure.*
+> 1. **Schema Check:** Map every column in `db_init.py` (specifically `Workspace_Artifacts`, `Config_System`, and `Ingestion_Queue`). Do the SQL queries in `main.py` and `llm_engine.py` accurately reflect these columns? (e.g., matching `purpose_id` vs `taxonomy_id`).
+> 2. **Execution Gatekeepers (Epic 5 Safe Mode):** Trace the 4 system toggles from `Config_System` (`feature_retention_sweeper`, `feature_drive_relocator`, `feature_materialization`, `feature_google_tasks`). Are they actively wrapping and guarding the execution logic in `sync_engine.py` and `retention_worker.py`? If a flag equals '0', does the system safely log and bypass the function?
+> 3. **Queue Resilience:** Trace the Historical Import workflow. Does `POST /api/ingestion/queue-historical` successfully write to `Ingestion_Queue`? Does `sync_engine.py` properly query `status = 'PENDING'` and securely update it to `PROCESSING`, `COMPLETE`, or `FAILED`?
+> 4. **Worker Idempotency:** Check the Google Tasks engine. Does it evaluate the `action_required = 1` flag AND verify `google_task_id IS NULL` before creating a task to prevent duplicates?
+> 5. **API Routing:** List all endpoints in `main.py`. Are there any backend endpoints that are orphaned (never called by the JS frontend or background workers)?
 > 
 > **PHASE 2: Top-Down Audit (UI to Ground Floor)**
-> *Focus: User Experience, Event Listeners, and Dead Elements.*
-> *Read `Index.html` to establish the baseline DOM elements, then trace their execution paths.*
-> 1. **The Sidebar & Toggles:** Click trace the 4 Feature Toggles in the UI. Do they trigger a JS fetch? Does that fetch hit a valid `main.py` endpoint? Does that endpoint successfully `UPDATE Config_System`?
-> 2. **The Omnibox & Chips:** Click trace the AST Search Chips. Do they correctly modify the `#ast-input` value? Does pressing 'Enter' trigger the AST parser payload to `/api/artifacts/search`? Are the `limit` and `offset` pagination parameters successfully passed?
-> 3. **The View Modifiers:** Click trace the `.view-controls` (Sankey vs Grid). Do they correctly swap the DOM visibility and trigger `renderThreadsView()` vs `renderKnowledgeGrid()`?
-> 4. **Card Interactions:** Trace the `.card` elements. If multiple are selected, does the 'Submit with AI' Zero-Shot button correctly bundle the IDs and POST to `/api/taxonomy/zero-shot-rule`? Does that endpoint save to the database?
-> 5. **Lineage:** Trace the '🔗 PDF' Materialized badge. Does the JS correctly parse `parent_artifact_id` to render the `.stacked` CSS class?
+> *Focus: User Experience, Event Listeners, and Dead
+
+<a id="epic-5-prompt-1b"></a>
+### Epic 5 - Prompt 1: The Master Bi-Directional Pre-Flight Audit
+> "Act as a Lead QA Architect. We have completed the core infrastructure for 'Nexus Hub' (Epics 0-4) and are preparing for our first live cloud deployment. I need you to perform an exhaustive, read-only static analysis of the entire workspace using a strict Bi-Directional Traceability method. Do not write or alter any code.
 > 
-> **Output Requirements:**
-> Do not change any code. Output the findings in a strict Markdown document titled `AUDIT_REPORT_PRE_FLIGHT.md` inside the `audit/` directory. Explicitly structure the report into 'Phase 1 Findings' and 'Phase 2 Findings'. Highlight any broken paths, missing variables, or dead buttons. Conclude with a prioritized list of 'Deployment Blockers'."
+> **Context: The Nexus Hub File Manifest**
+> * **Backend:** `db_init.py` (Schema/Config), `main.py` (API/Security router), `sync_engine.py` (Ingestion/Tasks/Materialization), `llm_engine.py` (AI/Taxonomy), `retention_worker.py` (Inbox Sweeper).
+> * **Frontend:** `Index.html` (DOM/UI Blueprint), `CSS_Styles.html`, `JS_State.html`, `JS_Actions.html`.
+> 
+> **Your Task: Generate `audit/AUDIT_REPORT_PRE_FLIGHT (GCA).md`**
+> Execute the audit in two distinct phases. If a connection is broken, flag it as a 'Deployment Blocker'.
+> 
+> **PHASE 1: Bottom-Up Audit (Ground Floor to UI)**
+> *Focus: Data Integrity, Schema Alignment, Worker Resilience, and API Exposure.*
+> 1. **Schema Check:** Map every column in `db_init.py` (specifically `Workspace_Artifacts`, `Config_System`, and `Ingestion_Queue`). Do the SQL queries in `main.py` and `llm_engine.py` accurately reflect these columns? (e.g., matching `purpose_id` vs `taxonomy_id`).
+> 2. **Execution Gatekeepers (Epic 5 Safe Mode):** Trace the 4 system toggles from `Config_System` (`feature_retention_sweeper`, `feature_drive_relocator`, `feature_materialization`, `feature_google_tasks`). Are they actively wrapping and guarding the execution logic in `sync_engine.py` and `retention_worker.py`? If a flag equals '0', does the system safely log and bypass the function?
+> 3. **Queue Resilience:** Trace the Historical Import workflow. Does `POST /api/ingestion/queue-historical` successfully write to `Ingestion_Queue`? Does `sync_engine.py` properly query `status = 'PENDING'` and securely update it to `PROCESSING`, `COMPLETE`, or `FAILED`?
+> 4. **Worker Idempotency:** Check the Google Tasks engine. Does it evaluate the `action_required = 1` flag AND verify `google_task_id IS NULL` before creating a task to prevent duplicates?
+> 5. **API Routing:** List all endpoints in `main.py`. Are there any backend endpoints that are orphaned (never called by the JS frontend or background workers)?
+> 
+> **PHASE 2: Top-Down Audit (UI to Ground Floor)**
+> *Focus: User Experience, Event Listeners, and Dead
+
+<a id="epic-5-prompt-2"></a>
+### Epic 5 - Prompt 2: The Master Bi-Directional Pre-Flight Audit
+> "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. We need to execute a critical remediation pass to resolve Deployment Blockers identified in our Pre-Flight Audit. Ensure strict adherence to the existing architecture and use Write-Ahead Logging (`PRAGMA journal_mode=WAL;`) for all new SQLite operations.
+> 
+> **Task 1: Schema & Google Tasks Remediation**
+> 1. **Update `db_init.py`:** Modify the `Workspace_Artifacts` table schema to include a `google_task_id TEXT` column.
+> 2. **Update `sync_engine.py`:** Define the missing `push_to_google_tasks(creds, artifact_data, conn)` function. It should instantiate the Google Tasks API service, create a new task containing the artifact's summary, and safely update the new `google_task_id` in the `Workspace_Artifacts` table.
+> 3. **Idempotency Check:** Ensure the Google Tasks invocation block in `sync_engine.py` correctly checks if `google_task_id IS NULL` before calling the new function to prevent duplicate tasks.
+> 
+> **Task 2: Epic 5 Safe Mode (Execution Gatekeepers)**
+> 1. **Database Seed (`db_init.py`):** Update `seed_default_configs()` to insert the 4 missing system toggles (`feature_retention_sweeper`, `feature_drive_relocator`, `feature_materialization`, `feature_google_tasks`) into the `Config_System` table with a default value of `'0'` (disabled).
+> 2. **Worker Wrappers (`sync_engine.py` & `retention_worker.py`):** Add gatekeeping logic to fetch these configuration keys from SQLite. Wrap the corresponding functionality (Drive Relocation, Materialization, Google Tasks creation, and the Retention Sweep) inside `if` statements. If a flag equals '0' or 'false', gracefully bypass the execution and log a "Safe Mode" bypass message.
+> 3. **UI Integration (`Index.html` & `JS_Actions.html`):** Update the `.system-toggles` section in the sidebar to render 4 switches mapped to these features. Wire them so that toggling the switches securely updates the values in the `Config_System` table via the backend API.
+> 
+> **Task 3: Backend Bridge (`Code.gs`) Remediation**
+> 1. **Implement Missing Routers:** Add the following missing `google.script.run` endpoints to `Code.gs`, securely passing payloads to their orphaned counterparts in `main.py` using the `sendToNexusVM()` HMAC bridge:
+>    - `getUserPreferences()` -> Route to `GET /api/settings/pipeline` (or specific boot preference endpoint).
+>    - `getHeatmapData()` -> Route to `GET /api/analytics/heatmap`.
+>    - `getThreadsData()` -> Route to `GET /api/analytics/threads`.
+>    - `getROIDashboard()` -> Route to `GET /api/analytics/roi-dashboard`.
+>    - `pingHealthAPI()` -> Route to `GET /api/health`.
+> 2. **Implement Retention Wrappers:** Add the orphaned retention endpoints (`getRetentionRules`, `addRetentionRule`, `deleteRetentionRule`, `triggerRetentionSweep`) into `Code.gs` so the UI can finally utilize the Inbox Cleanup logic.
+> 
+> **Task 4: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add to Version History: `- **v2026.5.0.0:** [Epic 5.0] - Executed Pre-Flight Remediation: Patched Google Tasks schema crashes, injected Safe Mode gatekeepers, and wired missing Code.gs bridges.`
+> 
+> **Output Actions:**
+> Silently update `db_init.py`, `sync_engine.py`, `retention_worker.py`, `Index.html`, `JS_Actions.html`, `Code.gs`, and `README.md`."
+
+
+<a id="epic-5-prompt-3"></a>
+### Epic 5 - Prompt 3: UI Melding Audit Remediation
+> "I am the Lead Architect. We have completed a UI Melding Audit and discovered several orphaned elements in `Index.html` that must be wired up immediately.
+> 
+> **Task 1: Wire the Omnibox Actions**
+> 1. In `Index.html`, locate the `.icon-btn.save` button inside the `.omnibox-actions` div. Add an `onclick="appActions.showToast('Feature coming soon: Save Query')"` event handler to it for now.
+> 2. Locate the `.icon-btn` (Advanced Search Builder) next to it. Add an `onclick="appActions.showToast('Feature coming soon: Advanced Builder')"` event handler to it.
+> 
+> **Task 2: Rescue the Workflow Hub Modal**
+> 1. The `#workflow-hub-modal` exists, but there is no way to open it. 
+> 2. In `Index.html`, locate the `.bulk-actions` div (which currently contains the 'Bulk Edit Selected' button). 
+> 3. Add a new secondary button next to it: `<button class="btn btn-secondary" onclick="document.getElementById('workflow-hub-modal').style.display='block'"><i class="material-icons">auto_fix_high</i> Workflow Hub</button>`.
+> 
+> **Task 3: Roadmap Anchors & Version History**
+> * **In `README.md`:** Add to Version History: `- **v2026.5.3.0:** [Epic 5.3](#epic-5-prompt-3) - Executed Melding Audit Remediation: Wired dead Omnibox buttons and restored access to the Workflow Hub modal.`
+> 
+> **Output Actions:**
+> 1. Silently update `Index.html`.
+> 2. Silently update `README.md`."

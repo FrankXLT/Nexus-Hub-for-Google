@@ -140,6 +140,7 @@ def init_db(db_path: str = DB_PATH) -> None:
             locked_by_system INTEGER DEFAULT 0,
             parent_artifact_id TEXT,
             lifecycle_status TEXT DEFAULT 'ACTIVE',
+            google_task_id TEXT,
             FOREIGN KEY (purpose_id) REFERENCES Taxonomy_Purposes (id) ON DELETE CASCADE,
             FOREIGN KEY (parent_artifact_id) REFERENCES Workspace_Artifacts (artifact_id) ON DELETE SET NULL
         ) STRICT;
@@ -215,6 +216,16 @@ def seed_default_configs(conn: sqlite3.Connection) -> None:
         ('nexus_task_list_id', '""', 'Google Tasks List ID for actionable items'))
     cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)",
         ('default_view', 'dashboard', 'UI Startup View'))
+    
+    # Epic 5 Safe Mode Gatekeepers
+    cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)",
+        ('feature_retention_sweeper', '0', 'Safe Mode: Retention Sweeper'))
+    cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)",
+        ('feature_drive_relocator', '0', 'Safe Mode: Drive Relocator'))
+    cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)",
+        ('feature_materialization', '0', 'Safe Mode: Materialization Pipeline'))
+    cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)",
+        ('feature_google_tasks', '0', 'Safe Mode: Autonomous Google Tasks'))
 
 
 def seed_default_taxonomy(conn):

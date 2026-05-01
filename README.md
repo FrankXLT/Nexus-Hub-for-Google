@@ -16,6 +16,17 @@ By leveraging Google's Gemini Large Language Models (LLMs) and a strictly govern
 
 *** NOTICE: As of Stage 45, development has shifted to Architectural Epics. Versioning has been reset to a YYYY.Epic.Major.Minor schema. Epic 0 (Baseline) = 2026.0.x.x, Epic 1 (Profiling) = 2026.1.x.x, Epic 2 (Graph API) = 2026.2.x.x, Epic 3 (Nexus UI) = 2026.3.x.x, Epic 4 (IaC) = 2026.4.x.x. ***
 
+- **v2026.5.3.0:** [Epic 5.3](#epic-5-prompt-3) - Executed Melding Audit Remediation: Wired dead Omnibox buttons and restored access to the Workflow Hub modal.
+- **v2026.5.0.0:** [Epic 5.0] - Executed Pre-Flight Remediation: Patched Google Tasks schema crashes, injected Safe Mode gatekeepers, and wired missing Code.gs bridges.
+- **v2026.4.2.0:** [Epic 4.2](#epic-4-prompt-2) - Engineered the CI/CD deploy script integrating clasp and gcloud, officially deprecating legacy shell scripts.
+- **v2026.4.1.0:** [Epic 4.1](#epic-4-prompt-1) - Built the Zero-Touch Provisioner for automated GCP VM deployment and deprecated manual setup scripts.
+- **v2026.3.8.0:** [Epic 3.8](#epic-3-prompt-8) - Finalized the collapsible sidebar, consolidated all existing modals into the navigation tree, and configured dynamic boot routing.
+- **v2026.3.7.0:** [Epic 3.7](#epic-3-prompt-7) - Implemented the Threads UI Sankey diagram with interactive routing and color weaving.
+- **v2026.3.6.0:** [Epic 3.6](#epic-3-prompt-6) - Implemented the System Analytics Dashboard.
+- **v2026.3.5.0:** [Epic 3.5](#epic-3-prompt-5) - Built the global 'Select All' UX pattern for massive query-based bulk operations.
+- **v2026.3.4.0:** [Epic 3.4](#epic-3-prompt-4) - Implemented the Aggregate Context Drawer supporting bulk Zero-Shot Rule generation.
+- **v2026.3.3.0:** [Epic 3.3](#epic-3-prompt-3) - Upgraded the Omnibox with interactive AST chips and Tab-autocomplete prediction.
+- **v2026.3.2.0:** [Epic 3.2](#epic-3-prompt-2) - Adapted the existing artifact data renderer into the responsive, metadata-first Knowledge Grid utilizing the prototype's stacked card CSS.
 - **v2026.3.1.0:** [Epic 3.1](#epic-3-prompt-1) - Migrated the Quota Governor into the new V3 UI prototype header and established the System Health badge.
 - **v2026.2.7.0:** [Epic 2.7](#epic-2-prompt-7) - Built the Zero-Shot Rule generation API for bulk UI tuning.
 - **v2026.2.6.0:** [Epic 2.6](#epic-2-prompt-6) - Added persistent user preferences to support dynamic frontend boot routing.
@@ -94,12 +105,13 @@ Licensed under the **GNU General Public License, Version 3.0 (GPLv3)**. See the 
 * [9. Telemetry, Diagnostics & Notifications](#9-telemetry-diagnostics-notifications)
 * [10. Security Architecture & Network Boundaries](#10-security-architecture--network-boundaries)
   * [10.1 OAuth Boundaries & Scope Justification](#101-oauth-boundaries--scope-justification)
-* [11. AI-Assisted Development CONOPS & Governance](#11-ai-assisted-development-conops--governance)
-  * [11.1 The Prompt Engineering & Audit Pipeline](#111-the-prompt-engineering--audit-pipeline)
-  * [11.2 The Continuous Documentation Protocol](#112-the-continuous-documentation-protocol)
-  * [11.3 Multi-Developer Synchronization](#113-multi-developer-synchronization)
-  * [11.4 The Standard Execution Prompt Template (Example)](#114-the-standard-execution-prompt-template-example)
-* [12. Acronym Glossary](#12-acronym-glossary)
+* [11. Infrastructure as Code (IaC)](#11-infrastructure-as-code-iac)
+* [12. AI-Assisted Development CONOPS & Governance](#12-ai-assisted-development-conops--governance)
+  * [12.1 The Prompt Engineering & Audit Pipeline](#121-the-prompt-engineering--audit-pipeline)
+  * [12.2 The Continuous Documentation Protocol](#122-the-continuous-documentation-protocol)
+  * [12.3 Multi-Developer Synchronization](#123-multi-developer-synchronization)
+  * [12.4 The Standard Execution Prompt Template (Example)](#124-the-standard-execution-prompt-template-example)
+* [13. Acronym Glossary](#13-acronym-glossary)
 
 **Table of Figures**
 
@@ -659,11 +671,37 @@ Transparently documenting the required Google Workspace permissions and their ex
 * `contacts.readonly`: Required solely for the Entity Bootstrapping phase to securely transform personal contacts into taxonomy correspondents.
 * **Token Management:** The `token.json` resides exclusively inside the headless, firewalled VM and is never exposed to the frontend Apps Script UI.
 
-## 11. AI-Assisted Development CONOPS & Governance
+## 11. Infrastructure as Code (IaC)
+
+Nexus Hub uses a Zero-Touch Provisioning architecture to eliminate manual server setup. The VM is deployed entirely via the Google Cloud CLI using a metadata startup script.
+
+### Running the Provisioner Locally
+
+To automatically spin up the e2-micro VM, configure the firewall, and bootstrap the Python environment, simply run the provisioner from your local machine:
+
+```bash
+chmod +x scripts/provision.sh
+./scripts/provision.sh
+```
+
+This script utilizes `gcloud compute instances create` to automatically inject the `--metadata startup-script` which installs Python 3, creates the virtual environment, installs SQLite/Git, and establishes the `systemd` daemon for the FastAPI backend, completely replacing legacy manual SSH setups.
+
+### 11.1 The One-Click Deployer
+
+To continuously push updates across both the serverless frontend and the GCP backend, use the unified deployment script from your local machine:
+
+```bash
+chmod +x scripts/deploy.sh
+./scripts/deploy.sh
+```
+
+This robust deployer executes a secure `clasp push` to sync the Apps Script UI locally, then utilizes `gcloud compute ssh` to remotely pull git updates, refresh dependencies, execute database migrations, and cleanly restart the `systemd` daemon. It features strict fail-fast error trapping and color-coded CLI feedback.
+
+## 12. AI-Assisted Development CONOPS & Governance
 
 Nexus Hub is designed to be maintained by Human-AI pairs. To ensure stability in a multi-developer environment, all contributors must strictly adhere to the following Concept of Operations (CONOPS) and Prompting Governance protocols. Code must never be pushed without its corresponding AI prompt being audited and the master documentation updated.
 
-### 11.1 The Prompt Engineering & Audit Pipeline
+### 12.1 The Prompt Engineering & Audit Pipeline
 
 To maintain an immutable audit trail of *why* and *how* code was generated, developers must use a two-agent system. 
 
@@ -691,20 +729,20 @@ flowchart TD
     IDE -->|5b. Execute Continuous Documentation| Docs[(README.md)]:::repo
 ```
 
-### 11.2 The Continuous Documentation Protocol
+### 12.2 The Continuous Documentation Protocol
 Documentation is not a separate sprint; it compiles alongside the code. Every execution prompt fed to the IDE agent must include the following standard instruction block to ensure [`README.md`](./README.md) never drifts from the codebase:
 
 **Standard Prompt Footer:**
 > "Update [`README.md`](./README.md) [Specify Section] with these changes. Wrap all codebase file mentions in relative hotlinks, unless they are inside of the diagrams and flow charts, generated by mermaid. If adding a section or diagram, update the Table of Contents and Table of Figures with working HTML anchors. Add a bullet to the Version History hotlinked to the new stage in `ROADMAP/PROMPT_ROADMAP.md`.
 > * If modifying the UI, ensure all new interactive elements include inline user education (tooltips or help text) explaining their function."
 
-### 11.3 Multi-Developer Synchronization
+### 12.3 Multi-Developer Synchronization
 In a multi-developer environment relying on AI, merge conflicts on documentation and roadmap files are highly probable.
 
 * **Always Pull First:** Before generating a new prompt, the human needs to pull the latest `ROADMAP/PROMPT_ROADMAP.md` to ensure they are appending to the correct stage sequence.
 * **Isolate Prompts:** Do not ask the AI to refactor multiple distinct architectures in a single prompt. Isolate infrastructure changes (e.g., Docker) from logic changes (e.g., LLM routing) to maintain clean Git commits and readable audit trails.
 
-### 11.4 The Standard Execution Prompt Template (Example)
+### 12.4 The Standard Execution Prompt Template (Example)
 
 To ensure strict adherence to the CONOPS, all execution prompts must be committed to the roadmap before being fed to the AI IDE agent. A fully compliant prompt ensures that code, user education (UX), and master documentation compile simultaneously.
 
@@ -742,7 +780,7 @@ Below is a complete example of a compliant execution prompt (using a hypothetica
 
 </details>
 
-## 12. Acronym Glossary
+## 13. Acronym Glossary
 
 * **API (Application Programming Interface):** The interface allowing Nexus Hub to fetch data from external services (Gmail, Drive).
 * **DLQ (Dead-Letter Queue):** A queue (in this case, `Error_Logs`) where messages or tasks that fail to process are safely routed for analysis.

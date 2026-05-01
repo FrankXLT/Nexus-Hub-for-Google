@@ -160,6 +160,48 @@ def init_gmail_history_id(service: Resource) -> str:
     profile = service.users().getProfile(userId='me').execute()
     return str(profile.get('historyId'))
 
+def is_feature_enabled(cursor: sqlite3.Cursor, feature_key: str) -> bool:
+    """
+    Checks if an Epic 5 Safe Mode feature is enabled in Config_System.
+    """
+    cursor.execute("SELECT value FROM Config_System WHERE key = ?", (feature_key,))
+    row = cursor.fetchone()
+    return row is not None and row['value'] in ('1', 'true', 'True')
+
+def push_to_google_tasks(creds: Credentials, artifact_data: sqlite3.Row, conn: sqlite3.Connection) -> None:
+    """
+    Creates a Google Task based on an actionable artifact and records the task ID.
+    """
+    cursor = conn.cursor()
+    # Epic 5 Gatekeeper
+    if not is_feature_enabled(cursor, 'feature_google_tasks'):
+        print(f"Safe Mode Bypass: Autonomous Google Tasks is disabled. Skipping task for {artifact_data['artifact_id']}.")
+        return
+
+    # Idempotency check (though already handled by caller, extra safety)
+    if artifact_data['google_task_id'] is not None:
+        return
+
+    try:
+        cursor.execute("SELECT value FROM Config_System WHERE key = 'nexus_task_list_id'")
+        row = cursor.fetchone()
+        task_list_id = row['value'].strip('"') if row and row['value'] and row['value'] != '""' else "@default"
+
+        tasks_service = build('tasks', 'v1', credentials=creds)
+        task_body = {
+            'title': f"Action Required: {artifact_data['summary']}",
+            'notes': f"Generated from Nexus Hub Artifact: {artifact_data['artifact_id']}"
+        }
+        
+        task = tasks_service.tasks().insert(tasklist=task_list_id, body=task_body).execute()
+        new_task_id = task.get('id')
+        
+        cursor.execute("UPDATE Workspace_Artifacts SET google_task_id = ? WHERE artifact_id = ?", (new_task_id, artifact_data['artifact_id']))
+        conn.commit()
+        print(f"   -> Created Google Task {new_task_id} for {artifact_data['artifact_id']}.")
+    except Exception as e:
+        print(f"   -> Failed to create Google Task for {artifact_data['artifact_id']}: {e}")
+
 def get_sync_state(cursor: sqlite3.Cursor, app_name: str) -> Optional[str]:
     """
     Reads the last known token from the Sync_State table.
@@ -357,26 +399,34 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
                 continue
             
             # Drive Relocation Engine
-            cursor.execute("SELECT value FROM Config_System WHERE key = 'drive_permanent_archive_id'")
-            archive_row = cursor.fetchone()
-            if archive_row and archive_row['value'] and archive_row['value'] != '""':
-                archive_id = archive_row['value'].strip('"')
-                if archive_id:
-                    try:
+            if is_feature_enabled(cursor, 'feature_drive_relocator'):
+                cursor.execute("SELECT value FROM Config_System WHERE key = 'drive_permanent_archive_id'")
+                archive_row = cursor.fetchone()
+                if archive_row and archive_row['value'] and archive_row['value'] != '""':
+                    archive_id = archive_row['value'].strip('"')
+                    if archive_id:
+                        try:
+                            file_obj = service.files().get(fileId=file_id, fields='parents').execute()
+                            governor.record_api_call(cost=1)
+                            current_parents = ",".join(file_obj.get('parents', []))
+                            
+                            service.files().update(
+                                fileId=file_id,
+                                addParents=archive_id,
+                                removeParents=current_parents,
+                                fields='id, parents'
+                            ).execute()
+                            governor.record_api_call(cost=1)
+                            print(f"   -> Relocated File {file_id} to Permanent Archive ({archive_id})")
+                        except Exception as e:
+                            print(f"   -> Relocation failed for {file_id}: {e}")
+            else:
+                print(f"Safe Mode Bypass: Drive Relocator is disabled. Skipping relocation for {file_id}.")
                         file_obj = service.files().get(fileId=file_id, fields='parents').execute()
                         governor.record_api_call(cost=1)
                         current_parents = ",".join(file_obj.get('parents', []))
                         
-                        service.files().update(
-                            fileId=file_id,
-                            addParents=archive_id,
-                            removeParents=current_parents,
-                            fields='id, parents'
-                        ).execute()
-                        governor.record_api_call(cost=1)
-                        print(f"   -> Relocated File {file_id} to Permanent Archive ({archive_id})")
-                    except Exception as e:
-                        print(f"   -> Relocation failed for {file_id}: {e}")
+>>>>>> THIS BLOCK INTENTIONALLY OMITTED BECAUSE I REPLACED IT ENTIRELY ABOVE
     else:
         print("No new Drive changes.")
     
@@ -589,6 +639,11 @@ def materialize_artifact(artifact_id: str):
         conn.execute("PRAGMA journal_mode=WAL;")
         cursor = conn.cursor()
         
+        if not is_feature_enabled(cursor, 'feature_materialization'):
+            print(f"Safe Mode Bypass: Materialization Pipeline is disabled. Skipping artifact {artifact_id}.")
+            conn.close()
+            return
+        
         cursor.execute("SELECT raw_text FROM Workspace_Artifacts WHERE artifact_id = ?", (artifact_id,))
         row = cursor.fetchone()
         if not row:
@@ -705,17 +760,6 @@ def run_sync() -> None:
         error_msg = f"Database Lock or Operational Error: {e}"
         print(error_msg)
         notifier.send_urgent_webhook({"title": "Nexus Hub: Database Lock", "message": error_msg, "priority": 1})
-    except Exception as e:
-        error_msg = f"Synchronization error occurred: {e}"
-        print(error_msg)
-        notifier.send_urgent_webhook({"title": "Nexus Hub: Sync Error", "message": error_msg, "priority": 0})
-    finally:
-        if 'conn' in locals():
-            conn.close()
-        print("Synchronization engine completed.")
-
-if __name__ == "__main__":
-    run_sync()tle": "Nexus Hub: Database Lock", "message": error_msg, "priority": 1})
     except Exception as e:
         error_msg = f"Synchronization error occurred: {e}"
         print(error_msg)

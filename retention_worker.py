@@ -8,10 +8,21 @@ from dotenv import load_dotenv
 load_dotenv()
 DB_PATH = os.getenv("NEXUS_DB_PATH", "nexus.db")
 
+def is_feature_enabled(cursor: sqlite3.Cursor, feature_key: str) -> bool:
+    cursor.execute("SELECT value FROM Config_System WHERE key = ?", (feature_key,))
+    row = cursor.fetchone()
+    return row is not None and row['value'] in ('1', 'true', 'True')
+
 def run_retention_sweep():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
+
+    # Epic 5 Gatekeeper
+    if not is_feature_enabled(cursor, 'feature_retention_sweeper'):
+        print("Safe Mode Bypass: Retention Sweeper is disabled. Exiting.")
+        conn.close()
+        return
 
     cursor.execute("SELECT * FROM Config_Retention_Rules WHERE is_active = 1")
     rules = cursor.fetchall()

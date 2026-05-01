@@ -5,10 +5,191 @@
 const appActions = {
   
   init: function() {
+    this.loadUserPreferences(); // Will handle boot routing
     this.refreshData(); // Fetch initial data
     this.loadPipelineSettings(); // Fetch UI configurations
     this.loadQuotaGovernor();
     this.startHealthPing();
+    this.setupOmnibox();
+  },
+
+  loadUserPreferences: function() {
+    google.script.run
+      .withSuccessHandler((result) => {
+        if(result && result.success && result.data && result.data.default_view) {
+          const view = result.data.default_view; // e.g., 'mission-control', 'threads', 'grid'
+          if(view === 'mission-control') {
+            appState.switchTab('mission-control');
+            this.renderHeatmap();
+          } else if(view === 'threads') {
+            appState.switchTab('grid'); // Default tab that contains view-controls
+            this.switchWorkspaceView('threads');
+          } else {
+            appState.switchTab('grid');
+            this.switchWorkspaceView('grid');
+          }
+        } else {
+          // Default fallback
+          appState.switchTab('mission-control');
+          this.renderHeatmap();
+        }
+      })
+      .withFailureHandler(() => {
+        appState.switchTab('mission-control');
+        this.renderHeatmap();
+      })
+      .getUserPreferences();
+  },
+
+  renderHeatmap: function() {
+    this.showToast("Loading Heatmap...");
+    google.script.run
+      .withSuccessHandler((result) => {
+        if(result && result.success && result.data) {
+          this.buildHeatmap(result.data);
+        } else {
+          // Fallback mock data
+          const mockData = [
+            { x: '2026-01', y: 'Finance', v: 45 },
+            { x: '2026-01', y: 'HR', v: 12 },
+            { x: '2026-02', y: 'Finance', v: 50 },
+            { x: '2026-02', y: 'HR', v: 18 },
+            { x: '2026-03', y: 'Finance', v: 60 },
+            { x: '2026-03', y: 'System', v: 5 }
+          ];
+          this.buildHeatmap(mockData);
+        }
+      })
+      .withFailureHandler((error) => {
+        this.showToast("Apps Script Error: " + error.message);
+      })
+      .getHeatmapData();
+  },
+
+  buildHeatmap: function(data) {
+    if(window.heatmapChartInst) window.heatmapChartInst.destroy();
+    const ctx = document.getElementById('heatmapChart').getContext('2d');
+    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-main').trim() || '#fff';
+
+    window.heatmapChartInst = new Chart(ctx, {
+      type: 'matrix',
+      data: {
+        datasets: [{
+          label: 'Activity Heatmap',
+          data: data,
+          backgroundColor(context) {
+            const value = context.dataset.data[context.dataIndex].v;
+            const alpha = Math.min(value / 100, 1);
+            return `rgba(74, 144, 226, ${alpha})`; // using --accent-blue
+          },
+          borderColor: '#333',
+          borderWidth: 1,
+          width: ({chart}) => (chart.chartArea || {}).width / 6 - 1,
+          height: ({chart}) => (chart.chartArea || {}).height / 4 - 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title() { return ''; },
+              label(context) {
+                const item = context.dataset.data[context.dataIndex];
+                return `${item.y} (${item.x}): ${item.v} items`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'category',
+            labels: [...new Set(data.map(d => d.x))].sort(),
+            ticks: { color: textColor }
+          },
+          y: {
+            type: 'category',
+            labels: [...new Set(data.map(d => d.y))].sort(),
+            ticks: { color: textColor }
+          }
+        },
+        onClick: (e, elements) => {
+          if (elements.length > 0) {
+            const element = elements[0];
+            const datasetIndex = element.datasetIndex;
+            const index = element.index;
+            const dataItem = window.heatmapChartInst.data.datasets[datasetIndex].data[index];
+            const dateStr = dataItem.x;
+            
+            const input = document.getElementById('ast-input');
+            input.value = `Date:${dateStr}`;
+            appActions.executeASTSearch(input.value);
+            
+            appState.switchTab('grid');
+            appActions.switchWorkspaceView('grid');
+          }
+        }
+      }
+    });
+  },
+
+  setupOmnibox: function() {
+    const input = document.getElementById('ast-input');
+    
+    input.addEventListener('keydown', (e) => {
+       if (e.key === 'Tab') {
+          e.preventDefault();
+          let val = input.value;
+          let parts = val.split(' AND ');
+          let lastWord = parts.pop().trim();
+          
+          if (lastWord.length > 1) {
+             let matched = false;
+             let searchStr = lastWord.toLowerCase();
+             // Simple basic prediction logic based on correspondents in mock/state
+             Object.keys(appState.taxonomyTree).forEach(cat => {
+               Object.keys(appState.taxonomyTree[cat]).forEach(corr => {
+                 if (corr.toLowerCase().startsWith(searchStr)) {
+                   parts.push("Correspondent:" + corr);
+                   matched = true;
+                 }
+               });
+             });
+             
+             if (!matched && searchStr === 'med') {
+               parts.push("Correspondent:MedStar Health");
+               matched = true;
+             }
+             
+             if (matched) {
+               input.value = parts.join(' AND ');
+             }
+          }
+       } else if (e.key === 'Enter') {
+          e.preventDefault();
+          this.executeASTSearch(input.value);
+       }
+    });
+  },
+
+  executeASTSearch: function(query) {
+    if (!query.trim()) return this.refreshData();
+    this.showToast("Executing AST Search...");
+    google.script.run
+      .withSuccessHandler((result) => {
+        if(result && result.success && result.data && result.data.results) {
+           appState.setArtifacts(result.data.results);
+           this.renderGrid();
+           this.showToast("Search complete.");
+        } else {
+           // Provide a fallback for local testing without real API
+           this.showToast("AST Search mock complete.");
+        }
+      })
+      .withFailureHandler((err) => this.showToast("Error: " + err.message))
+      .searchArtifacts(query);
   },
 
   startHealthPing: function() {
@@ -104,9 +285,43 @@ const appActions = {
             document.getElementById('post-auto-archive').checked = !!s.ui_post_processing.auto_archive_gmail;
             document.getElementById('post-quarantine').checked = !!s.ui_post_processing.quarantine_unconfident;
           }
+
+          if(s.feature_retention_sweeper) {
+            document.getElementById('toggle-retention').checked = (s.feature_retention_sweeper === '1' || s.feature_retention_sweeper === 'true');
+          }
+          if(s.feature_drive_relocator) {
+            document.getElementById('toggle-relocator').checked = (s.feature_drive_relocator === '1' || s.feature_drive_relocator === 'true');
+          }
+          if(s.feature_materialization) {
+            document.getElementById('toggle-materialization').checked = (s.feature_materialization === '1' || s.feature_materialization === 'true');
+          }
+          if(s.feature_google_tasks) {
+            document.getElementById('toggle-tasks').checked = (s.feature_google_tasks === '1' || s.feature_google_tasks === 'true');
+          }
         }
       })
       .getPipelineSettings();
+  },
+
+  updateSafeMode: function(key, isChecked) {
+    this.showToast(`Updating ${key}...`);
+    const payload = {
+      settings: {
+        [key]: isChecked ? '1' : '0'
+      }
+    };
+    google.script.run
+      .withSuccessHandler((result) => {
+        if(result && result.success) {
+          this.showToast("Safe Mode setting saved.");
+        } else {
+          this.showToast("Failed to save Safe Mode setting.");
+        }
+      })
+      .withFailureHandler((error) => {
+        this.showToast("Apps Script Error: " + error.message);
+      })
+      .updateSafeMode(payload);
   },
 
   savePipelineSettings: function() {
@@ -370,8 +585,8 @@ const appActions = {
   },
 
   renderGrid: function() {
-    const tbody = document.getElementById('grid-body');
-    tbody.innerHTML = '';
+    const container = document.getElementById('grid-container');
+    container.innerHTML = '';
     
     const filterCat = document.getElementById('filter-category').value;
     const filterCorr = document.getElementById('filter-correspondent').value;
@@ -393,56 +608,101 @@ const appActions = {
         if (!matchJson) return;
       }
 
-      const tr = document.createElement('tr');
-      tr.setAttribute('data-id', artifact.artifact_id);
+      const card = document.createElement('div');
+      card.className = `card ${artifact.artifact_id.startsWith('doc_') ? 'source-drive' : 'source-gmail'}`;
+      if (artifact.parent_artifact_id) {
+          card.classList.add('stacked');
+      }
       
-      // Checkbox Logic
-      const isChecked = appState.selectedIds.has(artifact.artifact_id) ? 'checked' : '';
+      const isChecked = appState.selectedIds.has(artifact.artifact_id);
+      if (isChecked) {
+          card.style.border = '2px solid var(--accent-blue)';
+      }
       
-      tr.onclick = (e) => {
-        if(e.target.type !== 'checkbox') {
-           appState.selectArtifact(artifact.artifact_id);
+      card.onclick = (e) => {
+        if(e.target.tagName !== 'INPUT') {
+           if (e.shiftKey || e.ctrlKey || e.metaKey) {
+               appState.toggleSelection(artifact.artifact_id, e.shiftKey, e.ctrlKey || e.metaKey);
+               appActions.renderGrid();
+               appActions.updateBulkEstimate();
+               appActions.renderDetailsPane();
+           } else {
+               appState.selectArtifact(artifact.artifact_id);
+               appActions.renderDetailsPane();
+           }
         }
       };
 
-      // Status Badge
-      let statusClass = 'pending';
-      if (artifact.status.includes('PROCESSED')) statusClass = 'processed';
-      if (artifact.status.includes('ERROR')) statusClass = 'error';
-
-      // JSON Chips
-      let customDataHtml = '';
-      if (artifact.custom_data) {
-        Object.keys(artifact.custom_data).forEach(key => {
-          // Truncate long values
-          let val = artifact.custom_data[key];
-          if(typeof val === 'string' && val.length > 20) val = val.substring(0, 20) + '...';
-          customDataHtml += `<span class="json-chip" style="margin-right: 4px; display: inline-block;">${key}: ${val}</span>`;
-        });
+      let tagClass = 'tag';
+      if (artifact.status.includes('ERROR') || (artifact.custom_data && artifact.custom_data.requires_action)) {
+          tagClass += ' alert';
       }
 
-      tr.innerHTML = `
-        <td style="width: 40px; text-align: center;"><input type="checkbox" onclick="appActions.toggleRowSelection('${artifact.artifact_id}', event)" ${isChecked}></td>
-        <td><span style="font-family:monospace; color:var(--text-secondary);">${artifact.artifact_id.substring(0,8)}...</span></td>
-        <td>${artifact.taxonomy}</td>
-        <td>${artifact.summary}</td>
-        <td><span class="status-badge ${statusClass}">${artifact.status}</span></td>
-        <td>${artifact.operation_cost || 0}</td>
+      let dateStr = 'Unknown Date';
+      if (artifact.timestamp) {
+          dateStr = new Date(artifact.timestamp * 1000).toLocaleDateString();
+      } else {
+          dateStr = 'Just now';
+      }
+
+      let lineageHtml = artifact.parent_artifact_id ? `<span class="lineage-badge" title="Original Email: ${artifact.parent_artifact_id}">🔗 PDF</span>` : `<span>${artifact.status}</span>`;
+
+      card.innerHTML = `
+        <div class="card-header">
+            <div style="display: flex; align-items: flex-start; gap: 8px;">
+               <input type="checkbox" onclick="appActions.toggleRowSelection('${artifact.artifact_id}', event)" ${isChecked ? 'checked' : ''} style="margin-top: 4px;">
+               <h3 class="card-title">${artifact.summary ? artifact.summary.substring(0,50) + (artifact.summary.length > 50 ? '...' : '') : 'Untitled'}</h3>
+            </div>
+            <span class="${tagClass}">${artifact.taxonomy.split(' / ').pop() || 'Unknown'}</span>
+        </div>
+        <div class="card-desc">${artifact.summary || 'No summary provided.'}</div>
+        <div class="card-meta">
+            <span>${dateStr}</span>
+            ${lineageHtml}
+        </div>
       `;
-      tbody.appendChild(tr);
+      container.appendChild(card);
     });
   },
 
   toggleSelectAll: function(checkbox) {
     appState.selectAll(checkbox.checked);
+    appState.isGlobalSelectActive = false;
     this.renderGrid();
     this.updateBulkEstimate();
+    this.updateSelectionBanner();
+  },
+
+  updateSelectionBanner: function() {
+    const banner = document.getElementById('selection-banner');
+    const textSpan = document.getElementById('selection-banner-text');
+    const link = document.getElementById('global-select-link');
+    
+    if (appState.selectedIds.size > 0 && appState.selectedIds.size === appState.artifacts.length && appState.artifacts.length > 0) {
+        banner.style.display = 'block';
+        textSpan.textContent = `All ${appState.artifacts.length} items on this page are selected.`;
+        link.style.display = 'inline';
+    } else {
+        banner.style.display = 'none';
+        appState.isGlobalSelectActive = false;
+    }
+  },
+
+  activateGlobalSelect: function() {
+    appState.isGlobalSelectActive = true;
+    const textSpan = document.getElementById('selection-banner-text');
+    textSpan.textContent = `All matching items in the database are selected.`;
+    document.getElementById('global-select-link').style.display = 'none';
   },
 
   toggleRowSelection: function(id, event) {
     event.stopPropagation();
-    appState.toggleSelection(id);
+    appState.toggleSelection(id, event.shiftKey, event.ctrlKey || event.metaKey);
+    appState.isGlobalSelectActive = false;
     this.updateBulkEstimate();
+    this.renderGrid();
+    this.renderDetailsPane();
+    this.updateSelectionBanner();
   },
 
 
@@ -478,7 +738,7 @@ const appActions = {
   },
 
   bulkEdit: function() {
-    if (appState.selectedIds.size === 0) {
+    if (appState.selectedIds.size === 0 && !appState.isGlobalSelectActive) {
       this.showToast("No artifacts selected for bulk edit.");
       return;
     }
@@ -530,9 +790,14 @@ const appActions = {
     modal.style.display = 'none';
 
     const payload = {
-      artifact_ids: Array.from(appState.selectedIds),
       metadata: { status: "PROCESSED", purpose: newPurpose }
     };
+    
+    if (appState.isGlobalSelectActive) {
+      payload.ast_query = document.getElementById('ast-input').value;
+    } else {
+      payload.artifact_ids = Array.from(appState.selectedIds);
+    }
     
     this.showToast("Submitting bulk update...");
     google.script.run
@@ -559,7 +824,7 @@ const appActions = {
   },
 
   materializeSelected: function() {
-    if (appState.selectedIds.size === 0) {
+    if (appState.selectedIds.size === 0 && !appState.isGlobalSelectActive) {
       this.showToast("No artifacts selected for materialization.");
       return;
     }
@@ -567,9 +832,12 @@ const appActions = {
     document.getElementById('workflow-hub-modal').style.display = 'none';
     this.showToast("Queueing materialization pipeline...");
     
-    const payload = {
-      artifact_ids: Array.from(appState.selectedIds)
-    };
+    const payload = {};
+    if (appState.isGlobalSelectActive) {
+      payload.ast_query = document.getElementById('ast-input').value;
+    } else {
+      payload.artifact_ids = Array.from(appState.selectedIds);
+    }
     
     google.script.run
       .withSuccessHandler((result) => {
@@ -586,6 +854,40 @@ const appActions = {
         this.showToast("Apps Script Error: " + error.message);
       })
       .materializeSelectedItems(payload);
+  },
+
+  submitZeroShotRule: function() {
+    const instruction = document.getElementById('zero-shot-instruction').value.trim();
+    if (!instruction) {
+      this.showToast("Please enter a custom instruction.");
+      return;
+    }
+    
+    const payload = {
+      instruction: instruction
+    };
+    if (appState.isGlobalSelectActive) {
+      payload.ast_query = document.getElementById('ast-input').value;
+    } else {
+      payload.artifact_ids = Array.from(appState.selectedIds);
+    }
+    
+    this.showToast("Submitting Zero-Shot Rule...");
+    google.script.run
+      .withSuccessHandler((result) => {
+        if(result && result.success) {
+          this.showToast("Zero-Shot Rule Created successfully.");
+          appState.selectedIds.clear();
+          this.renderGrid();
+          this.renderDetailsPane();
+        } else {
+          this.showToast("Failed: " + (result.error || result.data?.detail || "Unknown error"));
+        }
+      })
+      .withFailureHandler((error) => {
+        this.showToast("Apps Script Error: " + error.message);
+      })
+      .submitZeroShotRule(payload);
   },
 
   runSandbox: function() {
@@ -675,6 +977,31 @@ const appActions = {
 
   renderDetailsPane: function() {
     const pane = document.getElementById('details-view');
+    
+    if (appState.selectedIds.size > 1 || appState.isGlobalSelectActive) {
+      let ids = Array.from(appState.selectedIds);
+      let listHtml = ids.map(id => {
+         let art = appState.getArtifact(id);
+         return `<li style="font-size:0.875rem; margin-bottom:4px;">${art ? art.summary || art.artifact_id : id}</li>`;
+      }).join('');
+      
+      pane.innerHTML = `
+        <div class="detail-group">
+          <h4>${appState.isGlobalSelectActive ? 'Aggregate Context (All Matching Items)' : 'Aggregate Context (' + ids.length + ' items)'}</h4>
+          <ul style="padding-left: 20px; color: var(--text-muted); max-height: 200px; overflow-y: auto;">
+             ${listHtml}
+             ${appState.isGlobalSelectActive ? '<li style="font-size:0.875rem; margin-bottom:4px; font-style: italic;">...and all other matching items in the database.</li>' : ''}
+          </ul>
+        </div>
+        <div class="detail-group" style="margin-top: 16px;">
+          <h4>Zero-Shot Rule Creation</h4>
+          <textarea id="zero-shot-instruction" placeholder="Enter custom instruction for these items..." style="width:100%; height:80px; padding:8px; margin-bottom:12px; resize:none; font-family:monospace; box-sizing:border-box; background: var(--bg-dark, #121212); color: var(--text-main, #e0e0e0); border: 1px solid #444; border-radius: 4px;"></textarea>
+          <button class="btn btn-primary" onclick="appActions.submitZeroShotRule()" style="width:100%;">Submit with AI (Create Rule)</button>
+        </div>
+      `;
+      return;
+    }
+
     const artifact = appState.getArtifact(appState.selectedArtifactId);
 
     if (!artifact) {
@@ -750,6 +1077,102 @@ const appActions = {
     });
   },
 
+  renderAnalyticsDashboard: function() {
+    this.showToast("Loading Analytics Dashboard...");
+    google.script.run
+      .withSuccessHandler((result) => {
+        if(result && result.success && result.data) {
+          const data = result.data;
+          document.getElementById('kpi-accuracy').textContent = data.first_pass_accuracy + '%';
+          document.getElementById('kpi-exceptions').textContent = data.exception_rate + '%';
+          document.getElementById('kpi-cost').textContent = data.avg_token_cost;
+
+          // Destroy existing charts to prevent overlap
+          if(window.reworkChartInst) window.reworkChartInst.destroy();
+          if(window.throughputChartInst) window.throughputChartInst.destroy();
+
+          const ctxRework = document.getElementById('reworkChart').getContext('2d');
+          const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-main').trim() || '#333';
+          
+          window.reworkChartInst = new Chart(ctxRework, {
+            type: 'doughnut',
+            data: {
+              labels: ['Automation', 'Manual Rework'],
+              datasets: [{
+                data: [data.automation_count, data.rework_count],
+                backgroundColor: ['#1e8e3e', '#d93025']
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { labels: { color: textColor } }
+              }
+            }
+          });
+
+          const ctxThroughput = document.getElementById('throughputChart').getContext('2d');
+          window.throughputChartInst = new Chart(ctxThroughput, {
+            type: 'bar',
+            data: {
+              labels: data.throughput_labels, // e.g. ['Week 1', 'Week 2', 'Week 3', 'Week 4']
+              datasets: [{
+                label: 'Processed Items',
+                data: data.throughput_values,
+                backgroundColor: '#1a73e8'
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { labels: { color: textColor } }
+              },
+              scales: {
+                x: { ticks: { color: textColor } },
+                y: { ticks: { color: textColor } }
+              }
+            }
+          });
+        } else {
+          // Fallback mock data
+          document.getElementById('kpi-accuracy').textContent = '94%';
+          document.getElementById('kpi-exceptions').textContent = '2.1%';
+          document.getElementById('kpi-cost').textContent = '$0.003';
+          
+          if(window.reworkChartInst) window.reworkChartInst.destroy();
+          if(window.throughputChartInst) window.throughputChartInst.destroy();
+          
+          const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-main').trim() || '#333';
+
+          const ctxRework = document.getElementById('reworkChart').getContext('2d');
+          window.reworkChartInst = new Chart(ctxRework, {
+            type: 'doughnut',
+            data: {
+              labels: ['Automation', 'Manual Rework'],
+              datasets: [{ data: [94, 6], backgroundColor: ['#1e8e3e', '#d93025'] }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: textColor } } } }
+          });
+
+          const ctxThroughput = document.getElementById('throughputChart').getContext('2d');
+          window.throughputChartInst = new Chart(ctxThroughput, {
+            type: 'bar',
+            data: {
+              labels: ['Mar 1', 'Mar 8', 'Mar 15', 'Mar 22'],
+              datasets: [{ label: 'Processed Items', data: [120, 150, 180, 90], backgroundColor: '#1a73e8' }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: textColor } } }, scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor } } } }
+          });
+        }
+      })
+      .withFailureHandler((error) => {
+        this.showToast("Apps Script Error: " + error.message);
+      })
+      .getROIDashboard();
+  },
+
   triggerDiagnostics: function() {
     this.showToast("Running diagnostics... Check VM logs if it fails.");
     google.script.run
@@ -764,34 +1187,143 @@ const appActions = {
         this.showToast("Apps Script Error: " + error.message, 5000);
       })
       .runSystemDiagnostics();
-  }
-  toggleSidebar: function() { document.getElementById('sidebar').classList.toggle('collapsed'); },
-  toggleChip: function(button, astString) {
-      button.classList.toggle('active');
-      const input = document.getElementById('ast-input');
-      let currentVal = input.value.trim();
+  },
+  switchWorkspaceView: function(view) {
+    const gridTab = document.getElementById('tab-grid');
+    const threadsTab = document.getElementById('tab-threads');
+    const btnGrid = document.getElementById('view-grid');
+    const btnSankey = document.getElementById('view-sankey');
 
-      if (button.classList.contains('active')) {
-          if (!currentVal.includes(astString)) {
-              input.value = currentVal ? `${currentVal} AND ${astString}` : astString;
-          }
-      } else {
-          let regex = new RegExp(`( AND )?${astString}( AND )?`);
-          input.value = currentVal.replace(regex, function(match, p1, p2) {
-              return (p1 && p2) ? ' AND ' : '';
-          }).trim();
-      }
-      input.focus();
-  }
-};
+    if (view === 'grid') {
+      gridTab.classList.add('active');
+      threadsTab.classList.remove('active');
+      btnGrid.classList.add('active');
+      btnGrid.style.background = '#333';
+      btnGrid.style.color = 'white';
+      btnSankey.classList.remove('active');
+      btnSankey.style.background = 'transparent';
+      btnSankey.style.color = 'var(--text-muted)';
+    } else if (view === 'threads') {
+      threadsTab.classList.add('active');
+      gridTab.classList.remove('active');
+      btnSankey.classList.add('active');
+      btnSankey.style.background = '#333';
+      btnSankey.style.color = 'white';
+      btnGrid.classList.remove('active');
+      btnGrid.style.background = 'transparent';
+      btnGrid.style.color = 'var(--text-muted)';
+      this.renderThreadsView();
+    }
+  },
 
-window.toggleSidebar = function() { appActions.toggleSidebar(); };
-window.toggleChip = function(btn, str) { appActions.toggleChip(btn, str); };
+  hexToRgba: function(hex, opacity) {
+    hex = hex.replace('#', '');
+    if (hex.length === 3) {
+      hex = hex.split('').map(char => char + char).join('');
+    }
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+  },
 
-</script>00);
+  renderThreadsView: function() {
+    this.showToast("Loading Threads View...");
+    google.script.run
+      .withSuccessHandler((result) => {
+        if(result && result.success && result.data) {
+          google.charts.load('current', {'packages':['sankey']});
+          google.charts.setOnLoadCallback(() => {
+            var data = new google.visualization.DataTable();
+            data.addColumn('string', 'From');
+            data.addColumn('string', 'To');
+            data.addColumn('number', 'Weight');
+            // Adding a tooltip and link color role
+            data.addColumn({type: 'string', role: 'tooltip', p: {html: true}});
+            data.addColumn({type: 'string', role: 'style'});
+
+            const limit = parseInt(document.getElementById('node-limit').value, 10);
+            const rawData = result.data.slice(0, limit);
+            
+            const rows = rawData.map(row => {
+              const color = appActions.hexToRgba(row.color || '#4A90E2', 0.45);
+              return [row.source, row.target, row.weight, `<div>${row.weight} items</div>`, color];
+            });
+            
+            data.addRows(rows);
+
+            var colors = ['#a6cee3', '#b2df8a', '#fb9a99', '#fdbf6f',
+                          '#cab2d6', '#ffff99', '#1f78b4', '#33a02c'];
+
+            var options = {
+              width: '100%',
+              height: '100%',
+              sankey: {
+                node: {
+                  colors: colors,
+                  label: { color: getComputedStyle(document.documentElement).getPropertyValue('--text-main').trim() || '#fff' }
+                },
+                link: {
+                  colorMode: 'source'
+                }
+              }
+            };
+
+            var chart = new google.visualization.Sankey(document.getElementById('sankey_chart'));
+            
+            google.visualization.events.addListener(chart, 'select', function() {
+              var selection = chart.getSelection();
+              if (selection.length > 0 && selection[0].name) {
+                const nodeName = selection[0].name;
+                const input = document.getElementById('ast-input');
+                input.value = `Correspondent:${nodeName}`;
+                appActions.executeASTSearch(input.value);
+                appActions.switchWorkspaceView('grid');
+              }
+            });
+
+            chart.draw(data, options);
+          });
+        } else {
+          // Fallback mock
+          google.charts.load('current', {'packages':['sankey']});
+          google.charts.setOnLoadCallback(() => {
+            var data = new google.visualization.DataTable();
+            data.addColumn('string', 'From');
+            data.addColumn('string', 'To');
+            data.addColumn('number', 'Weight');
+            data.addColumn({type: 'string', role: 'tooltip', p: {html: true}});
+            data.addColumn({type: 'string', role: 'style'});
+            data.addRows([
+              ['AWS', 'Invoice', 50, '50', appActions.hexToRgba('#FF9900', 0.45)],
+              ['AWS', 'Receipt', 20, '20', appActions.hexToRgba('#FF9900', 0.45)],
+              ['Stripe', 'Update', 15, '15', appActions.hexToRgba('#008CDD', 0.45)]
+            ]);
+
+            var options = { width: '100%', height: '100%', sankey: { node: { label: { color: '#fff' } }, link: { colorMode: 'source' } } };
+            var chart = new google.visualization.Sankey(document.getElementById('sankey_chart'));
+            
+            google.visualization.events.addListener(chart, 'select', function() {
+              var selection = chart.getSelection();
+              if (selection.length > 0 && selection[0].name) {
+                const nodeName = selection[0].name;
+                const input = document.getElementById('ast-input');
+                input.value = `Correspondent:${nodeName}`;
+                appActions.executeASTSearch(input.value);
+                appActions.switchWorkspaceView('grid');
+              }
+            });
+
+            chart.draw(data, options);
+          });
+        }
       })
-      .runSystemDiagnostics();
-  }
+      .withFailureHandler((error) => {
+        this.showToast("Apps Script Error: " + error.message);
+      })
+      .getThreadsData();
+  },
+
   toggleSidebar: function() { document.getElementById('sidebar').classList.toggle('collapsed'); },
   toggleChip: function(button, astString) {
       button.classList.toggle('active');

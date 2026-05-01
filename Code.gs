@@ -192,6 +192,21 @@ function bulkUpdateArtifacts(payload) {
 }
 
 /**
+ * Executes an AST search via the backend API.
+ * @param {string} query - The AST search string
+ * @returns {Object} The JSON response.
+ */
+function searchArtifacts(query) {
+  try {
+    const payload = {}; // Payload just for signature timestamp
+    const result = sendToNexusVM("/api/artifacts/search?q=" + encodeURIComponent(query) + "&limit=50&offset=0", payload, 'get');
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * Runs the AI RAG query.
  * 
  * @param {Object} payload - The object containing the question.
@@ -201,6 +216,187 @@ function runAskAI(payload) {
   try {
     const result = sendToNexusVM("/api/ask", payload);
     return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Fetches user preferences for boot routing.
+ * @returns {Object} The JSON response containing settings.
+ */
+function getUserPreferences() {
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const vmUrl = scriptProperties.getProperty('NEXUS_VM_URL') || "http://localhost:8000"; 
+  const targetUrl = vmUrl + "/api/settings/pipeline";
+  
+  const options = {
+    'method': 'get',
+    'muteHttpExceptions': true
+  };
+  
+  try {
+    const response = UrlFetchApp.fetch(targetUrl, options);
+    const responseCode = response.getResponseCode();
+    if (responseCode >= 200 && responseCode < 300) {
+      const data = JSON.parse(response.getContentText());
+      return { success: true, data: data.settings };
+    } else {
+      throw new Error("VM Error (" + responseCode + "): " + response.getContentText());
+    }
+  } catch (error) {
+    return { status: "error", detail: error.message };
+  }
+}
+
+/**
+ * Fetches Heatmap data.
+ */
+function getHeatmapData() {
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const vmUrl = scriptProperties.getProperty('NEXUS_VM_URL') || "http://localhost:8000"; 
+  const targetUrl = vmUrl + "/api/analytics/heatmap";
+  
+  const options = { 'method': 'get', 'muteHttpExceptions': true };
+  try {
+    const response = UrlFetchApp.fetch(targetUrl, options);
+    const responseCode = response.getResponseCode();
+    if (responseCode >= 200 && responseCode < 300) {
+      return JSON.parse(response.getContentText());
+    } else {
+      throw new Error("VM Error (" + responseCode + "): " + response.getContentText());
+    }
+  } catch (error) {
+    return { status: "error", detail: error.message };
+  }
+}
+
+/**
+ * Fetches Threads Sankey data.
+ */
+function getThreadsData() {
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const vmUrl = scriptProperties.getProperty('NEXUS_VM_URL') || "http://localhost:8000"; 
+  const targetUrl = vmUrl + "/api/analytics/threads";
+  
+  const options = { 'method': 'get', 'muteHttpExceptions': true };
+  try {
+    const response = UrlFetchApp.fetch(targetUrl, options);
+    const responseCode = response.getResponseCode();
+    if (responseCode >= 200 && responseCode < 300) {
+      return JSON.parse(response.getContentText());
+    } else {
+      throw new Error("VM Error (" + responseCode + "): " + response.getContentText());
+    }
+  } catch (error) {
+    return { status: "error", detail: error.message };
+  }
+}
+
+/**
+ * Fetches ROI Dashboard data.
+ */
+function getROIDashboard() {
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const vmUrl = scriptProperties.getProperty('NEXUS_VM_URL') || "http://localhost:8000"; 
+  const targetUrl = vmUrl + "/api/analytics/roi-dashboard";
+  
+  const options = { 'method': 'get', 'muteHttpExceptions': true };
+  try {
+    const response = UrlFetchApp.fetch(targetUrl, options);
+    const responseCode = response.getResponseCode();
+    if (responseCode >= 200 && responseCode < 300) {
+      return { success: true, data: JSON.parse(response.getContentText()) };
+    } else {
+      throw new Error("VM Error (" + responseCode + "): " + response.getContentText());
+    }
+  } catch (error) {
+    return { status: "error", detail: error.message };
+  }
+}
+
+/**
+ * Pings Health API.
+ */
+function pingHealthAPI() {
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const vmUrl = scriptProperties.getProperty('NEXUS_VM_URL') || "http://localhost:8000"; 
+  const targetUrl = vmUrl + "/api/health";
+  
+  const options = { 'method': 'get', 'muteHttpExceptions': true };
+  try {
+    const response = UrlFetchApp.fetch(targetUrl, options);
+    const responseCode = response.getResponseCode();
+    if (responseCode >= 200 && responseCode < 300) {
+      return { status: "success", data: JSON.parse(response.getContentText()) };
+    } else {
+      throw new Error("VM Error (" + responseCode + "): " + response.getContentText());
+    }
+  } catch (error) {
+    return { status: "error", detail: error.message };
+  }
+}
+
+/**
+ * Update Safe Mode.
+ */
+function updateSafeMode(payload) {
+  try {
+    const result = sendToNexusVM("/api/settings/pipeline", payload);
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+// Retention API Wrappers
+function getRetentionRules() {
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const vmUrl = scriptProperties.getProperty('NEXUS_VM_URL') || "http://localhost:8000"; 
+  const targetUrl = vmUrl + "/api/retention/rules";
+  
+  const options = { 'method': 'get', 'muteHttpExceptions': true };
+  try {
+    const response = UrlFetchApp.fetch(targetUrl, options);
+    if (response.getResponseCode() >= 200 && response.getResponseCode() < 300) {
+      return JSON.parse(response.getContentText());
+    } else {
+      throw new Error("VM Error");
+    }
+  } catch (error) {
+    return { status: "error", detail: error.message };
+  }
+}
+
+function addRetentionRule(payload) {
+  try {
+    return sendToNexusVM("/api/retention/rules", payload);
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+function deleteRetentionRule(payload) {
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const vmUrl = scriptProperties.getProperty('NEXUS_VM_URL') || "http://localhost:8000"; 
+  const targetUrl = vmUrl + "/api/retention/rules/" + payload.rule_id;
+  
+  const options = { 'method': 'delete', 'muteHttpExceptions': true };
+  try {
+    const response = UrlFetchApp.fetch(targetUrl, options);
+    if (response.getResponseCode() >= 200 && response.getResponseCode() < 300) {
+      return JSON.parse(response.getContentText());
+    } else {
+      throw new Error("VM Error");
+    }
+  } catch (error) {
+    return { status: "error", detail: error.message };
+  }
+}
+
+function triggerRetentionSweep() {
+  try {
+    return sendToNexusVM("/api/retention/sweep", {});
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -276,6 +472,20 @@ function updateEntityRules(entityType, id, rules, autoArchive = false) {
       payload.auto_archive = autoArchive;
     }
     const result = sendToNexusVM(`/api/entities/${entityType}/${id}`, payload, 'put');
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Submits a zero-shot rule creation request to the VM.
+ * @param {Object} payload - The object containing artifact_ids and instruction.
+ * @returns {Object} The JSON response.
+ */
+function submitZeroShotRule(payload) {
+  try {
+    const result = sendToNexusVM("/api/taxonomy/zero-shot-rule", payload);
     return { success: true, data: result };
   } catch (error) {
     return { success: false, error: error.message };

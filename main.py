@@ -806,7 +806,11 @@ async def get_pipeline_settings():
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        keys = ('ui_gmail_filters', 'ui_ai_config', 'ui_post_processing')
+        keys = (
+            'ui_gmail_filters', 'ui_ai_config', 'ui_post_processing',
+            'feature_retention_sweeper', 'feature_drive_relocator', 
+            'feature_materialization', 'feature_google_tasks'
+        )
         placeholders = ','.join(['?'] * len(keys))
         cursor.execute(f"SELECT key, value FROM Config_System WHERE key IN ({placeholders})", keys)
         rows = cursor.fetchall()
@@ -839,13 +843,17 @@ async def update_pipeline_settings(request: Request):
         conn.execute("PRAGMA journal_mode=WAL;")
         cursor = conn.cursor()
         
-        valid_keys = {'ui_gmail_filters', 'ui_ai_config', 'ui_post_processing', 'default_view'}
+        valid_keys = {
+            'ui_gmail_filters', 'ui_ai_config', 'ui_post_processing', 'default_view',
+            'feature_retention_sweeper', 'feature_drive_relocator', 
+            'feature_materialization', 'feature_google_tasks'
+        }
         for key, value in settings.items():
             if key in valid_keys:
-                if key == 'default_view':
+                if key in ('default_view', 'feature_retention_sweeper', 'feature_drive_relocator', 'feature_materialization', 'feature_google_tasks'):
                     cursor.execute(
                         "UPDATE Config_System SET value = ? WHERE key = ?",
-                        (value, key)
+                        (str(value), key)
                     )
                 else:
                     cursor.execute(

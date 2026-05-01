@@ -36,19 +36,15 @@ The Python VM requires a headless OAuth flow.
 ## Phase 1: Virtual Machine Provisioning & CI/CD
 
 ### 1. Provisioning the Google Cloud VM
-To set up the persistent e2-micro VM environment on Google Cloud Platform, follow these steps:
+To set up the persistent e2-micro VM environment on Google Cloud Platform using Zero-Touch Provisioning, you can deploy the VM entirely via the Google Cloud CLI from your local machine.
 
-1. Clone this repository into your target Ubuntu VM:
+1. Navigate to the project root on your local machine.
+2. Make the provisioning script executable and run it:
    ```bash
-   git clone https://github.com/your-username/Nexus-Hub-for-Google.git
-   cd Nexus-Hub-for-Google
+   chmod +x scripts/provision.sh
+   ./scripts/provision.sh
    ```
-2. Execute the setup script to install Docker, Docker Compose, Node.js, and `@google/clasp`.
-   ```bash
-   chmod +x setup.sh
-   ./setup.sh
-   ```
-`setup.sh` will automatically configure a 15-minute diagnostic cron job on the host machine.
+The provisioner script uses `gcloud compute instances create` to automatically establish the firewall rule for port 8000 and inject a metadata startup script. This startup script automatically installs Python 3, Git, SQLite3, creates a virtual environment, and establishes the `systemd` daemon, eliminating the need for manual SSH setups.
 
 ### 2. Google Apps Script Authentication
 The VM needs headless access to push code to your Google Apps Script environment.
@@ -69,13 +65,15 @@ The VM needs headless access to push code to your Google Apps Script environment
    chmod 600 ~/.clasprc.json
    ```
 
-### 3. Deploying Updates
-Whenever you need to pull the latest changes from the `main` branch, run migrations, and redeploy both the VM services and the Apps Script frontend, use the update executor:
+### 3. Deploying Updates (The One-Click Deployer)
+Whenever you need to pull the latest changes from the `main` branch, run migrations, and redeploy both the VM services and the Apps Script frontend, you can use the unified deployer from your local machine:
 
 ```bash
-chmod +x update.sh
-./update.sh
+chmod +x scripts/deploy.sh
+./scripts/deploy.sh
 ```
+
+This local execution script automatically syncs your frontend UI via `clasp push` and simultaneously establishes a remote `gcloud compute ssh` session with your VM to execute git pulls, install dependencies, run migrations, and cleanly restart the `systemd` daemon, giving you a full CI/CD experience from a single local command.
 
 ## Phase 2: Database Setup
 
@@ -162,11 +160,11 @@ To allow your Python VM backend to synchronize with your Gmail and Google Drive,
 ### 2. Generate `token.json` via SSH Tunnel
 Because your VM is headless (has no web browser), you cannot complete the OAuth login flow directly on the server. You must create an SSH tunnel to forward the local port.
 
-1. Open a terminal on your **local machine** and start an SSH tunnel to your VM mapping port 8080:
+1. Open a terminal on your **local machine** and start an SSH tunnel to your VM mapping port 8080 using the gcloud CLI:
    ```bash
-   ssh -L 8080:localhost:8080 your-user@your-vm-ip-address
+   gcloud compute ssh nexus-hub-vm --zone=us-central1-f --ssh-flag="-L 8080:localhost:8080"
    ```
-2. Once connected via SSH, ensure you are in the Nexus Hub directory. Install dependencies and run the auth script:
+2. Once connected to the VM, ensure you are in the Nexus Hub directory. Activate your virtual environment and run the auth script:
    ```bash
    pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
    python3 auth.py

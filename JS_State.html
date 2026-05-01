@@ -10,6 +10,8 @@ const appState = {
   zeroTrustQueue: [], // Items needing approval
   selectedArtifactId: null,
   selectedIds: new Set(),
+  lastSelectedId: null,
+  isGlobalSelectActive: false,
 
   switchTab: function(tabId, event) {
     this.activeTab = tabId;
@@ -27,6 +29,8 @@ const appState = {
     // Trigger render if needed
     if(tabId === 'audit') {
       appActions.renderTimeline();
+    } else if (tabId === 'analytics') {
+      appActions.renderAnalyticsDashboard();
     }
   },
 
@@ -49,11 +53,32 @@ const appState = {
     if(selectedRow) selectedRow.classList.add('selected');
   },
 
-  toggleSelection: function(id) {
-    if(this.selectedIds.has(id)) {
-      this.selectedIds.delete(id);
+  toggleSelection: function(id, shiftKey, ctrlKey) {
+    if (shiftKey && this.lastSelectedId) {
+      let startIdx = this.artifacts.findIndex(a => a.artifact_id === this.lastSelectedId);
+      let endIdx = this.artifacts.findIndex(a => a.artifact_id === id);
+      if (startIdx !== -1 && endIdx !== -1) {
+        let min = Math.min(startIdx, endIdx);
+        let max = Math.max(startIdx, endIdx);
+        if (!ctrlKey) this.selectedIds.clear();
+        for (let i = min; i <= max; i++) {
+          this.selectedIds.add(this.artifacts[i].artifact_id);
+        }
+      }
+    } else if (ctrlKey || shiftKey) {
+      if(this.selectedIds.has(id)) {
+        this.selectedIds.delete(id);
+      } else {
+        this.selectedIds.add(id);
+        this.lastSelectedId = id;
+      }
     } else {
-      this.selectedIds.add(id);
+      if(this.selectedIds.has(id)) {
+        this.selectedIds.delete(id);
+      } else {
+        this.selectedIds.add(id);
+        this.lastSelectedId = id;
+      }
     }
   },
 

@@ -5,6 +5,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix"></script>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
     <?!= include('CSS_Styles'); ?>
   </head>
   <body>
@@ -20,6 +23,10 @@
         </div>
         
         <div class="nav-menu">
+            <div class="nav-item" onclick="appState.switchTab('mission-control', event)">
+                <div class="nav-icon"><i class="material-icons">rocket_launch</i></div>
+                <span class="nav-text">Mission Control</span>
+            </div>
             <div class="nav-item active" onclick="appState.switchTab('grid', event)">
                 <div class="nav-icon"><i class="material-icons">grid_view</i></div>
                 <span class="nav-text">Workspace</span>
@@ -48,6 +55,10 @@
                 <div class="nav-icon"><i class="material-icons">history</i></div>
                 <span class="nav-text">Audit Timeline</span>
             </div>
+            <div class="nav-item" onclick="appState.switchTab('analytics', event)">
+                <div class="nav-icon"><i class="material-icons">analytics</i></div>
+                <span class="nav-text">System Analytics</span>
+            </div>
             <div class="nav-item" onclick="appState.switchTab('ai-assistant', event)">
                 <div class="nav-icon"><i class="material-icons">smart_toy</i></div>
                 <span class="nav-text">AI Assistant</span>
@@ -55,7 +66,37 @@
         </div>
 
         <div class="system-toggles">
-            <div style="font-size: 10px; text-transform: uppercase; color: #666; margin-bottom: 15px; font-weight: bold; letter-spacing: 1px;">Diagnostics</div>
+            <div style="font-size: 10px; text-transform: uppercase; color: #666; margin-bottom: 15px; font-weight: bold; letter-spacing: 1px;">Epic 5 Safe Mode</div>
+            <div class="toggle-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; padding: 0 10px; font-size: 12px; color: var(--text-muted);">
+                Retention Sweep 
+                <label class="switch" style="position: relative; display: inline-block; width: 34px; height: 20px;">
+                    <input type="checkbox" id="toggle-retention" onchange="appActions.updateSafeMode('feature_retention_sweeper', this.checked)" style="opacity: 0; width: 0; height: 0;">
+                    <span class="slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 20px;"></span>
+                </label>
+            </div>
+            <div class="toggle-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; padding: 0 10px; font-size: 12px; color: var(--text-muted);">
+                Drive Relocator 
+                <label class="switch" style="position: relative; display: inline-block; width: 34px; height: 20px;">
+                    <input type="checkbox" id="toggle-relocator" onchange="appActions.updateSafeMode('feature_drive_relocator', this.checked)" style="opacity: 0; width: 0; height: 0;">
+                    <span class="slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 20px;"></span>
+                </label>
+            </div>
+            <div class="toggle-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; padding: 0 10px; font-size: 12px; color: var(--text-muted);">
+                Materialization 
+                <label class="switch" style="position: relative; display: inline-block; width: 34px; height: 20px;">
+                    <input type="checkbox" id="toggle-materialization" onchange="appActions.updateSafeMode('feature_materialization', this.checked)" style="opacity: 0; width: 0; height: 0;">
+                    <span class="slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 20px;"></span>
+                </label>
+            </div>
+            <div class="toggle-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; padding: 0 10px; font-size: 12px; color: var(--text-muted);">
+                Google Tasks 
+                <label class="switch" style="position: relative; display: inline-block; width: 34px; height: 20px;">
+                    <input type="checkbox" id="toggle-tasks" onchange="appActions.updateSafeMode('feature_google_tasks', this.checked)" style="opacity: 0; width: 0; height: 0;">
+                    <span class="slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 20px;"></span>
+                </label>
+            </div>
+            
+            <div style="font-size: 10px; text-transform: uppercase; color: #666; margin-bottom: 15px; margin-top: 25px; font-weight: bold; letter-spacing: 1px;">Diagnostics</div>
             <div class="nav-item" onclick="appActions.triggerDiagnostics()" style="margin: 0; padding: 12px 20px; background: transparent;">
                 <div class="nav-icon"><i class="material-icons">health_and_safety</i></div>
                 <span class="nav-text">Run Diagnostics</span>
@@ -65,23 +106,50 @@
 
       <!-- Main Content Area -->
       <main class="main-content">
+        
+        <!-- Mission Control Tab -->
+        <div id="tab-mission-control" class="tab-content">
+          <div class="pane-header">
+            <h3>Mission Control Heatmap</h3>
+            <button class="btn btn-primary" onclick="appActions.renderHeatmap()"><i class="material-icons">refresh</i> Refresh</button>
+          </div>
+          <div style="padding: 16px; flex: 1;">
+            <div style="background: var(--bg-panel); border-radius: 8px; padding: 16px; border: 1px solid #333; height: 100%; min-height: 400px; display: flex; flex-direction: column;">
+              <h4 style="margin-top: 0; color: var(--text-main); margin-bottom: 16px;">Activity Heatmap</h4>
+              <div style="flex: 1; position: relative;">
+                <canvas id="heatmapChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Global Top Bar -->
         <div class="top-bar">
             <div class="search-row">
                 <div class="omnibox-wrapper">
-                    <i class="material-icons search-icon">search</i>
+                    <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                     <input type="text" id="ast-input" class="omnibox" placeholder="Search AST... (e.g., 'Purpose:Receipt AND Date:>2026-03')">
                     
                     <div class="omnibox-actions">
-                        <button class="icon-btn save" title="Save Query">
-                            <i class="material-icons">bookmark_border</i>
+                        <button class="icon-btn save" title="Save Query to Left Nav" onclick="appActions.showToast('Feature coming soon: Save Query')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
                         </button>
-                        <button class="icon-btn" title="Advanced Search">
-                            <i class="material-icons">tune</i>
+                        <button class="icon-btn" title="Advanced Search Builder" onclick="appActions.showToast('Feature coming soon: Advanced Builder')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
                         </button>
                     </div>
                 </div>
                 
+                <div class="view-controls" style="display: flex; background: #121212; border-radius: 8px; padding: 4px; border: 1px solid #333;">
+                    <button class="view-btn" id="view-sankey" onclick="appActions.switchWorkspaceView('threads')" style="background: transparent; color: var(--text-muted); border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px;">Sankey Threads</button>
+                    <button class="view-btn active" id="view-grid" onclick="appActions.switchWorkspaceView('grid')" style="background: #333; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px;">Knowledge Grid</button>
+                </div>
+
+                <div id="selection-banner" style="display: none; width: 100%; background: #e8f0fe; color: #1a73e8; padding: 8px 16px; text-align: center; font-size: 0.875rem; border-radius: 4px; margin-top: 8px; margin-bottom: 8px;">
+                    <span id="selection-banner-text"></span>
+                    <a href="#" id="global-select-link" onclick="appActions.activateGlobalSelect(); return false;" style="font-weight: bold; margin-left: 8px; color: #1a73e8; text-decoration: underline;">Select all matching items</a>
+                </div>
+
                 <!-- System Health Badge -->
                 <div id="system-health-badge" class="health-badge" style="background-color: var(--success); color: white; padding: 6px 12px; border-radius: 16px; font-size: 12px; display: flex; align-items: center; gap: 6px; cursor: help;" title="System Health: Checking...">
                     <i class="material-icons" style="font-size: 16px;">health_and_safety</i>
@@ -105,17 +173,36 @@
 
             <!-- Interactive Search Chips -->
             <div class="chips-row">
+                <button class="chip" onclick="toggleChip(this, 'Purpose:Receipt')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                    Receipts
+                </button>
                 <button class="chip" onclick="toggleChip(this, 'Action:Required')">
-                    <i class="material-icons" style="font-size: 14px;">error_outline</i> Action Needed
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                    Action Needed
                 </button>
                 <button class="chip" onclick="toggleChip(this, 'Has:Attachment')">
-                    <i class="material-icons" style="font-size: 14px;">attachment</i> Has Attachment
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+                    Has Attachment
                 </button>
                 <button class="chip" onclick="toggleChip(this, 'Source:Drive')">
-                    <i class="material-icons" style="font-size: 14px;">folder</i> Drive Files
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14"></path><path d="M12 22v-4"></path><path d="M8 18h8"></path></svg>
+                    Drive Files
                 </button>
             </div>
         </div>
+        <!-- Sankey Threads Tab -->
+        <div id="tab-threads" class="tab-content">
+          <div class="pane-header" style="justify-content: space-between; display: flex; padding: 16px;">
+            <h3>Sankey Threads Flow</h3>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <label for="node-limit" style="font-size: 0.875rem;">Node Limit: <span id="node-limit-val">20</span></label>
+                <input type="range" id="node-limit" min="5" max="50" value="20" oninput="document.getElementById('node-limit-val').textContent=this.value; appActions.renderThreadsView()">
+            </div>
+          </div>
+          <div id="sankey_chart" style="width: 100%; height: 600px; padding: 16px;"></div>
+        </div>
+
         <!-- Split-Pane Layout for Workspace -->
         <div id="tab-grid" class="tab-content active">
           <div class="split-pane">
@@ -152,24 +239,11 @@
               </div>
               <div class="bulk-actions" style="display:flex; align-items:center; gap:10px; margin-bottom: 10px; padding: 0 16px;">
                 <button class="btn btn-secondary" onclick="appActions.bulkEdit()"><i class="material-icons">edit</i> Bulk Edit Selected</button>
+                <button class="btn btn-secondary" onclick="document.getElementById('workflow-hub-modal').style.display='block'"><i class="material-icons">auto_fix_high</i> Workflow Hub</button>
                 <span id="bulk-estimate" style="color: #d93025; font-size: 0.875rem; font-weight: bold; display: none;">Estimated Quota Cost: <span id="bulk-cost-value">0</span> API calls</span>
               </div>
-              <div class="table-container">
-                <table class="data-grid" id="data-grid">
-                  <thead>
-                    <tr>
-                      <th style="width: 40px;"><input type="checkbox" id="select-all" onclick="appActions.toggleSelectAll(this)"></th>
-                      <th>Artifact ID</th>
-                      <th>Taxonomy / Correspondent</th>
-                      <th>Summary</th>
-                      <th>Status</th>
-                      <th>Cost</th>
-                    </tr>
-                  </thead>
-                  <tbody id="grid-body">
-                    <!-- Dynamic Rows -->
-                  </tbody>
-                </table>
+              <div class="grid-container" id="grid-container">
+                <!-- Dynamic Cards -->
               </div>
             </div>
             <div class="pane pane-right resize-handle">
@@ -313,6 +387,47 @@
               </div>
             </div>
 
+          </div>
+        </div>
+
+        <!-- Analytics Dashboard Tab -->
+        <div id="tab-analytics" class="tab-content">
+          <div class="pane-header">
+            <h3>System Analytics Dashboard</h3>
+            <button class="btn btn-primary" onclick="appActions.renderAnalyticsDashboard()"><i class="material-icons">refresh</i> Refresh Data</button>
+          </div>
+          <div style="padding: 16px; display: flex; flex-direction: column; gap: 24px;">
+            <!-- KPI Cards -->
+            <div style="display: flex; gap: 16px;">
+              <div style="flex: 1; background: var(--bg-panel, #fff); padding: 16px; border-radius: 8px; border: 1px solid #ccc; text-align: center;">
+                <div style="font-size: 0.875rem; color: var(--text-muted, #666);">First-Pass Accuracy</div>
+                <div id="kpi-accuracy" style="font-size: 2rem; font-weight: bold; color: var(--text-main, #333); margin-top: 8px;">--%</div>
+              </div>
+              <div style="flex: 1; background: var(--bg-panel, #fff); padding: 16px; border-radius: 8px; border: 1px solid #ccc; text-align: center;">
+                <div style="font-size: 0.875rem; color: var(--text-muted, #666);">Exception Rate</div>
+                <div id="kpi-exceptions" style="font-size: 2rem; font-weight: bold; color: var(--text-main, #333); margin-top: 8px;">--%</div>
+              </div>
+              <div style="flex: 1; background: var(--bg-panel, #fff); padding: 16px; border-radius: 8px; border: 1px solid #ccc; text-align: center;">
+                <div style="font-size: 0.875rem; color: var(--text-muted, #666);">Avg Token Cost</div>
+                <div id="kpi-cost" style="font-size: 2rem; font-weight: bold; color: var(--text-main, #333); margin-top: 8px;">--</div>
+              </div>
+            </div>
+
+            <!-- Charts -->
+            <div style="display: flex; gap: 16px;">
+              <div style="flex: 1; background: var(--bg-panel, #fff); padding: 16px; border-radius: 8px; border: 1px solid #ccc;">
+                <h4 style="margin-top: 0; color: var(--text-main, #333); text-align: center;">Manual Rework vs Automation</h4>
+                <div style="position: relative; height: 300px; width: 100%;">
+                  <canvas id="reworkChart"></canvas>
+                </div>
+              </div>
+              <div style="flex: 2; background: var(--bg-panel, #fff); padding: 16px; border-radius: 8px; border: 1px solid #ccc;">
+                <h4 style="margin-top: 0; color: var(--text-main, #333); text-align: center;">Throughput (Last 30 Days)</h4>
+                <div style="position: relative; height: 300px; width: 100%;">
+                  <canvas id="throughputChart"></canvas>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
