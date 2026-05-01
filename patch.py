@@ -1,10 +1,20 @@
+"""
+Module: patch.py
+Purpose: Utility script used to patch various configuration and UI files, injecting styles, components, and logic updates programmatically.
+"""
 import re
 
-with open('CSS_Styles.html', 'r', encoding='utf-8') as f:
-    css = f.read()
+def patch_css():
+    """
+    Purpose: Reads the CSS_Styles.html file, modifies the :root variables and appends new Blueprint styles.
+    Expected Inputs: None (reads from file system).
+    Expected Outputs: None (writes changes to CSS_Styles.html).
+    """
+    with open('CSS_Styles.html', 'r', encoding='utf-8') as f:
+        css = f.read()
 
-# Replace :root
-new_root = """  :root {
+    # Replace :root
+    new_root = """  :root {
     --bg-dark: #121212;
     --bg-panel: #1E1E1E;
     --text-main: #E0E0E0;
@@ -30,10 +40,10 @@ new_root = """  :root {
     
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   }"""
-css = re.sub(r':root\s*\{[^}]+\}', new_root, css)
+    css = re.sub(r':root\s*\{[^}]+\}', new_root, css)
 
-# We need to add the new blueprint styles from ROADMAP
-blueprint_styles = """
+    # We need to add the new blueprint styles from ROADMAP
+    blueprint_styles = """
   /* UPGRADED: Top Bar & Search Area */
   .top-bar {
       background-color: var(--bg-panel);
@@ -182,16 +192,21 @@ blueprint_styles = """
   .table-container { background-color: var(--bg-dark); }
 """
 
-css = css.replace('</style>', blueprint_styles + '\n</style>')
+    css = css.replace('</style>', blueprint_styles + '\n</style>')
 
-with open('CSS_Styles.html', 'w', encoding='utf-8') as f:
-    f.write(css)
+    with open('CSS_Styles.html', 'w', encoding='utf-8') as f:
+        f.write(css)
 
-# Update Index.html
-with open('Index.html', 'r', encoding='utf-8') as f:
-    index = f.read()
+def patch_index():
+    """
+    Purpose: Reads Index.html, replaces the sidebar, injects the new top bar, and removes the old quota block.
+    Expected Inputs: None (reads from file system).
+    Expected Outputs: None (writes changes to Index.html).
+    """
+    with open('Index.html', 'r', encoding='utf-8') as f:
+        index = f.read()
 
-sidebar_new = """      <!-- Sidebar -->
+    sidebar_new = """      <!-- Sidebar -->
       <nav class="sidebar" id="sidebar">
         <div class="brand-header">
             <button class="menu-toggle" onclick="toggleSidebar()">
@@ -244,12 +259,12 @@ sidebar_new = """      <!-- Sidebar -->
         </div>
       </nav>"""
 
-# Extract the old sidebar and replace
-sidebar_regex = re.compile(r'<!-- Sidebar -->.*?<!-- Main Content Area -->', re.DOTALL)
-index = sidebar_regex.sub(sidebar_new + '\n\n      <!-- Main Content Area -->', index)
+    # Extract the old sidebar and replace
+    sidebar_regex = re.compile(r'<!-- Sidebar -->.*?<!-- Main Content Area -->', re.DOTALL)
+    index = sidebar_regex.sub(sidebar_new + '\n\n      <!-- Main Content Area -->', index)
 
-# Add Top Bar to Main Content Area
-top_bar_html = """        <!-- Global Top Bar -->
+    # Add Top Bar to Main Content Area
+    top_bar_html = """        <!-- Global Top Bar -->
         <div class="top-bar">
             <div class="search-row">
                 <div class="omnibox-wrapper">
@@ -301,21 +316,25 @@ top_bar_html = """        <!-- Global Top Bar -->
             </div>
         </div>"""
 
-index = index.replace('<main class="main-content">', '<main class="main-content">\n' + top_bar_html)
+    index = index.replace('<main class="main-content">', '<main class="main-content">\n' + top_bar_html)
 
-# Remove old quota governor from Data Grid pane (it spans multiple lines)
-old_quota = r'<!-- Quota Governor Metric Card -->\s*<div style="padding: 0 16px; margin-bottom: 10px;">.*?</div>\s*</div>\s*</div>'
-index = re.sub(old_quota, '', index, flags=re.DOTALL)
+    # Remove old quota governor from Data Grid pane (it spans multiple lines)
+    old_quota = r'<!-- Quota Governor Metric Card -->\s*<div style="padding: 0 16px; margin-bottom: 10px;">.*?</div>\s*</div>\s*</div>'
+    index = re.sub(old_quota, '', index, flags=re.DOTALL)
 
-with open('Index.html', 'w', encoding='utf-8') as f:
-    f.write(index)
+    with open('Index.html', 'w', encoding='utf-8') as f:
+        f.write(index)
 
+def patch_js():
+    """
+    Purpose: Reads JS_Actions.html, injects health-ping logic and sidebar toggling logic.
+    Expected Inputs: None (reads from file system).
+    Expected Outputs: None (writes changes to JS_Actions.html).
+    """
+    with open('JS_Actions.html', 'r', encoding='utf-8') as f:
+        js_actions = f.read()
 
-# Now update JS_Actions.html
-with open('JS_Actions.html', 'r', encoding='utf-8') as f:
-    js_actions = f.read()
-
-health_ping_js = """  init: function() {
+    health_ping_js = """  init: function() {
     this.refreshData(); // Fetch initial data
     this.loadPipelineSettings(); // Fetch UI configurations
     this.loadQuotaGovernor();
@@ -332,11 +351,14 @@ health_ping_js = """  init: function() {
       .withSuccessHandler((result) => {
         const badge = document.getElementById('system-health-badge');
         const text = document.getElementById('health-status-text');
+        // If the health check is successful, update UI to reflect OK status.
         if (result && result.status === 'success') {
            badge.style.backgroundColor = 'var(--success)';
            text.textContent = 'Health: OK';
            badge.title = 'System is operating normally.';
-        } else {
+        } 
+        // If the health check indicates a problem, reflect an error.
+        else {
            badge.style.backgroundColor = 'var(--accent-red)';
            text.textContent = 'Health: Error';
            badge.title = 'Failed to reach API';
@@ -352,26 +374,30 @@ health_ping_js = """  init: function() {
       .pingHealthAPI();
   },"""
 
-js_actions = js_actions.replace("""  init: function() {
+    js_actions = js_actions.replace("""  init: function() {
     this.refreshData(); // Fetch initial data
     this.loadPipelineSettings(); // Fetch UI configurations
     this.loadQuotaGovernor();
   },""", health_ping_js)
 
-# Add sidebar toggle function to end of js_actions object
-js_actions = js_actions.replace('};\n</script>', """  toggleSidebar: function() { document.getElementById('sidebar').classList.toggle('collapsed'); },
+    # Add sidebar toggle function to end of js_actions object
+    js_actions = js_actions.replace('};\n</script>', """  toggleSidebar: function() { document.getElementById('sidebar').classList.toggle('collapsed'); },
   toggleChip: function(button, astString) {
       button.classList.toggle('active');
       const input = document.getElementById('ast-input');
       let currentVal = input.value.trim();
 
+      // If the button becomes active, append the query string.
       if (button.classList.contains('active')) {
           if (!currentVal.includes(astString)) {
               input.value = currentVal ? `${currentVal} AND ${astString}` : astString;
           }
-      } else {
+      } 
+      // If the button is deactivated, remove the query string.
+      else {
           let regex = new RegExp(`( AND )?${astString}( AND )?`);
           input.value = currentVal.replace(regex, function(match, p1, p2) {
+              // Connect 'AND' logically if both sides existed.
               return (p1 && p2) ? ' AND ' : '';
           }).trim();
       }
@@ -384,5 +410,10 @@ window.toggleChip = function(btn, str) { appActions.toggleChip(btn, str); };
 
 </script>""")
 
-with open('JS_Actions.html', 'w', encoding='utf-8') as f:
-    f.write(js_actions)
+    with open('JS_Actions.html', 'w', encoding='utf-8') as f:
+        f.write(js_actions)
+
+if __name__ == "__main__":
+    patch_css()
+    patch_index()
+    patch_js()

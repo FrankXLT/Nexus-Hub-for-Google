@@ -1,6 +1,8 @@
 <script>
 /**
- * Client-Side State Management (Memory)
+ * Module: JS_State.html
+ * Purpose: Client-Side State Management (Memory) for the frontend application.
+ * Holds active state, data models, and logic for switching tabs and selecting artifacts.
  */
 const appState = {
   activeTab: 'grid',
@@ -14,10 +16,18 @@ const appState = {
   isGlobalSelectActive: false,
 
   switchTab: function(tabId, event) {
+    /**
+     * Purpose: Switches the active UI tab, updating navigation states and rendering the corresponding view.
+     * Expected Inputs:
+     *   tabId (string) - The ID of the tab to switch to.
+     *   event (Event) - The click event that triggered the switch.
+     * Expected Outputs: None. Modifies DOM element classes.
+     */
     this.activeTab = tabId;
     
     // Update Nav
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    // If an event was provided, mark the clicked element as active.
     if (event) {
         event.currentTarget.classList.add('active');
     }
@@ -27,55 +37,100 @@ const appState = {
     document.getElementById('tab-' + tabId).classList.add('active');
 
     // Trigger render if needed
+    // If the audit tab is selected, render the audit timeline.
     if(tabId === 'audit') {
       appActions.renderTimeline();
-    } else if (tabId === 'analytics') {
+    }
+    // If the analytics tab is selected, render the analytics dashboard.
+    else if (tabId === 'analytics') {
       appActions.renderAnalyticsDashboard();
     }
   },
 
   setArtifacts: function(data) {
+    /**
+     * Purpose: Updates the stored artifacts and clears any current selection.
+     * Expected Inputs: data (Array) - The new list of artifacts.
+     * Expected Outputs: None.
+     */
     this.artifacts = data;
     this.selectedIds.clear();
   },
 
   setHistory: function(data) {
+    /**
+     * Purpose: Updates the audit history data.
+     * Expected Inputs: data (Array) - The new history logs.
+     * Expected Outputs: None.
+     */
     this.history = data;
   },
 
   selectArtifact: function(id) {
+    /**
+     * Purpose: Selects a specific artifact to display its details and highlights its row in the UI.
+     * Expected Inputs: id (string) - The unique identifier of the artifact.
+     * Expected Outputs: None. Updates UI and state.
+     */
     this.selectedArtifactId = id;
     appActions.renderDetailsPane();
     
     // Highlight row
     document.querySelectorAll('#grid-body tr').forEach(el => el.classList.remove('selected'));
     const selectedRow = document.querySelector(`tr[data-id="${id}"]`);
-    if(selectedRow) selectedRow.classList.add('selected');
+    // If a matching row is found, apply the 'selected' styling class.
+    if(selectedRow) {
+        selectedRow.classList.add('selected');
+    }
   },
 
   toggleSelection: function(id, shiftKey, ctrlKey) {
+    /**
+     * Purpose: Toggles selection of an artifact, supporting shift-click for range and ctrl-click for multi-select.
+     * Expected Inputs:
+     *   id (string) - The ID of the clicked artifact.
+     *   shiftKey (boolean) - Whether the shift key was held.
+     *   ctrlKey (boolean) - Whether the ctrl key was held.
+     * Expected Outputs: None. Updates internal selection set.
+     */
+    // If shift key is held and a previous item was selected, perform a range selection.
     if (shiftKey && this.lastSelectedId) {
       let startIdx = this.artifacts.findIndex(a => a.artifact_id === this.lastSelectedId);
       let endIdx = this.artifacts.findIndex(a => a.artifact_id === id);
+      // If both the start and end items exist in the artifacts list, select everything in between.
       if (startIdx !== -1 && endIdx !== -1) {
         let min = Math.min(startIdx, endIdx);
         let max = Math.max(startIdx, endIdx);
-        if (!ctrlKey) this.selectedIds.clear();
+        // If ctrl key is not held, clear existing selections before adding new ones.
+        if (!ctrlKey) {
+            this.selectedIds.clear();
+        }
+        // Iterate through the determined range and add each item to the selection.
         for (let i = min; i <= max; i++) {
           this.selectedIds.add(this.artifacts[i].artifact_id);
         }
       }
-    } else if (ctrlKey || shiftKey) {
+    } 
+    // If ctrl or shift is pressed but no range can be established, handle as an individual toggle/add.
+    else if (ctrlKey || shiftKey) {
+      // If the item is already selected, unselect it.
       if(this.selectedIds.has(id)) {
         this.selectedIds.delete(id);
-      } else {
+      } 
+      // If the item is not selected, add it to the selection.
+      else {
         this.selectedIds.add(id);
         this.lastSelectedId = id;
       }
-    } else {
+    } 
+    // If no modifier keys are held, handle as a standard toggle.
+    else {
+      // If the item is already selected, unselect it.
       if(this.selectedIds.has(id)) {
         this.selectedIds.delete(id);
-      } else {
+      } 
+      // If the item is not selected, add it to the selection.
+      else {
         this.selectedIds.add(id);
         this.lastSelectedId = id;
       }
@@ -83,14 +138,28 @@ const appState = {
   },
 
   selectAll: function(selectAll) {
+    /**
+     * Purpose: Selects or deselects all currently loaded artifacts.
+     * Expected Inputs: selectAll (boolean) - True to select all, False to clear all.
+     * Expected Outputs: None.
+     */
+    // If selectAll is true, iterate over all artifacts and add them to the selection set.
     if(selectAll) {
+      // Loop over each artifact to add its ID.
       this.artifacts.forEach(a => this.selectedIds.add(a.artifact_id));
-    } else {
+    } 
+    // If selectAll is false, clear the selection entirely.
+    else {
       this.selectedIds.clear();
     }
   },
   
   getArtifact: function(id) {
+    /**
+     * Purpose: Retrieves an artifact object by its ID from the current state.
+     * Expected Inputs: id (string) - The unique artifact ID.
+     * Expected Outputs: Object | undefined - The matched artifact object, or undefined if not found.
+     */
     return this.artifacts.find(a => a.artifact_id === id);
   }
 };

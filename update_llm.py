@@ -1,6 +1,16 @@
+"""
+Module: update_llm.py
+Purpose: A utility script that statically patches the `llm_engine.py` file to include an auto-archive map feature.
+"""
+
 import re
 
 def update_llm_engine(file_path):
+    """
+    Purpose: Reads a Python file, applies string replacements to update signature, queries, and logic, and saves it.
+    Expected Inputs: file_path (str) - The path to the file to be updated.
+    Expected Outputs: None. Modifies the file in-place.
+    """
     with open(file_path, 'r', encoding='utf-8') as f:
         content = f.read()
 

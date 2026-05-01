@@ -1,5 +1,6 @@
 """
-Authentication bridge for the Nexus Hub Python VM to access Google Workspace APIs.
+Module: auth.py
+Purpose: Authentication bridge for the Nexus Hub Python VM to access Google Workspace APIs.
 Handles headless OAuth 2.0 flow for Gmail and Drive scopes.
 """
 
@@ -21,31 +22,27 @@ TOKEN_FILE = 'token.json'
 
 def authenticate() -> Credentials:
     """
-    Authenticates the application with Google Workspace APIs.
-    
-    Loads credentials from 'credentials.json'. Checks for a valid 'token.json'.
-    If missing or expired, initiates the OAuth 2.0 flow. Because this runs on a 
-    headless VM, the flow is configured to run a local server on port 8080,
-    expecting the user to set up an SSH tunnel to complete the authentication.
-    
-    Returns:
-        Credentials: The authenticated Google OAuth2 credentials object.
-    
-    Raises:
-        FileNotFoundError: If 'credentials.json' is not found in the current directory.
+    Purpose: Authenticates the application with Google Workspace APIs.
+             Loads credentials from 'credentials.json' and manages OAuth flow.
+    Expected Inputs: None (relies on local files and environment variables).
+    Expected Outputs: google.oauth2.credentials.Credentials - The active credentials object.
     """
     creds = None
     
     # Check if token.json exists (contains the user's access and refresh tokens)
+    # If the token file is present, load the stored credentials from it.
     if os.path.exists(TOKEN_FILE):
         creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
         
     # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
+        # If credentials exist but are expired, and we have a refresh token, refresh them automatically.
         if creds and creds.expired and creds.refresh_token:
             print("Token expired. Attempting to refresh...")
             creds.refresh(Request())
+        # If no credentials exist or they cannot be refreshed, initiate a new login flow.
         else:
+            # If the client secrets file is missing, we cannot start the flow.
             if not os.path.exists(CREDENTIALS_FILE):
                 print(f"CRITICAL ERROR: '{CREDENTIALS_FILE}' not found.")
                 print("You must download your OAuth 2.0 Client IDs JSON from Google Cloud Console")
@@ -63,17 +60,21 @@ def authenticate() -> Credentials:
             creds = flow.run_local_server(port=8080, open_browser=False)
             
         # Save the credentials for the next run
+        # Open the token file to store the newly obtained or refreshed credentials.
         with open(TOKEN_FILE, 'w') as token:
             token.write(creds.to_json())
             print(f"Authentication successful! Token saved to '{TOKEN_FILE}'.")
 
     return creds
 
+# If this script is run directly, perform a test authentication.
 if __name__ == '__main__':
     # Test the authentication flow
     print("Testing Google Workspace Authentication Bridge...")
     credentials = authenticate()
+    # If the credentials were successfully obtained and are valid, report success.
     if credentials and credentials.valid:
         print("Success! Credentials are valid and ready to use.")
+    # Otherwise, report failure.
     else:
         print("Failed to obtain valid credentials.")

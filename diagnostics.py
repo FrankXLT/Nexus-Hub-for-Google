@@ -1,7 +1,7 @@
 """
-Diagnostic suite for Nexus Hub.
-Performs read/write verification on the SQLite database, checks OAuth token validity,
-and uploads diagnostic reports securely to Google Drive.
+Module: diagnostics.py
+Purpose: Diagnostic suite for Nexus Hub. Performs read/write verification on the SQLite database, 
+checks OAuth token validity, and uploads diagnostic reports securely to Google Drive.
 """
 
 import sqlite3
@@ -13,17 +13,19 @@ from datetime import datetime
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from auth import authenticate
+import urllib.request
+from notifier import NexusNotifier
 
 DB_PATH = 'nexus.db'
 
 def check_database() -> dict:
     """
-    Verifies SQLite database read/write access.
-    
-    Returns:
-        dict: A result dictionary indicating success or failure.
+    Purpose: Verifies SQLite database read/write access.
+    Expected Inputs: None. Uses DB_PATH.
+    Expected Outputs: dict - A dictionary containing the status, message, and details of the operation.
     """
     try:
+        # If the database file does not exist on disk, return an error.
         if not os.path.exists(DB_PATH):
             return {"status": "error", "message": "Database file not found"}
         
@@ -49,6 +51,7 @@ def check_database() -> dict:
         return {"status": "success", "message": "Database read/write verified", "details": {"rows_read": count}}
         
     except sqlite3.OperationalError as e:
+        # If a locking error occurs (WAL mode), report it specifically.
         if "locked" in str(e).lower():
             return {"status": "error", "message": "Database is locked (WAL lock error)"}
         return {"status": "error", "message": f"SQLite Operational Error: {str(e)}"}
@@ -58,13 +61,13 @@ def check_database() -> dict:
 
 def check_oauth_token() -> dict:
     """
-    Verifies the Google Workspace OAuth token by performing a lightweight API call.
-    
-    Returns:
-        dict: A result dictionary indicating success or failure.
+    Purpose: Verifies the Google Workspace OAuth token by performing a lightweight API call.
+    Expected Inputs: None. Uses configured credentials.
+    Expected Outputs: dict - A status dictionary with success/failure info and basic user details.
     """
     try:
         creds = authenticate()
+        # If credentials are missing or invalid, report an error.
         if not creds or not creds.valid:
             return {"status": "error", "message": "Credentials invalid or missing"}
             
@@ -83,17 +86,18 @@ def check_oauth_token() -> dict:
 
 def check_api_health() -> dict:
     """
-    Verifies the FastAPI web server is responsive.
-    
-    Returns:
-        dict: A result dictionary indicating success or failure.
+    Purpose: Verifies the FastAPI web server is responsive.
+    Expected Inputs: None. Assumes server runs on localhost:8000.
+    Expected Outputs: dict - A status indicating success or HTTP error code.
     """
     try:
         req = urllib.request.Request("http://nexus-api:8000/api/health")
         with urllib.request.urlopen(req, timeout=10) as response:
+            # If the HTTP status is 200 (OK), parse the health data.
             if response.getcode() == 200:
                 data = json.loads(response.read().decode('utf-8'))
                 return {"status": "success", "message": "API is healthy", "details": data}
+            # Otherwise, report the error code.
             else:
                 return {"status": "error", "message": f"API returned HTTP {response.getcode()}"}
     except Exception as e:
@@ -101,16 +105,13 @@ def check_api_health() -> dict:
 
 def upload_diagnostic_log(report_data: dict) -> dict:
     """
-    Compiles the diagnostic report and uploads it to a specific Google Drive folder.
-    
-    Args:
-        report_data (dict): The compiled test results.
-        
-    Returns:
-        dict: A status dictionary containing the uploaded file ID, or error.
+    Purpose: Compiles the diagnostic report and uploads it to a specific Google Drive folder.
+    Expected Inputs: report_data (dict) - The compiled test results to upload.
+    Expected Outputs: dict - A status containing the uploaded file ID, or error message.
     """
     try:
         creds = authenticate()
+        # Ensure credentials are valid before trying to use the Drive API.
         if not creds or not creds.valid:
              return {"status": "error", "message": "Cannot upload log: credentials invalid"}
              
@@ -122,6 +123,7 @@ def upload_diagnostic_log(report_data: dict) -> dict:
         results = drive_service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
         items = results.get('files', [])
         
+        # If the diagnostics folder is not found, create a new one.
         if not items:
             # Create folder if it doesn't exist
             folder_metadata = {
@@ -130,6 +132,7 @@ def upload_diagnostic_log(report_data: dict) -> dict:
             }
             folder = drive_service.files().create(body=folder_metadata, fields='id').execute()
             folder_id = folder.get('id')
+        # Otherwise, use the existing folder's ID.
         else:
             folder_id = items[0].get('id')
             
@@ -153,10 +156,9 @@ def upload_diagnostic_log(report_data: dict) -> dict:
 
 def run_all_diagnostics() -> dict:
     """
-    Executes the full suite of diagnostic tests and securely uploads the result.
-    
-    Returns:
-        dict: The master diagnostic report.
+    Purpose: Executes the full suite of diagnostic tests and securely uploads the result.
+    Expected Inputs: None.
+    Expected Outputs: dict - The master diagnostic report containing nested component reports.
     """
     report = {
         "timestamp": datetime.now().isoformat(),
@@ -168,13 +170,17 @@ def run_all_diagnostics() -> dict:
     notifier = NexusNotifier()
     errors = []
     
+    # If the database check failed, append the error to the notification list.
     if report['database']['status'] == 'error':
         errors.append(f"Database Error: {report['database']['message']}")
+    # If the OAuth check failed, append the error.
     if report['oauth']['status'] == 'error':
         errors.append(f"OAuth Error: {report['oauth']['message']}")
+    # If the API check failed, append the error.
     if report['api']['status'] == 'error':
         errors.append(f"API Error: {report['api']['message']}")
         
+    # If there are any collected errors, send an urgent webhook notification.
     if errors:
         notifier.send_urgent_webhook({
             "title": "Nexus Hub: Diagnostic Watchdog Failure",
@@ -186,11 +192,13 @@ def run_all_diagnostics() -> dict:
     if report['oauth']['status'] == 'success':
         upload_result = upload_diagnostic_log(report)
         report['log_upload'] = upload_result
+    # Otherwise, skip the upload because we don't have authorization.
     else:
         report['log_upload'] = {"status": "skipped", "message": "Skipped due to OAuth failure"}
         
     return report
 
+# When run as a script, execute the test suite and output JSON.
 if __name__ == "__main__":
     # Local CLI testing
     print("Running Nexus Diagnostics...")

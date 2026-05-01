@@ -107,10 +107,11 @@ apt-get install -y python3 python3-pip python3-venv sqlite3 git curl
 
 echo ">>> Creating /opt/nexus-hub directory..."
 mkdir -p /opt/nexus-hub
-# We will set ownership to your ssh user. Using $USER in a startup script resolves to root, 
-# so we will make it open for now or rely on the user pulling the code later.
 chmod 777 /opt/nexus-hub
 cd /opt/nexus-hub
+
+echo ">>> Cloning Nexus Hub repository from GitHub..."
+git clone https://github.com/FrankXLT/Nexus-Hub-for-Google.git . || echo "Directory not empty, skipping clone."
 
 echo ">>> Initializing Python Virtual Environment..."
 python3 -m venv venv

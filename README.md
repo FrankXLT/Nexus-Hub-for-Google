@@ -1,7 +1,7 @@
 # Nexus Hub for Google
 ![Python](https://img.shields.io/badge/Python-3.11-blue?style=flat-square&logo=python)
 ![Google Cloud](https://img.shields.io/badge/Google_Cloud-e2--micro-4285F4?style=flat-square&logo=googlecloud)
-![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED?style=flat-square&logo=docker)
+![FastAPI](https://img.shields.io/badge/FastAPI-Framework-009688?style=flat-square&logo=fastapi)
 ![Gemini](https://img.shields.io/badge/AI-Gemini_Pro-8E75B2?style=flat-square&logo=googlegemini)
 ![SQLite](https://img.shields.io/badge/Database-SQLite3-003B57?style=flat-square&logo=sqlite)
 ![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
@@ -10,339 +10,190 @@
 
 Nexus Hub is a self-hosted, AI-powered knowledge management system that unifies your Google Workspace ecosystem. Acting as the spiritual successor to Google Inbox, it transforms unstructured emails and Google Drive documents into a centralized, queryable relational database.
 
-By leveraging Google's Gemini Large Language Models (LLMs) and a strictly governed Zero-Trust Taxonomy, Nexus Hub autonomously categorizes, extracts, and organizes your digital life while keeping your data entirely within your personal Google Cloud environment.
+By leveraging Google's Gemini Large Language Models (LLMs) and a strictly governed Zero-Trust Taxonomy, Nexus Hub autonomously categorizes, extracts, and organizes your digital life. 
 
-**Version History**
+---
 
-*** NOTICE: As of Stage 45, development has shifted to Architectural Epics. Versioning has been reset to a YYYY.Epic.Major.Minor schema. Epic 0 (Baseline) = 2026.0.x.x, Epic 1 (Profiling) = 2026.1.x.x, Epic 2 (Graph API) = 2026.2.x.x, Epic 3 (Nexus UI) = 2026.3.x.x, Epic 4 (IaC) = 2026.4.x.x. ***
-
-- **v2026.6.0.0:** [Epic 6.0] - Deprecated Docker to free system resources, upgraded IaC scripts to interactive wizards, and completely rewrote the Installation Manual for beginners.
-- **v2026.5.3.0:** [Epic 5.3](#epic-5-prompt-3) - Executed Melding Audit Remediation: Wired dead Omnibox buttons and restored access to the Workflow Hub modal.
-- **v2026.5.0.0:** [Epic 5.0] - Executed Pre-Flight Remediation: Patched Google Tasks schema crashes, injected Safe Mode gatekeepers, and wired missing Code.gs bridges.
-- **v2026.4.2.0:** [Epic 4.2](#epic-4-prompt-2) - Engineered the CI/CD deploy script integrating clasp and gcloud, officially deprecating legacy shell scripts.
-- **v2026.4.1.0:** [Epic 4.1](#epic-4-prompt-1) - Built the Zero-Touch Provisioner for automated GCP VM deployment and deprecated manual setup scripts.
-- **v2026.3.8.0:** [Epic 3.8](#epic-3-prompt-8) - Finalized the collapsible sidebar, consolidated all existing modals into the navigation tree, and configured dynamic boot routing.
-- **v2026.3.7.0:** [Epic 3.7](#epic-3-prompt-7) - Implemented the Threads UI Sankey diagram with interactive routing and color weaving.
-- **v2026.3.6.0:** [Epic 3.6](#epic-3-prompt-6) - Implemented the System Analytics Dashboard.
-- **v2026.3.5.0:** [Epic 3.5](#epic-3-prompt-5) - Built the global 'Select All' UX pattern for massive query-based bulk operations.
-- **v2026.3.4.0:** [Epic 3.4](#epic-3-prompt-4) - Implemented the Aggregate Context Drawer supporting bulk Zero-Shot Rule generation.
-- **v2026.3.3.0:** [Epic 3.3](#epic-3-prompt-3) - Upgraded the Omnibox with interactive AST chips and Tab-autocomplete prediction.
-- **v2026.3.2.0:** [Epic 3.2](#epic-3-prompt-2) - Adapted the existing artifact data renderer into the responsive, metadata-first Knowledge Grid utilizing the prototype's stacked card CSS.
-- **v2026.3.1.0:** [Epic 3.1](#epic-3-prompt-1) - Migrated the Quota Governor into the new V3 UI prototype header and established the System Health badge.
-- **v2026.2.7.0:** [Epic 2.7](#epic-2-prompt-7) - Built the Zero-Shot Rule generation API for bulk UI tuning.
-- **v2026.2.6.0:** [Epic 2.6](#epic-2-prompt-6) - Added persistent user preferences to support dynamic frontend boot routing.
-- **v2026.2.5.0:** [Epic 2.5](#epic-2-prompt-5) - Engineered Mission Control API with SQLite temporal grouping.
-- **v2026.2.4.0:** [Epic 2.4](#epic-2-prompt-4) - Engineered the Threads API with long-tail grouping and brand color injection.
-- **v2026.2.3.0:** [Epic 2.3](#epic-2-prompt-3) - Engineered the Backend Search AST supporting exclusions, temporal parsing, and pagination.
-- **v2026.2.2.0:** [Epic 2.2](#epic-2-prompt-2) - Engineered the ROI Analytics endpoint.
-- **v2026.2.1.0:** [Epic 2.1](#epic-2-prompt-1) - Upgraded database schema and workers to capture execution telemetry.
-- **v2026.1.8.0:** [Epic 1.8](#epic-1-prompt-8) - Engineered the Google Tasks Action Engine for autonomous workflow generation.
-- **v2026.1.7.0:** [Epic 1.7](#epic-1-prompt-7) - Engineered the Materialization Pipeline, Lineage Tracking, and Workflow Hub to normalize HTML emails into Drive PDFs.
-- **v2026.1.6.0:** [Epic 1.6](#epic-1-prompt-6) - Engineered the asynchronous Historical Import Engine and SQLite ingestion buffer.
-- **v2026.1.5.0:** [Epic 1.5](#epic-1-prompt-5) - Engineered the Entity Profiler for autonomous classification of unknown senders and externalized LLM prompts to XML templates.
-- **v2026.1.4.1:** [Epic 1.4.1](#epic-1-prompt-4-1) - Executed Mid-Epic Audit Remediation: Patched HMAC bypass, secured RAG SQL injection, fixed Drive LLM invocation, and isolated API exceptions.
-- **v2026.1.4.0:** [Epic 1.4](#epic-1-prompt-4) - Built the Drive Relocation Engine to clear the staging dropzone.
-- **v2026.1.3.0:** [Epic 1.3](./ROADMAP/PROMPT_ROADMAP.md#epic-1-prompt-3) - Engineered the Advanced Inbox Retention Engine.
-- **v2026.1.2.0:** [Epic 1.2](./ROADMAP/PROMPT_ROADMAP.md#epic-1-prompt-2) - Built Gmail API post-processing for Tier 3 Auto-Archiving.
-- **v2026.1.1.0:** [Epic 1.1](./ROADMAP/PROMPT_ROADMAP.md#epic-1-prompt-1) - Applied audit fixes for Gmail global tuning hooks and refactored CI/CD to use Docker health checks.
-- **v2026.0.45.0:** [Epic 0 - Prompt 45](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-45) - Built the Quota Governor Dashboard in the Apps Script UI to visualize daily API burn rates and throttling status.
-- **v2026.0.44.0:** [Epic 0 - Prompt 44](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-44) - Refactored installation scripts into a Fail-Fast architecture with direct documentation traceability and mobile webhook alerts.
-- **v2026.0.43.0:** [Epic 0 - Prompt 43](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-43) - Performed a UI tooltip sweep on all AI pipeline controls and updated the AI CONOPS to mandate the Continuous UX Protocol.
-- **v2026.0.42.0:** [Epic 0 - Prompt 42](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-42) - Documented OAuth scope justifications and token management security protocols.
-- **v2026.0.41.0:** [Epic 0 - Prompt 41](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-41) - Added a dedicated Security Architecture section detailing HMAC webhook verification and VM network isolation.
-- **v2026.0.40.0:** [Epic 0 - Prompt 40](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-40) - Documented the 'Walled Garden' Privacy Guarantee and enterprise AI data protection policies.
-- **v2026.0.39.0:** [Epic 0 - Prompt 39](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-39) - Built the Entity Management UI, introducing grouped taxonomy dropdowns and no-code AI prompt tuning text areas.
-- **v2026.0.38.0:** [Epic 0 - Prompt 38](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-38) - Upgraded SQLite schema to support Global Purposes and dynamic AI Tuning Hooks.
-- **v2026.0.37.0:** [Epic 0 - Prompt 37](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-37) - Built the Material Design 3-Phase Vertical Stepper in the Apps Script UI to control the pipeline.
-- **v2026.0.36.0:** [Epic 0 - Prompt 36](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-36) - Built the Backend Bridge for the UI Pipeline Orchestrator, dynamically linking UI configs to the Python engines.
-- **v2026.0.35.0:** [Epic 0 - Prompt 35](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-35) - Defined the Anti-Folder philosophy and established standard nomenclature for the two operational Drive folders.
-- **v2026.0.34.0:** [Epic 0 - Prompt 34](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-34) - Implemented hard-coded Pre-AI filtering in the Gmail Sync Engine to drop junk mail before LLM processing.
-- **v2026.0.33.0:** [Epic 0 - Prompt 33](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-33) - Established AI-Assisted Development CONOPS, prompt governance, and Continuous Documentation protocols.
-- **v2026.0.29.0:** [Epic 0 - Prompt 29](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-29) - Integrated Google People API for autonomous Contact Bootstrapping and multi-dimensional profile mapping.
-- **v2026.0.28.0:** [Epic 0 - Prompt 28](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-28) - Telemetry & Alerting Matrix with Pushover webhook notifications and Gmail Daily Digests.
-- **v2026.0.26.0:** [Epic 0 - Prompts 22-26](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-22) - Added Three-Tier Taxonomy Hierarchy, Zero-Trust UI Review Queues, RAG Query engine, and Quota Governor.
-- **v2026.0.21.0:** [Epic 0 - Prompts 19-21](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-19) - Decoupled hardcoded LLM prompts to SQLite, implemented FastAPI BackgroundTasks for the AI Self-Tuning loop, and finalized documentation.
-- **v2026.0.18.0:** [Epic 0 - Prompts 16-18](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-16) - Containerized the Python backend via Docker Compose, added the Dead-Letter Queue, and implemented taxonomy normalization.
-- **v2026.0.15.0:** [Epic 0 - Prompts 11-15](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-11) - Refactored database row factories, implemented programmatic visual branding, and deployed the Help Center tooltips.
-- **v2026.0.9.0:** [Epic 0 - Prompt 9](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-9) - Implemented the zero-dependency Material Design UI (HTML/CSS/JS) via Apps Script templates.
-- **v2026.0.8.0:** [Epic 0 - Prompt 8](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-8) - Implemented [`llm_engine.py`](./llm_engine.py) to handle Gemini AI data extraction and artifact DB logging.
-- **v2026.0.7.0:** [Epic 0 - Prompt 7](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-7) - Implemented [`sync_engine.py`](./sync_engine.py) Delta Synchronization Engine for Gmail & Drive.
-- **v2026.0.6.0:** [Epic 0 - Prompt 6](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-6) - Implemented [`diagnostics.py`](./diagnostics.py) and diagnostic ping routing.
-- **v2026.0.5.0:** [Epic 0 - Prompt 5](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-5) - Implemented [`auth.py`](./auth.py) for Google Workspace headless authentication.
-- **v2026.0.4.0:** [Epic 0 - Prompt 4](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-4) - Implemented [`Code.gs`](./Code.gs) Apps Script Router & Cryptographic Webhook Client.
-- **v2026.0.3.0:** [Epic 0 - Prompt 3](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-3) - Implemented [`main.py`](./main.py) Webhook Receiver with HMAC Signature & Replay Protection.
-- **v2026.0.2.0:** [Epic 0 - Prompt 2](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-2) - Implemented Database Initialization ([`db_init.py`](./db_init.py)) with STRICT and JSON validation constraints.
-- **v2026.0.1.0:** [Epic 0 - Prompt 1](./ROADMAP/PROMPT_ROADMAP.md#epic-0-prompt-1) - VM Infrastructure and CI/CD Pipeline implemented ([`setup.sh`](./setup.sh), [`update.sh`](./update.sh)).
-
-**Documentation**
-
-- [Prompt Audit Log](audit/PROMPT_AUDIT.md)
-- [Step-by-Step Instructions](INSTRUCTIONS.md)
-
-**License**
-
-Licensed under the **GNU General Public License, Version 3.0 (GPLv3)**. See the `LICENSE` file for details.
-
-
-# Master Software Requirements & Architecture Specification
-
-**Table of Contents**
-
-* [1. Executive Summary & High-Level Architecture](#1-executive-summary-high-level-architecture)
-  * [The Privacy Guarantee: Your Data, Your Walled Garden](#the-privacy-guarantee-your-data-your-walled-garden)
-* [2. Infrastructure & Multi-Level Topology](#2-infrastructure-multi-level-topology)
-* [3. The Frontend User Interface (UI)](#3-the-frontend-user-interface-ui)
-  * [3.1 The Pipeline Orchestrator](#31-the-pipeline-orchestrator)
-  * [3.2 Entity Management & Prompt Tuning UI](#32-entity-management--prompt-tuning-ui)
-* [4. Database Schema & Multi-Dimensional Taxonomy](#4-database-schema-multi-dimensional-taxonomy)
-  * [4.1 The Anti-Folder Philosophy & Drive Topology](#41-the-anti-folder-philosophy--drive-topology)
-  * [4.2 Global Purposes & AI Tuning Hooks](#42-global-purposes--ai-tuning-hooks)
-* [5. The Synchronization Engine](#5-the-synchronization-engine)
-* [6. The Intelligent Quota Governor](#6-the-intelligent-quota-governor)
-* [7. The AI & Dynamic Prompt Pipeline](#7-the-ai-dynamic-prompt-pipeline)
-  * [7.1 The Query-First Omnibox & AST](#71-the-query-first-omnibox--ast)
-* [8. VM Lifecycle & Containerization](#8-vm-lifecycle-containerization)
-  * [8.1 Fail-Fast Provisioning](#81-fail-fast-provisioning)
-* [9. Telemetry, Diagnostics & Notifications](#9-telemetry-diagnostics-notifications)
-* [10. Security Architecture & Network Boundaries](#10-security-architecture--network-boundaries)
-  * [10.1 OAuth Boundaries & Scope Justification](#101-oauth-boundaries--scope-justification)
-* [11. Infrastructure as Code (IaC)](#11-infrastructure-as-code-iac)
-* [12. AI-Assisted Development CONOPS & Governance](#12-ai-assisted-development-conops--governance)
-  * [12.1 The Prompt Engineering & Audit Pipeline](#121-the-prompt-engineering--audit-pipeline)
-  * [12.2 The Continuous Documentation Protocol](#122-the-continuous-documentation-protocol)
-  * [12.3 Multi-Developer Synchronization](#123-multi-developer-synchronization)
-  * [12.4 The Standard Execution Prompt Template (Example)](#124-the-standard-execution-prompt-template-example)
-* [13. Acronym Glossary](#13-acronym-glossary)
-
-**Table of Figures**
-
-* [High-Level Architecture](#figure-1)
-* [Macro Topology Diagram](#figure-2)
-* [Entity Relationship Diagram](#figure-3)
-* [Drive Two-Stage Triage Logic](#figure-4)
-* [Gmail Single-Pass Logic](#figure-5)
-* [Intelligent Quota Governor Flowchart](#figure-6)
-* [Diagnostic Watchdog Flowchart](#figure-7)
-* [The AI-Assisted Development Workflow](#figure-8)
-
-## 1. Executive Summary & High-Level Architecture
+## 1. Executive Summary
 
 ### The Zero-Inbox Philosophy
-Nexus Hub operates on the principle of a "zero-inbox" philosophy, acting as the spiritual successor to Google Inbox. Instead of relying on manual sorting or rigid keyword algorithms, the system employs Large Language Models (LLMs) to semantically comprehend unstructured documents and emails. It categorizes, extracts custom data, and routes these artifacts into a unified, centralized relational database ([`nexus.db`](./nexus.db)). By automating the organizational overhead, Nexus Hub transforms a chaotic digital workspace into a highly organized, task-oriented knowledge graph.
-
-**File Reference:**
-* [`db_init.py`](./db_init.py) - Initializes the centralized SQLite [`nexus.db`](./nexus.db) engine that makes zero-inbox tracking possible.
+Nexus Hub abandons legacy folder-sorting and rigid keyword algorithms. Instead, it employs Semantic AI to comprehend the *intent* of unstructured documents and emails. It automatically categorizes them, extracts custom metadata fields, and routes these artifacts into a unified relational database ([`nexus.db`](./nexus.db)). By automating organizational overhead, Nexus Hub transforms a chaotic digital workspace into a highly organized, task-oriented knowledge graph.
 
 ### The Privacy Guarantee: Your Data, Your Walled Garden
-Nexus Hub is built on absolute data sovereignty. Because it is self-hosted entirely within the user's Google Workspace and GCP environment, data never transits a third-party server. The Gemini API is used under Google Cloud's enterprise terms, meaning private documents and emails are **never** used to train public foundation models.
+> 🧠 **Knowledge Point: What is a Walled Garden?**
+> A "Walled Garden" is a closed ecosystem. Many AI startups require you to forward your private emails to their proprietary servers. Nexus Hub is deployed *entirely* within your personal Google Cloud Platform (GCP) project. Your data never transits a third-party server, and because we utilize Google's Enterprise Gemini API, your private documents are **never** used to train public foundation models.
 
-### High-Level Architecture
+---
 
-Nexus Hub operates on a hybrid architecture:
-1. **Frontend (Google Apps Script):** A secure, zero-trust web app serving the Material Design UI and acting as a secure webhook router.
-2. **Backend (GCP e2-micro VM):** A persistent stateful engine running Python (FastAPI/Sync Engine), Docker, and a centralized SQLite index ([`nexus.db`](./nexus.db)).
-3. **AI Pipeline:** Uses Document AI for OCR and Gemini API for complex RAG/Semantic categorization.
+## Table of Contents
+* [1. Executive Summary](#1-executive-summary)
+* [2. Version History](#2-version-history)
+* [3. System Architecture & Topology](#3-system-architecture--topology)
+* [4. Authentication & Security Boundaries](#4-authentication--security-boundaries)
+* [5. Database Architecture & Taxonomy Schema](#5-database-architecture--taxonomy-schema)
+* [6. Core Engines: What Files Do What](#6-core-engines-what-files-do-what)
+* [7. Infrastructure as Code (IaC)](#7-infrastructure-as-code-iac)
+* [8. AI-Assisted Development CONOPS](#8-ai-assisted-development-conops)
+* [9. Acronym Glossary](#9-acronym-glossary)
 
-<a id="figure-1"></a>
-**Figure 1: High-Level Architecture**
+**Table of Figures**
+* [Figure 1: Macro Topology & Communication Paths](#figure-1-macro-topology--communication-paths)
+* [Figure 2: Dual-Authentication & HMAC Handshake](#figure-2-dual-authentication--hmac-handshake)
+* [Figure 3: Entity Relationship Diagram](#figure-3-entity-relationship-diagram)
 
-```mermaid
-flowchart LR
-    User([User]) --> UI[Apps Script UI]
-    UI -- "HMAC Secured" --> VM[GCP Python Engine]
-    
-    subgraph Google Workspace
-        Drive[Google Drive]
-        Gmail[Gmail]
-    end
-    
-    Workspace -- "Pub/Sub & Polling" --> VM
-    VM <--> DB[(SQLite Core)]
-    VM -- "RAG & OCR" --> AI[Gemini API]
-    
-    style VM fill:#e6f4ea,stroke:#1e8e3e,stroke-width:2px
-    style AI fill:#fce8e6,stroke:#d93025,stroke-width:2px
-    style DB fill:#fef7e0,stroke:#f9ab00,stroke-width:2px
-```
+---
 
-### Core Features
-* **Zero-Touch Autonomy:** Natively monitors Gmail and Google Drive via delta-syncs and Pub/Sub webhooks, automatically tagging and sorting incoming artifacts without manual intervention.
-* **Three-Tier Hierarchical Taxonomy:** Enforces logical grouping (`Category` -> `Correspondent` -> `Purpose`) to prevent directory sprawl and label bloat.
-* **Intelligent Quota Governor:** Defends your daily Google API limits by prioritizing real-time emails (last 72 hours) and throttling historical batch processing.
-* **Entity Bootstrapping:** Automatically transforms your personal Google Contacts (names, emails, physical addresses) into deterministic AI routing profiles.
-* **Dynamic AI Pipelines:** Inject multi-dimensional context (subdomains, physical addresses) to ensure deterministic LLM routing.
-* **Zero-Trust Security & Quarantine:** Newly discovered vendors and document types are quarantined in a disabled state until manually approved by the user.
-* **RAG Knowledge Retrieval:** Features a natural language AI Assistant that queries your extracted SQLite metadata to answer complex questions about your documents and spending.
-* **Cross-Ecosystem Visual Branding:** Synchronizes WCAG-compliant brand colors across both Gmail nested labels and Google Drive folders.
-* **Diagnostic Watchdog & Alerting:** Self-monitors and pushes critical failure alerts to mobile devices via Pushover, while emailing daily digests of quarantined items.
+## 2. Version History
 
+Development is tracked via Architectural Epics following a `YYYY.Epic.Major.Minor` schema. 
 
+| Version | Epic | Description |
+| :--- | :--- | :--- |
+| **v2026.6.0.0** | Epic 6.0 | Deprecated Docker to free system resources, upgraded IaC scripts to interactive wizards, and completely rewrote the Installation Manual for beginners. |
+| **v2026.5.3.0** | Epic 5.3 | Executed Melding Audit Remediation: Wired dead Omnibox buttons and restored access to the Workflow Hub modal. |
+| **v2026.5.0.0** | Epic 5.0 | Executed Pre-Flight Remediation: Patched Google Tasks schema crashes, injected Safe Mode gatekeepers, and wired missing Code.gs bridges. |
+| **v2026.4.2.0** | Epic 4.2 | Engineered the CI/CD deploy script integrating clasp and gcloud, officially deprecating legacy shell scripts. |
+| **v2026.4.1.0** | Epic 4.1 | Built the Zero-Touch Provisioner for automated GCP VM deployment and deprecated manual setup scripts. |
+| **v2026.3.8.0** | Epic 3.8 | Finalized the collapsible sidebar, consolidated all existing modals into the navigation tree, and configured dynamic boot routing. |
+| **v2026.3.7.0** | Epic 3.7 | Implemented the Threads UI Sankey diagram with interactive routing and color weaving. |
+| **v2026.3.6.0** | Epic 3.6 | Implemented the System Analytics Dashboard using Chart.js. |
+| **v2026.3.5.0** | Epic 3.5 | Built the global 'Select All' UX pattern for massive query-based bulk operations. |
+| **v2026.3.4.0** | Epic 3.4 | Implemented the Aggregate Context Drawer supporting bulk Zero-Shot Rule generation. |
+| **v2026.3.3.0** | Epic 3.3 | Upgraded the Omnibox with interactive AST chips and Tab-autocomplete prediction. |
+| **v2026.3.2.0** | Epic 3.2 | Adapted the existing artifact data renderer into the responsive, metadata-first Knowledge Grid. |
+| **v2026.2.7.0** | Epic 2.7 | Built the Zero-Shot Rule generation API for bulk UI tuning. |
+| **v2026.2.5.0** | Epic 2.5 | Engineered Mission Control API with SQLite temporal grouping. |
+| **v2026.2.4.0** | Epic 2.4 | Engineered the Threads API with long-tail grouping and brand color injection. |
+| **v2026.2.3.0** | Epic 2.3 | Engineered the Backend Search AST supporting exclusions, temporal parsing, and pagination. |
+| **v2026.1.8.0** | Epic 1.8 | Engineered the Google Tasks Action Engine for autonomous workflow generation. |
+| **v2026.1.7.0** | Epic 1.7 | Engineered the Materialization Pipeline, Lineage Tracking, and Workflow Hub. |
+| **v2026.0.45.0**| Epic 0 | Baseline Webhook and Architecture completed, integrating Google Apps Script UI with Python VM. |
 
-## 2. Infrastructure & Multi-Level Topology
+*(For full historical logs, consult the `AUDIT` and `ROADMAP` directories.)*
 
-Nexus Hub bridges the serverless convenience of Google Apps Script with the computational power of a dedicated Python Virtual Machine (VM). 
+---
 
-### The Three Levels of Architecture
-* **Service Level (GCP VM vs. Apps Script):** 
-  The frontend is completely serverless, deployed via Google Apps Script to provide a zero-dependency, zero-maintenance UI. The backend runs persistently on a Google Cloud Platform (GCP) `e2-micro` VM to sidestep the strict 6-minute execution limits of Apps Script.
-* **Software/API Level:** 
-  The VM runs a containerized Python application utilizing Docker. `FastAPI` acts as the webhook receiver and router. The Python sync and LLM engines communicate securely with the `Gemini API` (for data extraction) and `Google Workspace APIs` (for fetching emails and files).
-* **User Data Level:** 
-  Raw data (emails, PDFs) is pulled from Google servers, stripped of heavy metadata via Document AI OCR, and processed by the LLM. The extracted structured data (Summary, Taxonomy, Custom Fields) is written to the local SQLite index on the VM.
+## 3. System Architecture & Topology
 
-**File References:**
-* [`docker-compose.yml`](./docker-compose.yml) - Orchestrates the two Python microservices natively on the VM.
-* [`main.py`](./main.py) - The FastAPI entry point for incoming webhook and API requests.
-* [`sync_engine.py`](./sync_engine.py) - Actively fetches changes from Google services.
-* [`llm_engine.py`](./llm_engine.py) - Interfaces with the Gemini AI to extract user data.
+Nexus Hub operates on a serverless-hybrid 3-Tier architecture, combining the zero-maintenance benefits of Google Apps Script with the computational depth of a persistent cloud Virtual Machine.
 
-### Macro Topology Diagram
+> 🧠 **Knowledge Point: Why an e2-micro VM instead of Docker/Cloud Run?**
+> Google Cloud offers a free-tier `e2-micro` VM. By managing the Python environment natively via `systemd` rather than heavy Docker containers, we preserve the limited 1GB of RAM entirely for the SQLite database engine and the FastAPI worker loops, ensuring lightning-fast performance for absolutely zero cost.
 
-<a id="figure-2"></a>
-**Figure 2: Macro Topology Diagram**
+<a id="figure-1-macro-topology--communication-paths"></a>
+### Figure 1: Macro Topology & Communication Paths
 
 ```mermaid
 flowchart TB
-    %% Styling Classes
-    classDef workspace fill:#e8eaed,stroke:#5f6368,stroke-width:2px;
-    classDef appsScript fill:#e8f0fe,stroke:#1a73e8,stroke-width:2px;
+    classDef browser fill:#f9f9f9,stroke:#333,stroke-width:2px;
+    classDef gas fill:#e8f0fe,stroke:#1a73e8,stroke-width:2px;
     classDef gcp fill:#e6f4ea,stroke:#1e8e3e,stroke-width:2px;
     classDef external fill:#fce8e6,stroke:#d93025,stroke-width:2px;
-    classDef database fill:#fef7e0,stroke:#f9ab00,stroke-width:2px;
+    classDef db fill:#fef7e0,stroke:#f9ab00,stroke-width:2px;
 
-    subgraph User Browser
-        UI[Material Design UI Shell]
+    subgraph Client Browser
+        UI[Material Design SPA\n(Index.html, JS_Actions.html)]
     end
+    class UI browser
 
-    subgraph Google Apps Script Environment
-        GS[Code.gs Server Router]
+    subgraph Serverless Frontend
+        GS[Code.gs Bridge]
     end
-    class GS appsScript
+    class GS gas
 
-    subgraph Google Workspace Ecosystem
-        Gmail[Gmail API]
-        Drive[Google Drive API]
-    end
-    class Gmail,Drive workspace
-
-    subgraph "Google Cloud Platform (GCP)"
-        PubSub[Cloud Pub/Sub]
-        DocAI[Document AI API]
+    subgraph "GCP e2-micro VM (Backend)"
+        API[FastAPI Router\n(main.py)]
+        Worker[Background Tasks\n(sync_engine.py)]
+        DB[(SQLite nexus.db)]
         
-        subgraph Compute Engine
-            VM[e2-micro VM: Python Sync Engine]
-            WH[FastAPI / Nginx Reverse Proxy]
-            DB[SQLite nexus.db]
-            
-            WH <--> VM
-            VM <--> DB
-        end
+        API <--> DB
+        Worker <--> DB
     end
-    class PubSub,DocAI,VM,WH gcp
-    class DB database
+    class API,Worker gcp
+    class DB db
 
-    subgraph External Public Internet
-        Gemini[Google Gemini API]
-        Pushover[Pushover API Webhook]
+    subgraph Google Workspace APIs
+        Gmail[Gmail Push/History]
+        Drive[Google Drive Delta]
+        Tasks[Google Tasks]
+    end
+    class Gmail,Drive,Tasks external
+
+    subgraph External Intelligence
+        Gemini[Gemini API]
+        Pushover[Mobile Webhooks]
     end
     class Gemini,Pushover external
 
     %% Connections
-    UI -- "google.script.run (Async JS)" <--> GS
+    UI -- "google.script.run" <--> GS
+    GS -- "HMAC-Secured POST" <--> API
     
-    GS -- "HMAC-Secured REST (GET/POST)" <--> WH
+    Gmail -- "Pub/Sub Webhooks" --> API
+    Worker -- "Delta Sync Fetch" <--> Gmail
+    Worker -- "Download/Relocate" <--> Drive
+    Worker -- "Create To-Dos" --> Tasks
     
-    Gmail -- "Real-time Push Notification" --> PubSub
-    PubSub -- "Webhook POST (/api/pubsub)" --> WH
-    
-    VM -- "Fetch Changes / Apply Metadata" <--> Drive
-    VM -- "Apply Nested Labels / Colors" --> Gmail
-    
-    VM -- "Send Raw PDF/Images" --> DocAI
-    DocAI -- "Return OCR Text" --> VM
-    
-    VM -- "Send Context & Prompts" --> Gemini
-    Gemini -- "Return Structured JSON" --> VM
-    
-    VM -- "CRITICAL Alert Webhook POST" --> Pushover
+    Worker -- "Prompts & Context" <--> Gemini
+    Worker -- "Critical Alerts" --> Pushover
 ```
 
+---
 
+## 4. Authentication & Security Boundaries
 
-## 3. The Frontend User Interface (UI)
+Security in Nexus Hub relies on a strict separation of concerns. The visual interface (Frontend) and the automated workers (Backend) authenticate through entirely different mechanisms.
 
-The UI is a decoupled Single-Page Application (SPA) utilizing vanilla HTML, CSS, and JS served natively from Google Apps Script. 
+> 🧠 **Knowledge Point: What is HMAC-SHA256?**
+> Hash-Based Message Authentication Code (HMAC) is a cryptographic handshake. Because the Python backend API is open to the internet on Port 8000, anyone could technically send a payload to it. To prevent this, both the UI and the Backend share a secret password (`NEXUS_HMAC_SECRET`). When the UI sends a command, it mathematically signs the payload. The Backend validates this signature and instantly drops any unauthorized traffic.
 
-**Why Google Apps Script:** Utilizing Apps Script rather than a traditional React/Node frontend eliminates hosting overhead and CORS complexities. Most importantly, it inherits Google's native authentication layer, instantly securing the dashboard behind Google credentials without managing session cookies.
+<a id="figure-2-dual-authentication--hmac-handshake"></a>
+### Figure 2: Dual-Authentication & HMAC Handshake
 
-### Features & Layout
-The interface utilizes a split-pane Material Design layout. 
-* **Data Grid:** A sortable, filterable list of artifacts.
-* **Zero-Trust Review Queue:** Displays explicitly quarantined items (newly discovered senders) pending user approval.
-* **Manual Overrides & Bulk AI Correction:** Users can correct LLM classifications, triggering asynchronous background tasks that tune the AI prompts.
-* **RAG Chat & Sandbox:** A conversational UI allowing users to execute "Dry Run" prompts against specific files or run natural language queries across their entire document base.
+```mermaid
+sequenceDiagram
+    participant User
+    participant GAS as Google Apps Script (Frontend)
+    participant VM as Python FastAPI (Backend)
+    participant Workspace as Google Workspace APIs
 
-### 3.1 The Pipeline Orchestrator
-[`main.py`](./main.py) exposes endpoints that save UI configurations directly into SQLite. [`sync_engine.py`](./sync_engine.py) dynamically reads these at runtime, replacing hard-coded logic (such as dropping specific Gmail labels or adjusting LLM temperatures), effectively turning the frontend into a dynamic Pipeline Orchestrator.
+    User->>GAS: Access Dashboard (Google Account Auth)
+    Note over User,GAS: Native Google Session Cookie
+    
+    User->>GAS: Clicks "Save Settings"
+    GAS->>GAS: Generates UNIX Timestamp
+    GAS->>GAS: Hashes Payload using NEXUS_HMAC_SECRET
+    
+    GAS->>VM: POST /api/settings (Payload + HMAC Signature)
+    Note over GAS,VM: The Cryptographic Bridge
+    
+    VM->>VM: Validate HMAC Signature & Timestamp (< 5 min old)
+    alt Invalid Signature or Replay Attack
+        VM-->>GAS: 401 Unauthorized
+    else Valid Signature
+        VM->>VM: Write changes to SQLite
+        VM-->>GAS: 200 OK
+    end
+    
+    loop Background Worker
+        VM->>Workspace: Fetch Delta Changes using token.json
+        Note over VM,Workspace: Headless OAuth Authentication
+        Workspace-->>VM: Return Raw Emails/Documents
+    end
+```
 
-The visual interface is built into the Apps Script UI using a Material Design 3-Phase vertical layout:
-* **Phase 1: Ingestion Filters:** Checkboxes bound to Gmail labels (`CATEGORY_PROMOTIONS`, etc.) to silently drop junk mail before reaching the AI.
-* **Phase 2: AI Config:** Dropdowns to select target LLM models (e.g., `gemini-1.5-pro` vs `gemini-1.5-flash`) for specific processing pipelines.
-* **Phase 3: Post-Processing:** Automated actions for processed artifacts, such as auto-archiving Gmail threads or holding unconfident inferences in Quarantine.
+---
 
-This 3-phase layout empowers the user to visually dictate the AI's behavior and routing logic without altering code.
+## 5. Database Architecture & Taxonomy Schema
 
-### 3.2 Entity Management & Prompt Tuning UI
-To support the dynamic AI tuning hooks, the Apps Script UI features an Entity Management tab. This interface provides direct, no-code text areas where users can author `custom_extraction_rules` for specific Correspondents or Purposes. When saved, these constraints are transmitted to the FastAPI backend and instantly injected into the active prompt pipeline for that specific vendor.
+### The Anti-Folder Philosophy
+Nexus Hub avoids nested folders to prevent "directory sprawl." Because SQLite permanently tracks immutable `artifact_id`s, a document can reside anywhere in your Google Drive without breaking the system. We map these artifacts relationally using a 3-Tier structure: `Category` → `Correspondent` → `Purpose`.
 
-Furthermore, the manual review modal groups taxonomy dropdowns dynamically. Universal rules are clustered under a "Global Purposes" group at the top of the list, visually segregating them from "Category-Specific" purposes, preventing taxonomy bloat and improving manual routing speed.
+> 🧠 **Knowledge Point: What is SQLite WAL Mode?**
+> By default, SQLite locks the *entire* database whenever it writes data. If the AI is busy writing a massive email summary, the UI would freeze if it tried to read data simultaneously. We use `PRAGMA journal_mode=WAL;` (Write-Ahead Logging), which allows our background `sync_engine.py` to write gigabytes of data while the frontend `main.py` serves search queries to the user perfectly concurrently.
 
-### The HMAC-SHA256 Webhook Bridge
-Apps Script communicates with the FastAPI backend over a cryptographically secured bridge. When a user updates data, Apps Script attaches a UNIX timestamp, signs the payload with a shared secret using HMAC-SHA256, and dispatches the POST request. The Python backend validates the hash and verifies the timestamp is within 5 minutes to prevent replay attacks.
-
-**Why HMAC-SHA256:** Symmetric cryptographic hashing is used for the webhook because it is extremely fast and lightweight. It guarantees the payload hasn't been tampered with in transit and, by appending a UNIX timestamp, prevents replay attacks.
-
-**File References:**
-* [`Index.html`](./Index.html) - The core frontend shell template.
-* [`JS_Actions.html`](./JS_Actions.html) - Handles DOM manipulation, asynchronous `google.script.run` actions, and RAG chat.
-* [`JS_State.html`](./JS_State.html) - In-memory client state management to handle high-performance rendering.
-* [`Code.gs`](./Code.gs) - The Apps Script server router handling HMAC signing and payload delivery to the VM.
-* [`main.py`](./main.py) - Validates the HMAC signature via FastAPI middleware before accepting updates.
-
-
-
-## 4. Database Schema & Multi-Dimensional Taxonomy
-
-### 4.1 The Anti-Folder Philosophy & Drive Topology
-- **The Anti-Folder Philosophy:** Nexus Hub avoids complex, nested folders to prevent "directory sprawl." SQLite tracks immutable File IDs, meaning files can live anywhere in the user's Drive.
-- **Operational Topology:** The system only uses two folders: `Nexus Dropbox` (for ingestion/seed files) and `Nexus Diagnostic Logs` (where [`diagnostics.py`](./diagnostics.py) uploads health reports).
-
-### 4.2 Global Purposes & AI Tuning Hooks
-To prevent taxonomy bloat, Nexus Hub differentiates between Domain-Specific Purposes (e.g., an AWS 'Invoice') and Global Purposes (e.g., 'Receipt / Invoice', 'Bill / Statement', 'Policy / Terms Update'). Global purposes are evaluated universally regardless of the identified Correspondent. 
-
-Additionally, both Correspondents and Purposes support `custom_extraction_rules`. These fields allow users to inject rule-based constraints (e.g., "Always extract the total amount without the currency symbol") directly into the [`llm_engine.py`](./llm_engine.py) prompt at runtime without modifying the underlying Python code.
-
-### SQLite WAL & Relational Integrity
-The engine uses SQLite configured with Write-Ahead Logging (`PRAGMA journal_mode=WAL;`). This is critical because it allows the FastAPI webhook threads to read the database simultaneously while the background `sync_engine` is writing bulk document updates, preventing database lock exceptions.
-
-**Why SQLite in WAL Mode:** Traditional SQLite locks the entire database file during a write operation. Write-Ahead Logging (WAL) bypasses this by writing changes to a separate log file first. This allows the FastAPI frontend to execute concurrent reads while the Python worker is simultaneously writing heavy OCR data, eliminating "database is locked" crashes.
-
-### The 3-Tier Hierarchy
-Nexus Hub abandons flat labeling for a strict hierarchical path: `Category` -> `Correspondent/Division` -> `Purpose`. The `Workspace_Artifacts` table uses `purpose_id` as its sole foreign key constraint. Because a Purpose intrinsically belongs to a specific Correspondent and Category, this cascading structure allows administrators to rename or shift nodes without requiring expensive bulk updates to the artifact rows themselves.
-
-### Entity Bootstrapping & Zero-Trust Quarantine
-* **Drive Seed Ingestion:** A background process detects [`taxonomy_seed.json`](./taxonomy_seed.json) in Google Drive to import bulk configurations.
-* **Google Contacts API:** Transforms personal contacts into deterministic `Taxonomy_Correspondents` records.
-* **Zero-Trust Quarantine:** Whenever a new entity is discovered by the LLM or ingested via Contacts/Seed, the system forces `is_gmail_enabled = 0` and `is_drive_enabled = 0`. These entities sit in the Zero-Trust Review Queue and act as a blacklist preventing autonomous routing until a human explicitly reviews and enables them.
-
-**File References:**
-* [`db_init.py`](./db_init.py) - Sets up the SQLite schema, constraints, and PRAGMAs.
-* [`sync_engine.py`](./sync_engine.py) - Handles the logic for Drive seed parsing and Google Contacts ingestion into the Taxonomy tables.
-
-### Entity Relationship Diagram
-
-<a id="figure-3"></a>
-**Figure 3: Entity Relationship Diagram**
+<a id="figure-3-entity-relationship-diagram"></a>
+### Figure 3: Entity Relationship Diagram
 
 ```mermaid
 erDiagram
@@ -353,45 +204,37 @@ erDiagram
     Workspace_Artifacts ||--o{ Error_Logs : tracks
 
     Config_System {
-        string key PK "Global variables"
+        string key PK "e.g., api_quota, feature_google_tasks"
         string value
     }
     Sync_State {
-        string app_name PK "Gmail or Drive"
-        string sync_token "Delta page tokens"
+        string app_name PK "gmail or drive"
+        string sync_token
     }
     Config_Prompts {
-        string target_app PK
-        string prompt_text "Dynamic LLM instructions"
+        string target_app PK "GMAIL, DRIVE_STAGE_1"
+        string prompt_text
     }
     Taxonomy_Categories {
         int id PK
         string name
-        int is_gmail_enabled "Zero-Trust Toggle"
-        int is_drive_enabled "Zero-Trust Toggle"
+        int is_gmail_enabled "Safe Mode Toggle"
     }
     Taxonomy_Correspondents {
         int id PK
         int category_id FK
         string name
-        string division
         json sending_subdomains
         json physical_addresses
-        json brand_colors
-        int operation_cost "Quota tracking weight"
-        int is_gmail_enabled
-        int is_drive_enabled
+        string custom_extraction_rules
     }
     Taxonomy_Purposes {
         int id PK
         int correspondent_id FK
         string name
         json custom_field_schema
-        int frequency_weight
-        float confidence_weight
-        int operation_cost "Quota tracking weight"
-        int is_gmail_enabled
-        int is_drive_enabled
+        string custom_extraction_rules
+        boolean auto_archive
     }
     Workspace_Artifacts {
         string artifact_id PK
@@ -400,405 +243,77 @@ erDiagram
         string summary
         json custom_data
         string status
-        int locked_by_system "Prevents race conditions"
-    }
-    Artifact_History {
-        int log_id PK
-        string artifact_id FK
-        int timestamp
-        string actor
-        string action_type
-        json previous_state
-        json new_state
-    }
-    Error_Logs {
-        int log_id PK
-        int timestamp
-        string module_name
-        string artifact_id FK
-        string error_message
-        json stack_trace "DLQ payload"
+        string google_task_id
+        string lifecycle_status
     }
 ```
 
+---
 
+## 6. Core Engines: What Files Do What
 
-## 5. The Synchronization Engine
+Nexus Hub's codebase is meticulously organized into discrete engines.
 
-The synchronization engine implements distinct processing strategies tailored to the input data type.
+### The Backend Brains (Python)
+* **`db_init.py`:** Initializes the SQLite schema, enforces JSON data validation, and seeds the default system configurations, safe-mode gatekeepers, and global LLM prompts.
+* **`main.py`:** The FastAPI application. It is the central nervous system that listens for Pub/Sub webhooks and HMAC-secured requests from the UI. It hosts the Advanced Search AST parser and the Analytics API endpoints.
+* **`sync_engine.py`:** The massive background worker. It manages the **Quota Governor**, fetches delta changes from Gmail/Drive, integrates with Google Contacts for Entity Bootstrapping, and automatically provisions Google Tasks for actionable artifacts.
+* **`llm_engine.py`:** Handles Gemini API interactions. It contains the logic for **Two-Stage Triage** (optimizing massive OCR payloads by identifying the vendor before requesting exact fields) and **Zero-Shot Rule Generation**.
+* **`retention_worker.py`:** The "Inbox Sweeper." Evaluates user-defined rules to permanently auto-archive or trash aging promotional and social emails safely.
+* **`diagnostics.py`:** The 15-minute Watchdog. Natively ensures the database isn't locked, the OAuth tokens aren't expired, and the internal API is responsive, bridging alerts directly to mobile devices via Pushover.
 
-### 5.1 Post-Processing & Lifecycle Management
-Once an artifact is categorized, the synchronization engine can execute downstream actions. 
+### The Serverless UI Shell (HTML/JS)
+* **`Index.html`:** The core DOM Blueprint. Provides the Material Design split-pane workspace, sidebar mechanics, Modals, and Chart.js `<canvas>` integrations.
+* **`CSS_Styles.html`:** Contains all the styling logic and dark-mode CSS variables (`--bg-panel`, `--accent-blue`).
+* **`JS_State.html`:** Manages client-side browser memory. It handles the `Set()` logic for massive multi-row selections without lagging the browser.
+* **`JS_Actions.html`:** The interaction layer. Converts UI clicks into backend API calls, renders the Knowledge Grid, instantiates the Chart.js graphs, and handles the AST Search omnibox autocomplete.
+* **`Code.gs`:** The cryptographic bridge. Deployed on Google servers, it houses the `sendToNexusVM()` function that appends UNIX timestamps and signs the payload with HMAC-SHA256 before securely transmitting it to your cloud VM.
 
-* **Autonomous Task Generation:** If the Gemini LLM extracts custom data flagging an item with `action_required = true` (or if it triggers a `SYSTEM_ALERT`), the synchronization engine immediately pushes a new, hyperlinked to-do item to the user's configured Google Tasks list (`nexus_task_list_id`), seamlessly transforming unread emails into actionable workflow.
-* **Tier 3 Auto-Archiving:** For Gmail, if a matched Purpose has `auto_archive` enabled (configurable in the Entity Management UI), the engine automatically issues a Gmail API call to drop the `INBOX` label from the thread. This prevents your active inbox from cluttering with automated system notifications or processed receipts.
-* **Advanced Inbox Sweeps:** The Advanced Inbox Retention Engine allows users to set programmatic batch sweeping rules (e.g. "Trash all 'Promotions' older than 30 days"). A dedicated `retention_worker.py` script queries the SQLite `Config_Retention_Rules` table and executes bulk API modifications, manageable directly from the 'Inbox Cleanup Rules' tab in the UI.
+---
 
-### Drive Two-Stage Triage Logic
-Google Drive documents (PDFs, images) are unstructured and noisy even after OCR. Feeding massive whitelists into the LLM simultaneously dilutes instructions. 
-* **Stage 1 (Triage):** Identifies the Vendor/Correspondent from the OCR text.
-* **Stage 2 (Enforce & Extract):** Constructs a hyper-focused prompt containing only the specific Purposes valid for that identified Correspondent, requesting deep extraction of custom schema fields.
+## 7. Infrastructure as Code (IaC)
 
-**File References:**
-* [`sync_engine.py`](./sync_engine.py) - Fetches the documents from Drive.
-* [`llm_engine.py`](./llm_engine.py) - Executes `process_drive_document()` for the Two-Stage Triage.
+We have abandoned manual server configuration in favor of a **Zero-Touch Provisioning** model utilizing the Google Cloud CLI (`gcloud`).
 
-<a id="figure-4"></a>
-**Figure 4: Drive Two-Stage Triage Logic**
+By executing a single script from your local machine, the infrastructure perfectly aligns itself. 
 
-```mermaid
-flowchart TD
-    classDef ai fill:#fce8e6,stroke:#d93025,stroke-width:2px;
-    classDef processing fill:#e8f0fe,stroke:#1a73e8,stroke-width:2px;
-    classDef queue fill:#fff7d0,stroke:#f29900,stroke-width:2px;
-    classDef final fill:#e6f4ea,stroke:#1e8e3e,stroke-width:2px;
+* **`scripts/provision.sh`:** Creates the `e2-micro` VM, punches the TCP port 8000 firewall hole, automatically enables all required Google APIs, and injects a metadata startup script that silently installs Python 3, SQLite, and configures the `systemd` daemon, pausing only to guide the user through required browser OAuth clicks.
+* **`scripts/deploy.sh`:** A robust CI/CD executor. It runs `clasp push` to sync your frontend UI securely into your Google Account, then uses `gcloud compute ssh` to remotely pull git updates, refresh pip dependencies, execute database schema migrations, and smoothly restart the background daemon.
 
-    Start((Start Drive Sync)) --> Fetch1[Fetch 'DRIVE_STAGE_1' Prompt]:::processing
-    Fetch1 --> Gemini1[Gemini API: Identify Correspondent]:::ai
-    Gemini1 --> Norm1{Normalize Correspondent}:::processing
+### 📚 Installation Instructions
+For a highly detailed, beginner-friendly walkthrough on configuring your Walled Garden and running the deployers, please consult the **[Installation Manual (INSTRUCTIONS.md)](./INSTRUCTIONS.md)**.
 
-    Norm1 -- Valid Match --> Fetch2[Fetch Correspondent-Specific Prompt]:::processing
-    Norm1 -- 'UNKNOWN' or Failed Match --> Disc1{Has 'discovered_correspondent'?}:::processing
+---
 
-    Disc1 -- Yes --> RouteCR[Status: Correspondent/Review<br>Data: pending_discovery]:::queue
-    Disc1 -- No --> RouteUnk[Status: UNKNOWN_CORRESPONDENT]:::queue
+## 8. AI-Assisted Development CONOPS
 
-    Fetch2 --> Gemini2[Gemini API: Extract Purpose & Fields]:::ai
-    Gemini2 --> Norm2{Normalize Purpose}:::processing
+Nexus Hub is designed to be maintained by Human-AI pairs. To ensure absolute stability in a multi-developer environment, all contributors must strictly adhere to the following Concept of Operations (CONOPS):
 
-    Norm2 -- Valid Match --> RouteProc[Status: PROCESSED]:::final
-    Norm2 -- 'Purpose/Review' --> Disc2{Has 'discovered_purpose'?}:::processing
-
-    Disc2 -- Yes --> RoutePR1[Status: Purpose/Review<br>Data: pending_discovery]:::queue
-    Disc2 -- No --> RoutePR2[Status: Purpose/Review]:::queue
-```
-
-### Gmail Single-Pass Logic
-Because emails arrive with highly structured metadata (verified Sender Email, Subject Line), the LLM can confidently determine the exact Purpose and extract Custom Fields in a single request.
-
-**Pre-AI Filtering & Label Exclusion:**
-Before any email is passed to the AI pipeline, [`sync_engine.py`](./sync_engine.py) natively inspects the Gmail `labelIds`. Messages flagged as Spam, Trash, Drafts, Promotions, Social, or Forums are hard-dropped to protect the Quota Governor.
-
-**File References:*** [`sync_engine.py`](./sync_engine.py) - Fetches delta histories using Gmail historyId.
-* [`llm_engine.py`](./llm_engine.py) - Executes `process_gmail_thread()` for the Single-Pass extraction.
-
-<a id="figure-5"></a>
-**Figure 5: Gmail Single-Pass Logic**
-
-```mermaid
-flowchart TD
-    classDef ai fill:#fce8e6,stroke:#d93025,stroke-width:2px;
-    classDef processing fill:#e8f0fe,stroke:#1a73e8,stroke-width:2px;
-    classDef queue fill:#fff7d0,stroke:#f29900,stroke-width:2px;
-    classDef final fill:#e6f4ea,stroke:#1e8e3e,stroke-width:2px;
-    classDef error fill:#fce8e6,stroke:#d93025,stroke-width:2px;
-
-    Start((Start Gmail Sync)) --> Fetch[Fetch 'GMAIL' Prompt]:::processing
-    Fetch --> Context[Inject Dynamic Array & Whitelist]:::processing
-    Context --> Gemini[Gemini API: Single-Pass Extraction]:::ai
-
-    Gemini -- Valid JSON --> Norm{Normalize Taxonomy Path}:::processing
-    Gemini -- JSONDecodeError --> RouteErr[Status: ERROR_LLM_PARSE]:::error
-
-    Norm -- Valid Match --> Save[persist_llm_results]:::processing
-    Norm -- Failed Match --> SaveRev[persist_llm_results]:::processing
-    
-    Save --> RouteProc[Status: PROCESSED]:::final
-    SaveRev --> RouteRev[Status: Purpose/Review]:::queue    
-```
-
-
-
-### 5.2 Historical Import Engine
-To ingest older documents without exhausting Google API quotas, Nexus Hub features an asynchronous Historical Import buffer. From the Workspace dashboard UI, users can query the Gmail API using standard Gmail search syntax (e.g., `before:2025-01-01`, `from:billing@aws.com`, `has:attachment`). Matching thread IDs are safely queued into the `Ingestion_Queue` table. The Quota Governor gradually trickles these into the AI pipeline (throttled at the 70% threshold) behind the scenes, ensuring your inbox migration never disrupts real-time mail processing.
-
-## 6. The Intelligent Quota Governor
-
-To prevent Google API exhaustion and ensure real-time responsiveness, Nexus Hub features an intelligent `QuotaGovernor`. 
-
-### 72-Hour Priority Lane Math
-For every artifact fetched during a sync, the governor calculates its age. If it was generated within the last 72 hours, it skips throttling entirely—utilizing a reserved 30% API budget. Artifacts older than 72 hours (historical backlog) are subjected to the throttle; if the daily API calls exceed the remaining 70% limit, processing halts. This ensures urgent daily tasks are never starved by massive mailbox migrations.
-
-**File Reference:**
-* [`sync_engine.py`](./sync_engine.py) - Contains the `QuotaGovernor` class and `process_file_with_governor()` logic tracking the `operation_cost`.
-
-<a id="figure-6"></a>
-**Figure 6: Intelligent Quota Governor Flowchart**
-
-```mermaid
-flowchart TD
-    classDef check fill:#e8f0fe,stroke:#1a73e8,stroke-width:2px;
-    classDef pass fill:#e6f4ea,stroke:#1e8e3e,stroke-width:2px;
-    classDef fail fill:#fce8e6,stroke:#d93025,stroke-width:2px;
-    classDef db fill:#fef7e0,stroke:#f9ab00,stroke-width:2px;
-
-    Start((Fetch Artifact)) --> Age{Calculate Age}:::check
-    Age -- "< 72 Hours" --> Pass[Priority Lane: Allowed]:::pass
-    Age -- "> 72 Hours" --> Hist{can_process_historical?}:::check
-
-    Hist -- "Calls < 70% Limit" --> Pass
-    Hist -- "Calls >= 70% Limit" --> Throttle[Governor: Throttled]:::fail
-
-    Pass --> Process[Process Artifact]:::check
-    Process --> Record[Governor.record_api_call]:::db
-    Record --> UpdateDB[(Update Config_System Daily Count)]:::db
-    Record --> UpdateCost[(Update Taxonomy operation_cost)]:::db
-```
-
-The frontend UI features a live Quota Governor dashboard that visualizes the daily API burn rate. This allows the user to see exactly when the system enters a protective throttled state without needing to check backend logs, pulling data dynamically via [`main.py`](./main.py).
-
-
-
-## 7. The AI & Dynamic Prompt Pipeline
-
-Nexus Hub abandons hardcoded system prompts in favor of a dynamic, database-driven tuning loop.
-
-* **Dynamic `Config_Prompts`:** Core system roles and tuning rules are stored in SQLite. Administrators can modify AI behavior on-the-fly via the UI without editing Python code or redeploying Docker containers.
-* **Context-Aware Injection:** Rather than passing flat "whitelist" names, the system dynamically generates an `[ENTITY_PROFILES]` dictionary containing the known `sending_subdomains` and `physical_addresses` of correspondents. The LLM cross-references the raw document against these profiles for incredibly deterministic routing.
-* **RAG Text-to-SQL:** The RAG interface limits API token costs by avoiding semantic vector searches. It implements a Text-to-SQL logic, generating a read-only query against the SQLite metadata, returning the rows, and feeding them to the LLM to synthesize a natural language response.
-
-**File References:**
-* [`db_init.py`](./db_init.py) - Seeds the baseline prompts and `[ENTITY_PROFILES]` placeholders.
-* [`llm_engine.py`](./llm_engine.py) - Joins taxonomy strings to inject the dictionary schemas, generates self-tuning rules, and executes the RAG Text-to-SQL logic (`ask_rag()`).
-* [`main.py`](./main.py) - Exposes `GET /api/prompts` and `POST /api/prompts` to the frontend.
-
-
-
-## 8. VM Lifecycle & Containerization
-
-The architecture enforces strict containerization using Docker for reproducibility and security.
-
-* **Multi-Stage Build:** The [`Dockerfile`](./Dockerfile) uses a `builder` stage that temporarily installs `build-essential` to compile Python dependencies into `.whl` files. The final `runner` stage strictly copies those pre-compiled wheels, stripping the image of heavy, vulnerable compilation tools.
-  * **Why Docker Multi-Stage Builds:** Python environments often require heavy C-compilers (like `gcc`) to build dependencies. A multi-stage build compiles these in a temporary image and only copies the finished binaries to the final container. This shrinks the image size and drastically reduces the security attack surface—if a container is ever compromised, there are no compilers available to build malicious tools.
-* **Orchestration:** [`docker-compose.yml`](./docker-compose.yml) orchestrates two distinct services: `nexus-api` (the web server) and `nexus-sync-engine` (the background processor). Both mount the same persistent volume (`/data`) containing [`nexus.db`](./nexus.db).
-* **Deployment Automation:** [`setup.sh`](./setup.sh) installs the necessary system prerequisites (Docker, Node.js, clasp) safely on an Ubuntu VM, while [`update.sh`](./update.sh) manages git pulls, database migrations, and safe container restarts.
-
-### 8.1 Fail-Fast Provisioning
-[`setup.sh`](./setup.sh) and [`update.sh`](./update.sh) utilize a fail-fast architecture. If a dependency or configuration is missing (like an absent `.env` or `token.json` failure), the script halts immediately, references the exact fix in [`INSTRUCTIONS.md`](./INSTRUCTIONS.md), and pushes a notification to the user's mobile device via the Pushover webhook while saving a local `setup_diagnostics.log`. These assert-driven checkpoints include user-friendly CLI tooltips pointing directly to the required operational step.
-
-**File References:**
-* [`Dockerfile`](./Dockerfile) - The Multi-Stage image definitions.
-* [`docker-compose.yml`](./docker-compose.yml) - Defines the microservices and mounted volumes.
-* [`setup.sh`](./setup.sh) / [`update.sh`](./update.sh) - Automated lifecycle bash scripts.
-
-
-
-## 9. Telemetry, Diagnostics & Notifications
-
-Nexus Hub is deeply observable, equipped with an alerting matrix to protect automated infrastructure.
-
-### Error Logs (DLQ)
-If an API crashes or the Gemini LLM hallucinates malformed JSON, the stack trace and payload are logged directly into the `Error_Logs` table. This serves as a Dead-Letter Queue (DLQ) for later retry or administrator review.
-
-### 9.2 The ROI & Analytics Aggregator
-To quantify the business value of the autonomous pipeline, the system exposes an ROI dashboard endpoint. This aggregator queries the telemetry logged during execution to calculate:
-* **First-Pass Accuracy:** The percentage of artifacts (`is_human_corrected = 0` / total items) that the LLM successfully processed without requiring manual UI intervention.
-* **Exception Rate:** The ratio of system errors (from `Error_Logs`) to successfully processed items.
-* **Throughput & Speed:** Groups the 30-day processed volumes by source (Gmail vs. Drive) and computes the average processing time in milliseconds and token cost across the last 1,000 executions.
-
-### 9.3 15-Minute Watchdog & Alerts
-A host-level cron job automatically invokes [`diagnostics.py`](./diagnostics.py) every 15 minutes within the `nexus-sync-engine` container.
-* It evaluates three layers: It writes to the Database to ensure the disk is not locked, checks the headless OAuth `token.json` for expiration, and executes a `curl` against `http://nexus-api:8000/api/health` to confirm the internal FastAPI server is responsive.
-* If any layer fails, [`notifier.py`](./notifier.py) skips the database entirely and sends a CRITICAL HTTP POST webhook to Pushover for mobile notifications. Non-critical warnings (quarantined entities or errors) are digested into an HTML report and sent via Gmail every 24 hours.
-
-**File References:**
-* [`db_init.py`](./db_init.py) - Schema definition for the `Error_Logs` table.
-* [`diagnostics.py`](./diagnostics.py) - The three-layer health check script.
-* [`setup.sh`](./setup.sh) - Installs the cron tab logic.
-* [`notifier.py`](./notifier.py) - Exposes Pushover webhook triggers and Gmail Digest functions.
-
-### Diagnostic Watchdog Flowchart
-
-<a id="figure-7"></a>
-**Figure 7: Diagnostic Watchdog Flowchart**
-
-```mermaid
-flowchart TB
-    classDef appsScript fill:#e8f0fe,stroke:#1a73e8,stroke-width:2px;
-    classDef gcp fill:#e6f4ea,stroke:#1e8e3e,stroke-width:2px;
-    classDef database fill:#fef7e0,stroke:#f9ab00,stroke-width:2px;
-    classDef googleApi fill:#e8eaed,stroke:#5f6368,stroke-width:2px;
-    classDef external fill:#fce8e6,stroke:#d93025,stroke-width:2px;
-
-    subgraph Execution Triggers
-        Cron[Host VM: 15-Min Cron Job]
-        UI[Apps Script UI: Manual Run]
-    end
-    class Cron,UI appsScript
-
-    subgraph "GCP Compute Engine (Local VM)"
-        WH[nexus-api: FastAPI]
-        Diag[nexus-sync-engine: diagnostics.py]
-        DB[nexus.db SQLite]
-        Notif[notifier.py]
-
-        UI -- "HMAC Webhook" --> WH
-        WH -- "Triggers" --> Diag
-        Cron -- "docker run" --> Diag
-
-        Diag -- "1. Test R/W Lock" --> DB
-        Diag -- "2. Ping /api/health" --> WH
-        Diag -- "If Any Check Fails" --> Notif
-    end
-    class WH,Diag,Notif gcp
-    class DB database
-
-    subgraph External Ecosystem
-        Auth[Google OAuth]
-        Drive[Google Drive]
-        Push[Pushover API]
-
-        Diag -- "3. Verify token.json" --> Auth
-        Diag -- "4. Upload JSON Report" --> Drive
-        Notif -- "Send CRITICAL Mobile Alert" --> Push
-    end
-    class Auth,Drive googleApi
-    class Push external
-```
-
-
-
-## 10. Security Architecture & Network Boundaries
-
-Nexus Hub employs a defense-in-depth architecture to secure the system against unauthorized access and external manipulation.
-
-* **Webhook Authentication:** The FastAPI backend relies on an HMAC-SHA256 protocol. It silently drops any incoming requests that do not possess a cryptographic signature matching the shared secret (`NEXUS_HMAC_SECRET`). This renders the API immune to unauthorized web scraping or arbitrary execution, as payloads without the correct signature and a valid UNIX timestamp are instantly rejected.
-* **VM Firewalls & Containerization:** The Python backend runs inside an isolated Docker network on the GCP VM. The database (`nexus.db`) is entirely abstracted from the open web, further reducing the attack surface by ensuring that only orchestrated containers within the host can access the file system.
-
-### 10.1 OAuth Boundaries & Scope Justification
-Transparently documenting the required Google Workspace permissions and their explicit purposes to reassure users:
-* `gmail.modify`: Required to read incoming emails, extract payloads, and subsequently apply the 'ARCHIVED' or processed labels to achieve the Zero-Inbox state.
-* `drive`: Required to download newly uploaded PDFs for Document AI OCR, and to move files between the 'Nexus Dropbox' and permanent storage.
-* `contacts.readonly`: Required solely for the Entity Bootstrapping phase to securely transform personal contacts into taxonomy correspondents.
-* **Token Management:** The `token.json` resides exclusively inside the headless, firewalled VM and is never exposed to the frontend Apps Script UI.
-
-## 11. Infrastructure as Code (IaC)
-
-Nexus Hub uses a Zero-Touch Provisioning architecture to eliminate manual server setup. The VM is deployed entirely via the Google Cloud CLI using a metadata startup script.
-
-### Running the Provisioner Locally
-
-To automatically spin up the e2-micro VM, configure the firewall, and bootstrap the Python environment, simply run the provisioner from your local machine:
-
-```bash
-chmod +x scripts/provision.sh
-./scripts/provision.sh
-```
-
-This script utilizes `gcloud compute instances create` to automatically inject the `--metadata startup-script` which installs Python 3, creates the virtual environment, installs SQLite/Git, and establishes the `systemd` daemon for the FastAPI backend, completely replacing legacy manual SSH setups.
-
-### 11.1 The One-Click Deployer
-
-To continuously push updates across both the serverless frontend and the GCP backend, use the unified deployment script from your local machine:
-
-```bash
-chmod +x scripts/deploy.sh
-./scripts/deploy.sh
-```
-
-This robust deployer executes a secure `clasp push` to sync the Apps Script UI locally, then utilizes `gcloud compute ssh` to remotely pull git updates, refresh dependencies, execute database migrations, and cleanly restart the `systemd` daemon. It features strict fail-fast error trapping and color-coded CLI feedback.
-
-## 12. AI-Assisted Development CONOPS & Governance
-
-Nexus Hub is designed to be maintained by Human-AI pairs. To ensure stability in a multi-developer environment, all contributors must strictly adhere to the following Concept of Operations (CONOPS) and Prompting Governance protocols. Code must never be pushed without its corresponding AI prompt being audited and the master documentation updated.
-
-### 12.1 The Prompt Engineering & Audit Pipeline
-
+### 8.1 The Prompt Engineering & Audit Pipeline
 To maintain an immutable audit trail of *why* and *how* code was generated, developers must use a two-agent system. 
-
 1. **The Architect (Gemini Pro/Advanced):** Use a conversational LLM to brainstorm features, review pseudocode, and generate the final execution prompt. 
 2. **The Executor (Gemini Code Assist / IDE Agent):** Feed the finalized prompt to your IDE agent to silently execute the file updates.
 
-Before executing any code changes, the finalized execution prompt **MUST** be committed to [`ROADMAP/PROMPT_ROADMAP.md`](./ROADMAP/PROMPT_ROADMAP.md). This acts as our source code for AI behavior. If a bug is introduced, maintainers can audit the roadmap to see exactly what instructions the AI was given.
+Before executing any code changes, the finalized execution prompt **MUST** be committed to [`ROADMAP/PROMPT_ROADMAP.md`](./ROADMAP/PROMPT_ROADMAP.md). This acts as our source code for AI behavior.
 
-<a id="figure-8"></a>
-**Figure 8: The AI-Assisted Development Workflow**
-```mermaid
-flowchart TD
-    classDef human fill:#e8f0fe,stroke:#1a73e8,stroke-width:2px;
-    classDef ai_chat fill:#fce8e6,stroke:#d93025,stroke-width:2px;
-    classDef ai_ide fill:#e6f4ea,stroke:#1e8e3e,stroke-width:2px;
-    classDef repo fill:#fef7e0,stroke:#f9ab00,stroke-width:2px;
+### 8.2 The Continuous Documentation Protocol
+Documentation compiles alongside the code. Every execution prompt fed to the IDE agent must include a standard footer mandating the AI to instantly update `README.md` and insert HTML anchors to the `PROMPT_ROADMAP.md` Version History.
 
-    Dev[Human Developer]:::human -->|1. Discuss Feature & Logic| Chat[Gemini Pro / Architect]:::ai_chat
-    Chat -->|2. Generate Strict Execution Prompt| Dev
-    
-    Dev -->|3. Commit Prompt for Audit| Road[(./ROADMAP/PROMPT_ROADMAP.md)]:::repo
-    
-    Dev -->|4. Paste Prompt into IDE| IDE[Gemini Code Assist]:::ai_ide
-    IDE -->|5a. Modify Python/JS Files| Code[(Codebase)]:::repo
-    IDE -->|5b. Execute Continuous Documentation| Docs[(README.md)]:::repo
-```
+---
 
-### 12.2 The Continuous Documentation Protocol
-Documentation is not a separate sprint; it compiles alongside the code. Every execution prompt fed to the IDE agent must include the following standard instruction block to ensure [`README.md`](./README.md) never drifts from the codebase:
+## 9. Acronym Glossary
 
-**Standard Prompt Footer:**
-> "Update [`README.md`](./README.md) [Specify Section] with these changes. Wrap all codebase file mentions in relative hotlinks, unless they are inside of the diagrams and flow charts, generated by mermaid. If adding a section or diagram, update the Table of Contents and Table of Figures with working HTML anchors. Add a bullet to the Version History hotlinked to the new stage in `ROADMAP/PROMPT_ROADMAP.md`.
-> * If modifying the UI, ensure all new interactive elements include inline user education (tooltips or help text) explaining their function."
-
-### 12.3 Multi-Developer Synchronization
-In a multi-developer environment relying on AI, merge conflicts on documentation and roadmap files are highly probable.
-
-* **Always Pull First:** Before generating a new prompt, the human needs to pull the latest `ROADMAP/PROMPT_ROADMAP.md` to ensure they are appending to the correct stage sequence.
-* **Isolate Prompts:** Do not ask the AI to refactor multiple distinct architectures in a single prompt. Isolate infrastructure changes (e.g., Docker) from logic changes (e.g., LLM routing) to maintain clean Git commits and readable audit trails.
-
-### 12.4 The Standard Execution Prompt Template (Example)
-
-To ensure strict adherence to the CONOPS, all execution prompts must be committed to the roadmap before being fed to the AI IDE agent. A fully compliant prompt ensures that code, user education (UX), and master documentation compile simultaneously.
-
-Below is a complete example of a compliant execution prompt (using a hypothetical feature) formatted exactly as it should appear in `ROADMAP/PROMPT_ROADMAP.md`:
-
-<details>
-<summary><b>Click to expand the Standard Prompt Template</b></summary>
-
-<pre><code>&lt;a id="stage-99"&gt;&lt;/a&gt;
-## Stage 99999: [Hypothetical Feature Name]
-**Internal Simulation & Correction:** *[Brief explanation of why this feature is being built and any architectural considerations the developer brainstormed with the AI Architect.]*
-
-**Copy/Paste this to Gemini Code Assist:**
-&gt; "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
-&gt; 
-&gt; **Task 1: Code Implementation**
-&gt; 1. **Update `[target_file.py]`:** [Specific instructions for the code change].
-&gt; 2. **Update Apps Script UI:** [Specific UI instructions].
-&gt; 3. **Continuous UX Protocol:** Ensure any new interactive elements in the UI include a Material Design tooltip or help text explaining their function to the user.
-&gt; 
-&gt; **Task 2: Continuous Documentation (`README.md`)**
-&gt; * **Location:** Section [X. Name of Section].
-&gt; * **Action:** [Insert a new subsection / Append a paragraph].
-&gt; * **Content:** [Explain the technical architecture of the new feature].
-&gt; * **Constraint - Hotlinks:** Wrap any mentioned codebase files in relative Markdown links (e.g., `[main.py](./main.py)`).
-&gt; * **Constraint - Tables:** If a new section or diagram was added, update the **Table of Contents** or **Table of Figures** with a working HTML anchor.
-&gt; 
-&gt; **Task 3: Roadmap Anchors & Version History**
-&gt; * **In `README.md`:** Add a new bullet point to the top of the 'Version History' section: `- **vX.X.X:** [Phase 99999](./ROADMAP/PROMPT_ROADMAP.md#stage-99999) - [Brief description of the feature].`
-&gt; 
-&gt; **Output Actions:**
-&gt; 1. Silently update the targeted code files.
-&gt; 2. Silently update `README.md` exactly as instructed above."
-</code></pre>
-
-</details>
-
-## 13. Acronym Glossary
-
-* **API (Application Programming Interface):** The interface allowing Nexus Hub to fetch data from external services (Gmail, Drive).
-* **DLQ (Dead-Letter Queue):** A queue (in this case, `Error_Logs`) where messages or tasks that fail to process are safely routed for analysis.
-* **GCP (Google Cloud Platform):** Google's infrastructure offering, where the persistent e2-micro VM resides.
-* **HMAC (Hash-Based Message Authentication Code):** A cryptographic signature utilizing a shared secret to verify both data integrity and authenticity.
-* **LLM (Large Language Model):** The Gemini AI model used to comprehend unstructured data semantics.
-* **OCR (Optical Character Recognition):** Document AI's process of turning PDFs and images into readable text.
-* **RAG (Retrieval-Augmented Generation):** Enhancing LLM outputs by feeding them relevant retrieved documents; implemented here via Text-to-SQL.
-* **SPA (Single Page Application):** A web architecture where content is loaded dynamically without full page reloads.
-* **STP (Straight-Through Processing):** Automated handling of a task from initiation to conclusion without human intervention.
-* **UI (User Interface):** The visual, interactive dashboard presented in the browser.
-* **VM (Virtual Machine):** The dedicated server running Ubuntu Linux executing the Docker containers.
-* **WAL (Write-Ahead Logging):** An SQLite journaling mode that enables extremely fast concurrency (allowing simultaneous reading and writing without locking).
-* **WCAG (Web Content Accessibility Guidelines):** Contrast requirements to ensure branded colors remain readable on the UI and inside Gmail labels.
-
-ng and writing without locking).
-* **WCAG (Web Content Accessibility Guidelines):** Contrast requirements to ensure branded colors remain readable on the UI and inside Gmail labels.
-
-anded colors remain readable on the UI and inside Gmail labels.
+| Term | Definition |
+| :--- | :--- |
+| **API** | **Application Programming Interface:** The communication protocol allowing Nexus Hub to fetch raw data from external services (Gmail, Drive) programmatically. |
+| **AST** | **Abstract Syntax Tree:** The logic Nexus Hub uses to parse complex omnibox search queries (e.g., `Purpose:Receipt AND !Date:>2026-03`) into safe SQLite commands. |
+| **DLQ** | **Dead-Letter Queue:** An isolated database table (`Error_Logs`) where messages or AI extractions that fail to process are safely caught for human review instead of crashing the system. |
+| **GCP** | **Google Cloud Platform:** Google's cloud computing infrastructure, where the `e2-micro` Virtual Machine persistently resides. |
+| **HMAC** | **Hash-Based Message Authentication Code:** A cryptographic mathematical signature utilizing a shared secret password to verify that incoming webhook data is authentic and untampered. |
+| **IaC** | **Infrastructure as Code:** The practice of managing and provisioning servers through code (our `provision.sh` script) rather than clicking through manual configuration menus. |
+| **LLM** | **Large Language Model:** The Gemini AI model used to comprehend unstructured data semantics. |
+| **OCR** | **Optical Character Recognition:** Document AI's process of stripping PDFs and images into raw, readable text. |
+| **RAG** | **Retrieval-Augmented Generation:** Enhancing LLM outputs by feeding them relevant retrieved documents. Nexus Hub implements this via a secure Text-to-SQL logic engine. |
+| **SPA** | **Single Page Application:** A web architecture where content (like the `#tab-grid` or `#tab-analytics`) is swapped dynamically without causing full browser page reloads. |
+| **WAL** | **Write-Ahead Logging:** An SQLite journaling mode that enables extremely fast concurrency, allowing the FastAPI webserver to read data instantly even while the background worker is writing it. |
 

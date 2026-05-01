@@ -1,5 +1,6 @@
 """
-Initializes the Nexus Hub SQLite database (nexus.db).
+Module: db_init.py
+Purpose: Initializes the Nexus Hub SQLite database (nexus.db).
 Enforces STRICT tables, WAL journaling mode, and JSON data type validation.
 """
 import sqlite3
@@ -9,11 +10,11 @@ DB_PATH = 'nexus.db'
 
 def init_db(db_path: str = DB_PATH) -> None:
     """
-    Connects to the SQLite database and executes the table creation schemas.
-    Applies WAL mode and enables foreign key constraints.
-    
-    Args:
+    Purpose: Connects to the SQLite database and executes the table creation schemas.
+             Applies WAL mode and enables foreign key constraints.
+    Expected Inputs:
         db_path (str): The path to the SQLite database file. Defaults to 'nexus.db'.
+    Expected Outputs: None. Creates or updates the database schema on disk.
     """
     os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
     
@@ -201,7 +202,9 @@ def init_db(db_path: str = DB_PATH) -> None:
 
 def seed_default_configs(conn: sqlite3.Connection) -> None:
     """
-    Seeds default JSON settings into Config_System for UI Pipeline Orchestrator.
+    Purpose: Seeds default JSON settings into Config_System for UI Pipeline Orchestrator.
+    Expected Inputs: conn (sqlite3.Connection) - An active connection to the SQLite database.
+    Expected Outputs: None. Populates the Config_System table with initial values.
     """
     cursor = conn.cursor()
     cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)",
@@ -229,6 +232,11 @@ def seed_default_configs(conn: sqlite3.Connection) -> None:
 
 
 def seed_default_taxonomy(conn):
+    """
+    Purpose: Seeds default categories and global purposes into the taxonomy tables.
+    Expected Inputs: conn (sqlite3.Connection) - An active database connection.
+    Expected Outputs: None. Populates the Taxonomy categories, correspondents, and purposes tables.
+    """
     cursor = conn.cursor()
     # Create a dummy category and correspondent for global purposes if they don't exist
     cursor.execute("INSERT OR IGNORE INTO Taxonomy_Categories (name, is_gmail_enabled, is_drive_enabled) VALUES ('System', 1, 1)")
@@ -240,6 +248,7 @@ def seed_default_taxonomy(conn):
     corr_id = cursor.fetchone()['id']
     
     global_purposes = ['Receipt / Invoice', 'Bill / Statement', 'Policy / Terms Update']
+    # Loop over the list of default purposes to insert them into the database.
     for p in global_purposes:
         cursor.execute("""
             INSERT OR IGNORE INTO Taxonomy_Purposes (correspondent_id, name, custom_field_schema, is_global, is_gmail_enabled, is_drive_enabled)
@@ -248,8 +257,9 @@ def seed_default_taxonomy(conn):
 
 def seed_default_prompts(conn: sqlite3.Connection) -> None:
     """
-    Seeds the default master prompts into the Config_Prompts table
-    if they do not already exist.
+    Purpose: Seeds the default master prompts into the Config_Prompts table if they do not already exist.
+    Expected Inputs: conn (sqlite3.Connection) - An active database connection.
+    Expected Outputs: None. Modifies Config_Prompts table.
     """
     PROMPT_GMAIL = """You are a strict data extraction system for a centralized knowledge hub. Review the provided email thread. 
 
@@ -303,5 +313,6 @@ def seed_default_prompts(conn: sqlite3.Connection) -> None:
     cursor.execute("INSERT OR IGNORE INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('DRIVE_STAGE_1', PROMPT_DRIVE_STAGE_1))
     cursor.execute("INSERT OR IGNORE INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('DRIVE_STAGE_2', PROMPT_DRIVE_STAGE_2))
 
+# Execute the initialization if the script is run directly.
 if __name__ == "__main__":
     init_db()

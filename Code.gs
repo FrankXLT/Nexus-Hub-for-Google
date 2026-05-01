@@ -1,20 +1,22 @@
 /**
- * Nexus Hub for Google - Apps Script Backend Router
- * This file serves the web app and acts as a secure bridge to the Python VM.
+ * Module: Code.gs
+ * Purpose: Nexus Hub for Google - Apps Script Backend Router.
+ * This file serves the web app interface and acts as a secure bridge to the Python VM.
  */
 
 /**
- * Includes HTML files for templating.
+ * Purpose: Includes HTML files for templating.
+ * Expected Inputs: filename (string) - The name of the HTML file to include.
+ * Expected Outputs: string - The HTML content.
  */
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
 /**
- * Serves the initial HTML interface for the web app.
- *
- * @param {Object} e - The event object.
- * @returns {HtmlOutput} The rendered Index.html template.
+ * Purpose: Serves the initial HTML interface for the web app.
+ * Expected Inputs: e (Object) - The event object from Google Apps Script.
+ * Expected Outputs: HtmlOutput - The rendered Index.html template.
  */
 function doGet(e) {
   return HtmlService.createTemplateFromFile('Index')
@@ -24,16 +26,12 @@ function doGet(e) {
 }
 
 /**
- * ACTION REQUIRED: ONE-TIME SETUP
- * Run this function once from the Apps Script editor to securely store your
- * shared HMAC secret in the project properties.
- * 
- * CRITICAL: After executing this function, IMMEDIATELY DELETE the secretString 
- * from the code editor to prevent credential leaks.
- * 
- * @param {string} secretString - The exact same string you placed in the VM's .env file.
+ * Purpose: Securely stores the HMAC secret in the project properties.
+ * Expected Inputs: secretString (string) - The exact secret used for authentication.
+ * Expected Outputs: None.
  */
 function configureHMAC(secretString) {
+  // If no secret string is provided, halt execution and throw an error.
   if (!secretString) {
     throw new Error("Must provide a secret string.");
   }
@@ -43,36 +41,36 @@ function configureHMAC(secretString) {
 }
 
 /**
- * Generates an HMAC-SHA256 signature for the given payload.
- *
- * @param {string} secret - The shared secret key.
- * @param {string} payloadString - The stringified JSON payload.
- * @returns {string} The hex-encoded signature.
+ * Purpose: Generates an HMAC-SHA256 signature for the given payload to verify sender identity.
+ * Expected Inputs: 
+ *   secret (string) - The shared secret key.
+ *   payloadString (string) - The stringified JSON payload.
+ * Expected Outputs: string - The hex-encoded signature.
  */
 function generateHMACSignature_(secret, payloadString) {
   const byteSignature = Utilities.computeHmacSha256Signature(payloadString, secret);
-  // Convert byte array to hex string
+  // Convert the byte array into a continuous hex string.
+  // We loop over each byte, handle negatives, and format as 2-character hex.
   return byteSignature.map(function(byte) {
+    // If the byte is negative, adjust it to a positive value (2's complement).
     const v = (byte < 0) ? 256 + byte : byte;
     return ("0" + v.toString(16)).slice(-2);
   }).join("");
 }
 
 /**
- * Securely transmits a payload to the Python VM Webhook.
- * 
- * WARNING: This function must ONLY be called asynchronously from the client-side UI
- * via `google.script.run.withSuccessHandler().sendToNexusVM(...)`. It should never
- * be invoked directly by other server-side triggers unless the context is fully trusted.
- * 
- * @param {string} endpoint - The specific API route (e.g., '/api/update').
- * @param {Object} payload - The JavaScript object containing the data to send.
- * @returns {Object} The JSON response from the VM, parsed as an object.
+ * Purpose: Securely transmits a payload to the Python VM Webhook using HMAC signatures.
+ * Expected Inputs: 
+ *   endpoint (string) - The specific API route (e.g., '/api/update').
+ *   payload (Object) - The JavaScript object containing the data to send.
+ *   method (string) - HTTP method, defaults to 'post'.
+ * Expected Outputs: Object - The parsed JSON response from the VM.
  */
 function sendToNexusVM(endpoint, payload, method = 'post') {
   const scriptProperties = PropertiesService.getScriptProperties();
   const secret = scriptProperties.getProperty('NEXUS_HMAC_SECRET');
   
+  // If the secret is not found, stop because we cannot authenticate.
   if (!secret) {
     throw new Error("NEXUS_HMAC_SECRET is not configured in Script Properties. Please run configureHMAC() first.");
   }
@@ -84,9 +82,6 @@ function sendToNexusVM(endpoint, payload, method = 'post') {
   const payloadString = JSON.stringify(payload);
   const signature = generateHMACSignature_(secret, payloadString);
   
-  // Ensure the VM_URL is also set in properties or define a constant here.
-  // For development, assuming localhost proxy or specific IP.
-  // In production, this should be the public HTTPS URL of your VM.
   const vmUrl = scriptProperties.getProperty('NEXUS_VM_URL') || "http://localhost:8000"; 
   const targetUrl = vmUrl + endpoint;
   
@@ -97,7 +92,7 @@ function sendToNexusVM(endpoint, payload, method = 'post') {
     'headers': {
       'X-Nexus-Signature': signature
     },
-    'muteHttpExceptions': true // Allow us to handle 401s gracefully
+    'muteHttpExceptions': true
   };
   
   try {
@@ -105,9 +100,12 @@ function sendToNexusVM(endpoint, payload, method = 'post') {
     const responseCode = response.getResponseCode();
     const responseText = response.getContentText();
     
+    // If the HTTP response indicates success (200-level), return the parsed JSON.
     if (responseCode >= 200 && responseCode < 300) {
       return JSON.parse(responseText);
-    } else {
+    } 
+    // Otherwise, throw an error containing the failure details.
+    else {
       throw new Error("VM Error (" + responseCode + "): " + responseText);
     }
   } catch (error) {
@@ -117,18 +115,12 @@ function sendToNexusVM(endpoint, payload, method = 'post') {
 }
 
 /**
- * Triggers a comprehensive diagnostic ping to the Python VM.
- * 
- * WARNING: This function must ONLY be called asynchronously from the client-side UI
- * via `google.script.run.withSuccessHandler().runSystemDiagnostics()`.
- * 
- * @returns {Object} The diagnostic report JSON object from the VM.
+ * Purpose: Triggers a comprehensive diagnostic ping to the Python VM.
+ * Expected Inputs: None.
+ * Expected Outputs: Object - A dictionary with 'success' status and the diagnostic report data.
  */
 function runSystemDiagnostics() {
-  const payload = {
-    action: "ping_diagnostics"
-  };
-  
+  const payload = { action: "ping_diagnostics" };
   try {
     const result = sendToNexusVM("/api/health", payload);
     Logger.log("Diagnostic Ping Success: " + JSON.stringify(result));
@@ -140,10 +132,9 @@ function runSystemDiagnostics() {
 }
 
 /**
- * Runs a sandbox prompt against an artifact's raw text.
- * 
- * @param {Object} payload - The object containing artifact_id and prompt_string.
- * @returns {Object} The JSON response from the VM.
+ * Purpose: Runs a sandbox prompt against an artifact's raw text.
+ * Expected Inputs: payload (Object) - Data containing artifact_id and prompt_string.
+ * Expected Outputs: Object - A response object containing 'success' and 'data' or 'error'.
  */
 function runSandboxPrompt(payload) {
   try {
@@ -155,9 +146,9 @@ function runSandboxPrompt(payload) {
 }
 
 /**
- * Queues items for the materialization pipeline.
- * @param {Object} payload - The object containing artifact_ids.
- * @returns {Object} The JSON response.
+ * Purpose: Queues items for the materialization pipeline.
+ * Expected Inputs: payload (Object) - Contains artifact_ids.
+ * Expected Outputs: Object - A response object indicating success or failure.
  */
 function materializeSelectedItems(payload) {
   try {
@@ -169,14 +160,13 @@ function materializeSelectedItems(payload) {
 }
 
 /**
- * Bulk updates multiple artifacts using continuation tokens for timeout protection.
- * 
- * @param {Object} payload - The object containing artifact_ids and metadata.
- * @returns {Object} The JSON response from the VM.
+ * Purpose: Bulk updates multiple artifacts using continuation tokens for timeout protection.
+ * Expected Inputs: payload (Object) - Contains artifact_ids and metadata to apply.
+ * Expected Outputs: Object - Response indicating success or error.
  */
 function bulkUpdateArtifacts(payload) {
-  // Timeout protection: if payload specifies a continuation token, handle batching.
   const MAX_BATCH_SIZE = 50;
+  // If the payload contains more items than the maximum batch size, slice it into smaller parts.
   if (payload.artifact_ids && payload.artifact_ids.length > MAX_BATCH_SIZE) {
     const batch = payload.artifact_ids.slice(0, MAX_BATCH_SIZE);
     const remaining = payload.artifact_ids.slice(MAX_BATCH_SIZE);
@@ -192,13 +182,13 @@ function bulkUpdateArtifacts(payload) {
 }
 
 /**
- * Executes an AST search via the backend API.
- * @param {string} query - The AST search string
- * @returns {Object} The JSON response.
+ * Purpose: Executes an AST search via the backend API.
+ * Expected Inputs: query (string) - The search string.
+ * Expected Outputs: Object - The matching data.
  */
 function searchArtifacts(query) {
   try {
-    const payload = {}; // Payload just for signature timestamp
+    const payload = {};
     const result = sendToNexusVM("/api/artifacts/search?q=" + encodeURIComponent(query) + "&limit=50&offset=0", payload, 'get');
     return { success: true, data: result };
   } catch (error) {
@@ -207,10 +197,9 @@ function searchArtifacts(query) {
 }
 
 /**
- * Runs the AI RAG query.
- * 
- * @param {Object} payload - The object containing the question.
- * @returns {Object} The JSON response from the VM.
+ * Purpose: Runs the AI RAG query.
+ * Expected Inputs: payload (Object) - Contains the user's question.
+ * Expected Outputs: Object - The AI response.
  */
 function runAskAI(payload) {
   try {
@@ -222,26 +211,27 @@ function runAskAI(payload) {
 }
 
 /**
- * Fetches user preferences for boot routing.
- * @returns {Object} The JSON response containing settings.
+ * Purpose: Fetches user preferences for boot routing.
+ * Expected Inputs: None.
+ * Expected Outputs: Object - User settings data.
  */
 function getUserPreferences() {
   const scriptProperties = PropertiesService.getScriptProperties();
   const vmUrl = scriptProperties.getProperty('NEXUS_VM_URL') || "http://localhost:8000"; 
   const targetUrl = vmUrl + "/api/settings/pipeline";
   
-  const options = {
-    'method': 'get',
-    'muteHttpExceptions': true
-  };
+  const options = { 'method': 'get', 'muteHttpExceptions': true };
   
   try {
     const response = UrlFetchApp.fetch(targetUrl, options);
     const responseCode = response.getResponseCode();
+    // If the request succeeds, parse and return the settings.
     if (responseCode >= 200 && responseCode < 300) {
       const data = JSON.parse(response.getContentText());
       return { success: true, data: data.settings };
-    } else {
+    } 
+    // Otherwise, throw an error.
+    else {
       throw new Error("VM Error (" + responseCode + "): " + response.getContentText());
     }
   } catch (error) {
@@ -250,7 +240,9 @@ function getUserPreferences() {
 }
 
 /**
- * Fetches Heatmap data.
+ * Purpose: Fetches Heatmap data.
+ * Expected Inputs: None.
+ * Expected Outputs: Object - The heatmap analytics data.
  */
 function getHeatmapData() {
   const scriptProperties = PropertiesService.getScriptProperties();
@@ -261,9 +253,12 @@ function getHeatmapData() {
   try {
     const response = UrlFetchApp.fetch(targetUrl, options);
     const responseCode = response.getResponseCode();
+    // If successful, return the parsed data.
     if (responseCode >= 200 && responseCode < 300) {
       return JSON.parse(response.getContentText());
-    } else {
+    } 
+    // Otherwise, throw an error.
+    else {
       throw new Error("VM Error (" + responseCode + "): " + response.getContentText());
     }
   } catch (error) {
@@ -272,7 +267,9 @@ function getHeatmapData() {
 }
 
 /**
- * Fetches Threads Sankey data.
+ * Purpose: Fetches Threads Sankey data.
+ * Expected Inputs: None.
+ * Expected Outputs: Object - The thread analytics data.
  */
 function getThreadsData() {
   const scriptProperties = PropertiesService.getScriptProperties();
@@ -283,9 +280,12 @@ function getThreadsData() {
   try {
     const response = UrlFetchApp.fetch(targetUrl, options);
     const responseCode = response.getResponseCode();
+    // If successful, return the parsed data.
     if (responseCode >= 200 && responseCode < 300) {
       return JSON.parse(response.getContentText());
-    } else {
+    } 
+    // Otherwise, throw an error.
+    else {
       throw new Error("VM Error (" + responseCode + "): " + response.getContentText());
     }
   } catch (error) {
@@ -294,7 +294,9 @@ function getThreadsData() {
 }
 
 /**
- * Fetches ROI Dashboard data.
+ * Purpose: Fetches ROI Dashboard data.
+ * Expected Inputs: None.
+ * Expected Outputs: Object - Return on investment and metrics data.
  */
 function getROIDashboard() {
   const scriptProperties = PropertiesService.getScriptProperties();
@@ -305,9 +307,12 @@ function getROIDashboard() {
   try {
     const response = UrlFetchApp.fetch(targetUrl, options);
     const responseCode = response.getResponseCode();
+    // If successful, wrap the data in a success envelope.
     if (responseCode >= 200 && responseCode < 300) {
       return { success: true, data: JSON.parse(response.getContentText()) };
-    } else {
+    } 
+    // Otherwise, throw an error.
+    else {
       throw new Error("VM Error (" + responseCode + "): " + response.getContentText());
     }
   } catch (error) {
@@ -316,7 +321,9 @@ function getROIDashboard() {
 }
 
 /**
- * Pings Health API.
+ * Purpose: Pings Health API.
+ * Expected Inputs: None.
+ * Expected Outputs: Object - System health status.
  */
 function pingHealthAPI() {
   const scriptProperties = PropertiesService.getScriptProperties();
@@ -327,9 +334,12 @@ function pingHealthAPI() {
   try {
     const response = UrlFetchApp.fetch(targetUrl, options);
     const responseCode = response.getResponseCode();
+    // If successful, mark the status as success and return data.
     if (responseCode >= 200 && responseCode < 300) {
       return { status: "success", data: JSON.parse(response.getContentText()) };
-    } else {
+    } 
+    // Otherwise, throw an error.
+    else {
       throw new Error("VM Error (" + responseCode + "): " + response.getContentText());
     }
   } catch (error) {
@@ -338,7 +348,9 @@ function pingHealthAPI() {
 }
 
 /**
- * Update Safe Mode.
+ * Purpose: Updates the Safe Mode pipeline settings.
+ * Expected Inputs: payload (Object) - Contains safe mode configurations.
+ * Expected Outputs: Object - Success response from VM.
  */
 function updateSafeMode(payload) {
   try {
@@ -349,7 +361,11 @@ function updateSafeMode(payload) {
   }
 }
 
-// Retention API Wrappers
+/**
+ * Purpose: Fetches configured retention rules.
+ * Expected Inputs: None.
+ * Expected Outputs: Object - Array of retention rule data.
+ */
 function getRetentionRules() {
   const scriptProperties = PropertiesService.getScriptProperties();
   const vmUrl = scriptProperties.getProperty('NEXUS_VM_URL') || "http://localhost:8000"; 
@@ -358,9 +374,12 @@ function getRetentionRules() {
   const options = { 'method': 'get', 'muteHttpExceptions': true };
   try {
     const response = UrlFetchApp.fetch(targetUrl, options);
+    // If the request succeeds, return parsed rules.
     if (response.getResponseCode() >= 200 && response.getResponseCode() < 300) {
       return JSON.parse(response.getContentText());
-    } else {
+    } 
+    // Otherwise, throw a general error.
+    else {
       throw new Error("VM Error");
     }
   } catch (error) {
@@ -368,6 +387,11 @@ function getRetentionRules() {
   }
 }
 
+/**
+ * Purpose: Adds a new retention rule to the system.
+ * Expected Inputs: payload (Object) - The rule data to add.
+ * Expected Outputs: Object - Response indicating success or failure.
+ */
 function addRetentionRule(payload) {
   try {
     return sendToNexusVM("/api/retention/rules", payload);
@@ -376,6 +400,11 @@ function addRetentionRule(payload) {
   }
 }
 
+/**
+ * Purpose: Deletes a specified retention rule.
+ * Expected Inputs: payload (Object) - Contains the rule_id to delete.
+ * Expected Outputs: Object - Status of the deletion request.
+ */
 function deleteRetentionRule(payload) {
   const scriptProperties = PropertiesService.getScriptProperties();
   const vmUrl = scriptProperties.getProperty('NEXUS_VM_URL') || "http://localhost:8000"; 
@@ -384,9 +413,12 @@ function deleteRetentionRule(payload) {
   const options = { 'method': 'delete', 'muteHttpExceptions': true };
   try {
     const response = UrlFetchApp.fetch(targetUrl, options);
+    // If the deletion was acknowledged, parse and return the response.
     if (response.getResponseCode() >= 200 && response.getResponseCode() < 300) {
       return JSON.parse(response.getContentText());
-    } else {
+    } 
+    // Otherwise, throw an error.
+    else {
       throw new Error("VM Error");
     }
   } catch (error) {
@@ -394,6 +426,11 @@ function deleteRetentionRule(payload) {
   }
 }
 
+/**
+ * Purpose: Manually triggers the retention sweep task.
+ * Expected Inputs: None.
+ * Expected Outputs: Object - Results of the sweep task trigger.
+ */
 function triggerRetentionSweep() {
   try {
     return sendToNexusVM("/api/retention/sweep", {});
@@ -403,25 +440,26 @@ function triggerRetentionSweep() {
 }
 
 /**
- * Fetches pipeline settings from the VM.
- * @returns {Object} The JSON response containing settings.
+ * Purpose: Fetches comprehensive pipeline settings from the VM.
+ * Expected Inputs: None.
+ * Expected Outputs: Object - Configuration JSON from the backend.
  */
 function getPipelineSettings() {
   const scriptProperties = PropertiesService.getScriptProperties();
   const vmUrl = scriptProperties.getProperty('NEXUS_VM_URL') || "http://localhost:8000"; 
   const targetUrl = vmUrl + "/api/settings/pipeline";
   
-  const options = {
-    'method': 'get',
-    'muteHttpExceptions': true
-  };
+  const options = { 'method': 'get', 'muteHttpExceptions': true };
   
   try {
     const response = UrlFetchApp.fetch(targetUrl, options);
     const responseCode = response.getResponseCode();
+    // If successful, return parsed settings.
     if (responseCode >= 200 && responseCode < 300) {
       return JSON.parse(response.getContentText());
-    } else {
+    } 
+    // Otherwise, throw an error.
+    else {
       throw new Error("VM Error (" + responseCode + "): " + response.getContentText());
     }
   } catch (error) {
@@ -430,9 +468,9 @@ function getPipelineSettings() {
 }
 
 /**
- * Saves pipeline settings to the VM.
- * @param {Object} payload - The settings payload.
- * @returns {Object} The JSON response.
+ * Purpose: Saves updated pipeline settings to the VM.
+ * Expected Inputs: payload (Object) - The new pipeline configuration options.
+ * Expected Outputs: Object - Response confirming the save operation.
  */
 function savePipelineSettings(payload) {
   try {
@@ -444,9 +482,9 @@ function savePipelineSettings(payload) {
 }
 
 /**
- * Queues a historical import based on a Gmail search string.
- * @param {string} query - The search query.
- * @returns {Object} The JSON response.
+ * Purpose: Queues a historical import request based on a specific Gmail search query.
+ * Expected Inputs: query (string) - The Gmail search string (e.g. "older_than:30d").
+ * Expected Outputs: Object - VM confirmation of the queued job.
  */
 function queueHistoricalImport(query) {
   try {
@@ -458,16 +496,18 @@ function queueHistoricalImport(query) {
 }
 
 /**
- * Updates custom extraction rules for a specific entity.
- * @param {string} entityType - "correspondents" or "purposes"
- * @param {string} id - The entity ID
- * @param {string} rules - The custom extraction rules
- * @param {boolean} autoArchive - Auto-archive setting (only for purposes)
- * @returns {Object} The JSON response.
+ * Purpose: Updates custom extraction rules for a specific entity in the taxonomy.
+ * Expected Inputs: 
+ *   entityType (string) - "correspondents" or "purposes"
+ *   id (string) - The entity ID
+ *   rules (string) - The custom extraction rules payload.
+ *   autoArchive (boolean) - Auto-archive setting (only applicable for purposes)
+ * Expected Outputs: Object - Response containing the updated entity confirmation.
  */
 function updateEntityRules(entityType, id, rules, autoArchive = false) {
   try {
     const payload = { custom_extraction_rules: rules };
+    // If the entity is a purpose, we also apply the autoArchive flag.
     if (entityType === 'purposes') {
       payload.auto_archive = autoArchive;
     }
@@ -479,9 +519,9 @@ function updateEntityRules(entityType, id, rules, autoArchive = false) {
 }
 
 /**
- * Submits a zero-shot rule creation request to the VM.
- * @param {Object} payload - The object containing artifact_ids and instruction.
- * @returns {Object} The JSON response.
+ * Purpose: Submits a zero-shot taxonomy rule creation request to the VM.
+ * Expected Inputs: payload (Object) - Contains artifact_ids and user instruction.
+ * Expected Outputs: Object - Result of the rule execution.
  */
 function submitZeroShotRule(payload) {
   try {
@@ -493,25 +533,26 @@ function submitZeroShotRule(payload) {
 }
 
 /**
- * Fetches Quota Governor stats from the VM.
- * @returns {Object} The JSON response containing quota stats.
+ * Purpose: Fetches Quota Governor stats from the VM to display health/usage.
+ * Expected Inputs: None.
+ * Expected Outputs: Object - Quota API response containing usage counts and limits.
  */
 function getQuotaGovernor() {
   const scriptProperties = PropertiesService.getScriptProperties();
   const vmUrl = scriptProperties.getProperty('NEXUS_VM_URL') || "http://localhost:8000"; 
   const targetUrl = vmUrl + "/api/health/quota";
   
-  const options = {
-    'method': 'get',
-    'muteHttpExceptions': true
-  };
+  const options = { 'method': 'get', 'muteHttpExceptions': true };
   
   try {
     const response = UrlFetchApp.fetch(targetUrl, options);
     const responseCode = response.getResponseCode();
+    // If successful, return the parsed quota stats.
     if (responseCode >= 200 && responseCode < 300) {
       return JSON.parse(response.getContentText());
-    } else {
+    } 
+    // Otherwise, throw an error reporting the failure.
+    else {
       throw new Error("VM Error (" + responseCode + "): " + response.getContentText());
     }
   } catch (error) {
