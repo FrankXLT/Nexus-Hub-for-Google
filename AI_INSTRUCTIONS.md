@@ -4,7 +4,7 @@ This file acts as the primary rulebook for any AI assistant (Gemini, Claude, Cur
 
 ## Task Routing Matrix
 
-Use the matrix below to find the specific guidelines required for your current task:
+Use the matrix below (if you are asked to [X], read Section [Y]) to find the specific guidelines required for your current task:
 
 *   **Task: Writing New Code or Fixing Bugs** -> Reference: Section 2 (Branching & Coding Standards)
 *   **Task: Generating Code or Configurations** -> Reference: Section 3 (AI Coding Best Practices)
