@@ -16,6 +16,7 @@ By leveraging Google's Gemini Large Language Models (LLMs) and a strictly govern
 
 *** NOTICE: As of Stage 45, development has shifted to Architectural Epics. Versioning has been reset to a YYYY.Epic.Major.Minor schema. Epic 0 (Baseline) = 2026.0.x.x, Epic 1 (Profiling) = 2026.1.x.x, Epic 2 (Graph API) = 2026.2.x.x, Epic 3 (Nexus UI) = 2026.3.x.x, Epic 4 (IaC) = 2026.4.x.x. ***
 
+- **v2026.6.0.0:** [Epic 6.0] - Deprecated Docker to free system resources, upgraded IaC scripts to interactive wizards, and completely rewrote the Installation Manual for beginners.
 - **v2026.5.3.0:** [Epic 5.3](#epic-5-prompt-3) - Executed Melding Audit Remediation: Wired dead Omnibox buttons and restored access to the Workflow Hub modal.
 - **v2026.5.0.0:** [Epic 5.0] - Executed Pre-Flight Remediation: Patched Google Tasks schema crashes, injected Safe Mode gatekeepers, and wired missing Code.gs bridges.
 - **v2026.4.2.0:** [Epic 4.2](#epic-4-prompt-2) - Engineered the CI/CD deploy script integrating clasp and gcloud, officially deprecating legacy shell scripts.

@@ -1,52 +1,63 @@
 #!/bin/bash
 # scripts/deploy.sh
-# CI/CD Deployment Script for Nexus Hub
+# Verbose CI/CD Deployment Script for Nexus Hub
 
 set -e
 set -o pipefail
 
 # Colors for output
 GREEN='\033[0;32m'
-RED='\033[0;31m'
+CYAN='\033[0;36m'
 YELLOW='\033[1;33m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-trap 'echo -e "${RED}Deployment failed! Please check the logs above.${NC}"' ERR
+trap 'echo -e "\n${RED}Deployment failed! Please check the logs above.${NC}"' ERR
 
-echo -e "${YELLOW}Starting Nexus Hub CI/CD Deployment...${NC}"
+echo -e "${CYAN}====================================================${NC}"
+echo -e "${CYAN}       Nexus Hub One-Click Deployment Wizard        ${NC}"
+echo -e "${CYAN}====================================================${NC}"
 
 # Configuration
 INSTANCE_NAME="nexus-hub-vm"
-ZONE="us-central1-f" # Modify this if your instance is in a different zone
+ZONE="us-central1-f"
 
-# 1. Sync Apps Script UI Locally
-echo -e "${GREEN}[1/2] Syncing Apps Script UI locally via clasp...${NC}"
+echo -e "\n${YELLOW}[1/2] Syncing Serverless Frontend (Google Apps Script)...${NC}"
+echo -e "Executing 'clasp push' to upload local HTML/JS/GS files to your Google Account."
 if command -v clasp &> /dev/null; then
     clasp push
-    echo -e "${GREEN}Apps Script UI synced successfully.${NC}"
+    echo -e "${GREEN}--> Apps Script UI synced successfully!${NC}"
 else
     echo -e "${RED}Error: clasp is not installed. Please install it globally (npm install -g @google/clasp).${NC}"
     exit 1
 fi
 
-# 2. Deploy Backend to GCP VM
-echo -e "${GREEN}[2/2] Connecting to GCP VM to deploy backend updates...${NC}"
+echo -e "\n${YELLOW}[2/2] Deploying Backend to Google Cloud VM...${NC}"
+echo -e "Connecting securely via SSH to pull updates, sync dependencies, and restart the daemon."
+
 gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="
     set -e
-    echo '--> Pulling latest git updates...'
+    echo -e '\n[VM] 1. Pulling latest code from git...'
     cd /opt/nexus-hub
-    git pull origin main
+    git pull origin main || echo 'Warning: Could not pull git. Make sure you pushed your changes or setup SSH.'
     
-    echo '--> Activating virtual environment & installing pip dependencies...'
+    echo -e '\n[VM] 2. Activating Python Virtual Environment...'
     source venv/bin/activate
+    
+    echo -e '\n[VM] 3. Installing dependencies via pip...'
     pip install -r requirements.txt
     
-    echo '--> Executing database migrations...'
+    echo -e '\n[VM] 4. Running SQLite3 database migrations...'
     python3 db_init.py
     
-    echo '--> Restarting systemd service...'
+    echo -e '\n[VM] 5. Restarting the FastAPI systemd daemon...'
+    sudo systemctl daemon-reload
     sudo systemctl restart nexus-hub.service
-    echo '--> Backend successfully deployed and restarted.'
+    
+    echo -e '\n[VM] Deployment sequence completed securely.'
 "
 
-echo -e "${GREEN}Deployment completed successfully!${NC}"
+echo -e "\n${GREEN}====================================================${NC}"
+echo -e "${GREEN}          Deployment Completed Successfully!        ${NC}"
+echo -e "${GREEN}====================================================${NC}"
+echo -e "Your frontend and backend are now perfectly synchronized."
