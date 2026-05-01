@@ -361,11 +361,19 @@ Nexus Hub's codebase is meticulously organized into discrete engines:
 * **[`llm_engine.py`](./llm_engine.py):** Handles Gemini API interactions, **Zero-Shot Rule Generation**, and Entity Profiling.
 * **[`sync_engine.py`](./sync_engine.py):** The massive background worker. It manages the **Quota Governor**, fetches delta changes from Gmail/Drive, integrates **Drive Relocation**, and automatically provisions Google Tasks via the **Materialization Pipeline**.
 * **[`retention_worker.py`](./retention_worker.py):** The "Inbox Sweeper." Evaluates user-defined rules to permanently auto-archive or trash aging emails safely.
+* **[`auth.py`](./auth.py):** The Authentication Bridge. Manages the headless OAuth 2.0 flow and token refreshing for Google Workspace APIs.
+* **[`branding_engine.py`](./branding_engine.py):** The Visual Sync Engine. Programmatically calculates Euclidean color distances to synchronize custom brand colors between Gmail Labels and Google Drive folders.
+* **[`notifier.py`](./notifier.py):** The Alerting System. Triggers external webhooks for critical events and generates daily HTML quarantine digests via the Gmail API.
 
 ### The Serverless UI Shell (HTML/JS)
 * **[`Index.html`](./Index.html):** The core DOM Blueprint. Provides the Material Design split-pane workspace, sidebar mechanics, Modals, and Chart.js integrations.
 * **[`JS_Actions.html`](./JS_Actions.html):** The interaction layer. Converts UI clicks into backend API calls, renders the Knowledge Grid, and handles AST Search autocomplete.
+* **[`JS_State.html`](./JS_State.html):** The State Manager. Handles internal memory state for the single-page application.
+* **[`CSS_Styles.html`](./CSS_Styles.html):** The Theme Engine. Houses all Material Design and Blueprint styling configurations.
 * **[`Code.gs`](./Code.gs):** The cryptographic bridge. Deployed on Google servers, it securely transmits payloads to your cloud VM via HMAC-SHA256.
+
+### Utility Scripts & Migrations
+* **[`patch.py`](./patch.py) & **[`update_llm.py`](./update_llm.py):** System utilities used programmatically to inject UI blueprints or update schema logic dynamically without requiring full structural rebuilds.
 
 ---
 
