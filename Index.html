@@ -66,29 +66,29 @@
         </div>
 
         <div class="system-toggles">
-            <div style="font-size: 10px; text-transform: uppercase; color: #666; margin-bottom: 15px; font-weight: bold; letter-spacing: 1px;">Epic 5 Safe Mode</div>
-            <div class="toggle-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; padding: 0 10px; font-size: 12px; color: var(--text-muted);">
+            <div style="font-size: 10px; text-transform: uppercase; color: #666; margin-bottom: 15px; font-weight: bold; letter-spacing: 1px;" title="System-wide toggle overrides to safely disable certain automations.">Epic 5 Safe Mode</div>
+            <div class="toggle-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; padding: 0 10px; font-size: 12px; color: var(--text-muted);" title="Enable or disable automated deletion/archiving of logs based on retention policies.">
                 Retention Sweep 
                 <label class="switch" style="position: relative; display: inline-block; width: 34px; height: 20px;">
                     <input type="checkbox" id="toggle-retention" onchange="appActions.updateSafeMode('feature_retention_sweeper', this.checked)" style="opacity: 0; width: 0; height: 0;">
                     <span class="slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 20px;"></span>
                 </label>
             </div>
-            <div class="toggle-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; padding: 0 10px; font-size: 12px; color: var(--text-muted);">
+            <div class="toggle-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; padding: 0 10px; font-size: 12px; color: var(--text-muted);" title="Enable or disable the automatic moving of processed Drive files.">
                 Drive Relocator 
                 <label class="switch" style="position: relative; display: inline-block; width: 34px; height: 20px;">
                     <input type="checkbox" id="toggle-relocator" onchange="appActions.updateSafeMode('feature_drive_relocator', this.checked)" style="opacity: 0; width: 0; height: 0;">
                     <span class="slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 20px;"></span>
                 </label>
             </div>
-            <div class="toggle-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; padding: 0 10px; font-size: 12px; color: var(--text-muted);">
+            <div class="toggle-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; padding: 0 10px; font-size: 12px; color: var(--text-muted);" title="Enable or disable the conversion of transient emails into permanent PDFs.">
                 Materialization 
                 <label class="switch" style="position: relative; display: inline-block; width: 34px; height: 20px;">
                     <input type="checkbox" id="toggle-materialization" onchange="appActions.updateSafeMode('feature_materialization', this.checked)" style="opacity: 0; width: 0; height: 0;">
                     <span class="slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 20px;"></span>
                 </label>
             </div>
-            <div class="toggle-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; padding: 0 10px; font-size: 12px; color: var(--text-muted);">
+            <div class="toggle-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; padding: 0 10px; font-size: 12px; color: var(--text-muted);" title="Enable or disable the generation of Google Tasks for items requiring manual action.">
                 Google Tasks 
                 <label class="switch" style="position: relative; display: inline-block; width: 34px; height: 20px;">
                     <input type="checkbox" id="toggle-tasks" onchange="appActions.updateSafeMode('feature_google_tasks', this.checked)" style="opacity: 0; width: 0; height: 0;">
@@ -97,7 +97,7 @@
             </div>
             
             <div style="font-size: 10px; text-transform: uppercase; color: #666; margin-bottom: 15px; margin-top: 25px; font-weight: bold; letter-spacing: 1px;">Diagnostics</div>
-            <div class="nav-item" onclick="appActions.triggerDiagnostics()" style="margin: 0; padding: 12px 20px; background: transparent;">
+            <div class="nav-item" onclick="appActions.triggerDiagnostics()" style="margin: 0; padding: 12px 20px; background: transparent;" title="Trigger a comprehensive health check of all system components.">
                 <div class="nav-icon"><i class="material-icons">health_and_safety</i></div>
                 <span class="nav-text">Run Diagnostics</span>
             </div>
@@ -453,8 +453,8 @@
               <p class="placeholder-text">Ask me anything about your workspace artifacts...</p>
             </div>
             <div style="display: flex; gap: 10px;">
-              <input type="text" id="chat-input" placeholder="Type your question..." style="flex: 1; padding: 8px; box-sizing: border-box;" onkeypress="if(event.key === 'Enter') appActions.askAI()">
-              <button class="btn btn-primary" onclick="appActions.askAI()"><i class="material-icons">send</i> Send</button>
+              <input type="text" id="chat-input" placeholder="Type your question..." style="flex: 1; padding: 8px; box-sizing: border-box;" onkeypress="if(event.key === 'Enter') appActions.askAI()" title="Enter a question or command for the AI assistant.">
+              <button class="btn btn-primary" onclick="appActions.askAI()" title="Submit your query to the AI."><i class="material-icons">send</i> Send</button>
             </div>
           </div>
         </div>
