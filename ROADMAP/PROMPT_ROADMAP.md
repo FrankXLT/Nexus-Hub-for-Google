@@ -1,4 +1,3 @@
-
 # Nexus Hub: Prompt Roadmap By Epic
 
 **Instructions for the Human Developer:** Do not paste this entire file into Gemini Code Assist at once. Treat this as a sequential playbook. 
@@ -6,16 +5,67 @@
 2. Paste the prompt to anchor the agent. 
 3. Proceed prompt-by-prompt within the current Epic, only moving to the next when the current code is perfect.
 
-## Table of Contents
-* [EPIC 0: The Baseline Foundation (v0.x.x)](#epic-0-the-baseline-foundation-v0xx)
-* [EPIC 1: Autonomous Profiling & Lifecycle Management (v1.x.x)](#epic-1-autonomous-profiling--lifecycle-management-v1xx)
-* [EPIC 2: The Core API & Graph Migration (v2.x.x)](#epic-2-the-core-api--graph-migration-v2xx)
-* [EPIC 3: The Nexus Paradigm Frontend (v3.x.x)](#epic-3-the-nexus-paradigm-frontend-v3xx)
-* [EPIC 4: Infrastructure as Code (v4.x.x)](#epic-4-infrastructure-as-code-v4xx)
+<details open>
+<summary><h2>Planned</h2></summary>
 
----
+<details open>
+<summary><h3><a name="epic-2-prompt-8"></a>Epic 2 - Prompt 8: Semantic Clustering Engine & Auto-Resolution (Backend)</h3></summary>
 
-## EPIC 0: The Baseline Foundation (v0.x.x)
+**Copy/Paste this to Gemini Code Assist:**
+> "I am the Lead Architect. We are upgrading the Zero-Trust Quarantine queue to include a 'Semantic Clustering & Auto-Resolution Engine'. This prevents alert fatigue by grouping quarantined artifacts and using AI to establish consensus.
+>
+>Task 1: The Prompt Template
+>1. Ensure PROMPTS/quarantine_consolidation.tmpl exists (the user has already created this file).
+>Task 2: Database Initialization (db_init.py)
+>1. In seed_default_config(), add a new key: auto_approve_quarantine_threshold with a default value of 10.
+>2. In seed_default_prompts(), ensure the new quarantine_consolidation.tmpl file is read and seeded into the Config_Prompts table.
+>
+>Task 3: The Nightly Janitor (sync_engine.py)
+>1. Create a new background worker function: evaluate_quarantine_clusters().
+>2. Logic: Query all artifacts where status = 'QUARANTINED'. Group them by domain/sender.
+>3. AI Consensus: If a domain has multiple artifacts with differing AI guesses in their custom_data, fetch the consolidation prompt from the DB, run it through the LLM engine, and overwrite the custom_data of all artifacts in that cluster with the unified consensus.
+>4. Auto-Resolution: Check the cluster size against auto_approve_quarantine_threshold. If the cluster size >= the threshold, autonomously execute INSERT INTO Taxonomy_Correspondents, map the artifacts to the new ID, and update their status to COMPLETE.
+>
+>Task 4: Versioning
+>1. In README.md: Add to Version History: - **v2026.2.8.0:** [Epic 2.8](#epic-2-prompt-8) - Built the Semantic Clustering & Auto-Resolution backend engine for the Quarantine Queue.
+>
+>Output Actions:
+>1. Silently execute the code implementation.
+>2. Silently update README.md."
+
+</details>
+
+<details open>
+<summary><h3><a name="epic-3-prompt-10"></a>Epic 3 - Prompt 10: Quarantine Cluster Cards & UI Data Binding</h3></summary>
+
+**Copy/Paste this to Gemini Code Assist:**
+> "I am the Lead Architect. We are updating the Zero-Trust Review UI to render 'Cluster Cards' based on the Semantic Clustering engine built in Epic 2.8.
+>
+>Task 1: Cluster Aggregation (JS_Actions.html)
+>1. Update the JS function that renders the Zero-Trust Queue. Instead of rendering one card per artifact, group the fetched artifacts by the consensus_correspondent (or proposed_correspondent) found in their custom_data JSON.
+>2. Render a single 'Cluster Card' per group. The card should display the Proposed Entity name, the volume of pending artifacts in that cluster, and the originating domain/sender.
+>
+>Task 2: The Context Drawer (JS_Actions.html & Index.html)
+>1. Wire the Cluster Card so that clicking it opens the right-hand Aggregate Context Drawer.
+>2. Title Listing: Inside the drawer, dynamically generate a bulleted list displaying the title (or subject line/filename) of every individual artifact contained within that cluster so the user knows exactly what documents are affected.
+>3. Action Buttons: Add two primary buttons to the drawer: [Approve Cluster & Map All] and [Reject Cluster]. Bind these to a bulk update function that hits the taxonomy API (e.g., POST /api/taxonomy/zero-shot-rule).
+>
+>Task 3: Versioning
+>1. In README.md: Add to Version History: - **v2026.3.10.0:** [Epic 3.10](#epic-3-prompt-10) - Upgraded Zero-Trust UI to use Cluster Cards and mapped artifact titles to the context drawer.
+>
+>Output Actions:
+>1. Silently execute the code implementation.
+>2. Silently update README.md."
+
+</details>
+
+</details>
+
+<details>
+<summary><h2>Completed</h2></summary>
+
+<details>
+<summary><h2>EPIC 0: The Baseline Foundation (v0.x.x)</h2></summary>
 *Notice to AI: This Epic covers the foundational ingestion, database, and webhook architecture.*
 
 ---
@@ -992,11 +1042,16 @@
 
 ---
 
-## EPIC 1: Autonomous Profiling & Lifecycle Management (v1.x.x)
+</details>
+
+<details>
+<summary><h2>EPIC 1: Autonomous Profiling & Lifecycle Management (v1.x.x)</h2></summary>
 *Notice to AI: We are now executing Epic 1. Update the README version history to v1.x.x for the following prompts.*
 
 <a id="epic-1-prompt-1"></a>
 ### Epic 1 - Prompt 1: Core Audit Fixes (Gmail Tuning & HMAC Trap)
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. We are starting Epic 1.
 > 
 > **Task 1: Code Implementation (`llm_engine.py`)**
@@ -1019,6 +1074,8 @@
 
 <a id="epic-1-prompt-2"></a>
 ### Epic 1 - Prompt 2: Gmail Post-Processing & Auto-Archive
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > 
 > **Task 1: Code Implementation (Backend & Frontend)**
@@ -1039,6 +1096,8 @@
 
 <a id="epic-1-prompt-3"></a>
 ### Epic 1 - Prompt 3: Advanced Inbox Retention Engine
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > 
 > **Task 1: Code Implementation (Retention Engine & UI)**
@@ -1059,6 +1118,8 @@
 
 <a id="epic-1-prompt-4"></a>
 ### Epic 1 - Prompt 4: The Drive Relocation Engine
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > 
 > **Task 1: Code Implementation (Drive API Execution)**
@@ -1104,6 +1165,8 @@
 
 <a id="epic-1-prompt-5"></a>
 ### Epic 1 - Prompt 5: The Entity Profiler & Template Engine
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. We are finalizing Epic 1.
 > 
 > **Task 1: Code Implementation (Template Extraction)**
@@ -1127,6 +1190,8 @@
 
 <a id="epic-1-prompt-6"></a>
 ### Epic 1 - Prompt 6: The Historical Import Engine & Queue
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. We are building an asynchronous buffering system to handle massive historical data ingestion without triggering Google API rate limits.
 > 
 > **Task 1: Schema Update (`db_init.py`)**
@@ -1160,6 +1225,8 @@
 
 <a id="epic-1-prompt-7"></a>
 ### Epic 1 - Prompt 7: The Materialization Pipeline & Lineage Tracking
+
+**Copy/Paste this to Gemini Code Assist:**
 > "I am the Lead Architect. We are building the Materialization Pipeline to convert transient HTML emails into permanent PDFs in Google Drive, establishing a strict lineage between the source and the new artifact.
 > 
 > **Task 1: Schema Updates (`db_init.py`)**
@@ -1193,6 +1260,8 @@
 
 <a id="epic-1-prompt-8"></a>
 ### Epic 1 - Prompt 8: The Google Tasks Action Engine
+
+**Copy/Paste this to Gemini Code Assist:**
 > "I am the Lead Architect. We are integrating the Google Tasks API to autonomously generate actionable to-do items for system alerts and artifacts flagged by the LLM as requiring user action.
 > 
 > **Task 1: GCP & Schema Preparation (`db_init.py` & `INSTRUCTIONS.md`)**
@@ -1217,11 +1286,16 @@
 
 ---
 
-## EPIC 2: The Core API & Graph Migration (v2.x.x)
+</details>
+
+<details>
+<summary><h2>EPIC 2: The Core API & Graph Migration (v2.x.x)</h2></summary>
 *Notice to AI: We are now executing Epic 2. Update the README version history to v2.x.x for the following prompts.*
 
 <a id="epic-2-prompt-1"></a>
 ### Epic 2 - Prompt 1: Telemetry & Effectiveness Schema Upgrade
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. We are starting Epic 2.
 > 
 > **Task 1: Code Implementation (`db_init.py`)**
@@ -1241,6 +1315,8 @@
 
 <a id="epic-2-prompt-2"></a>
 ### Epic 2 - Prompt 2: The ROI & Aggregation API
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > 
 > **Task 1: Code Implementation (`main.py`)**
@@ -1261,6 +1337,8 @@
 
 <a id="epic-2-prompt-3"></a>
 ### Epic 2 - Prompt 3: The Unified Search AST Engine
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > 
 > **Task 1: Code Implementation (`main.py`)**
@@ -1280,6 +1358,8 @@
 
 <a id="epic-2-prompt-4"></a>
 ### Epic 2 - Prompt 4: Threads Sankey API & Color Schema
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > 
 > **Task 1: Code Implementation (`db_init.py`)**
@@ -1298,6 +1378,8 @@
 
 <a id="epic-2-prompt-5"></a>
 ### Epic 2 - Prompt 5: Mission Control Heatmap API
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > 
 > **Task 1: Code Implementation (`main.py`)**
@@ -1312,6 +1394,8 @@
 
 <a id="epic-2-prompt-6"></a>
 ### Epic 2 - Prompt 6: User Preferences & Boot Routing
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > 
 > **Task 1: Code Implementation (`main.py` & `db_init.py`)**
@@ -1326,6 +1410,8 @@
 
 <a id="epic-2-prompt-7"></a>
 ### Epic 2 - Prompt 7: Zero-Shot Taxonomy Rules API
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > 
 > **Task 1: Code Implementation (`main.py` & `llm_engine.py`)**
@@ -1341,11 +1427,16 @@
 
 ---
 
-## EPIC 3: The Nexus Paradigm Frontend (v3.x.x)
+</details>
+
+<details>
+<summary><h2>EPIC 3: The Nexus Paradigm Frontend (v3.x.x)</h2></summary>
 *Notice to AI: We are now executing Epic 3. Update the README version history to v3.x.x for the following prompts.* *CRITICAL UI DIRECTIVE: You have already built functional UI elements, state management, and settings modals in Epics 0-2. DO NOT delete or overwrite existing functionality. You must use `roadmap/Index.html` as a structural and stylistic blueprint (CSS variables, grid layout, sidebar mechanics), but your objective is to MELD our existing UI components into this new responsive shell, preserving all prior features.*
 
 <a id="epic-3-prompt-1"></a>
 ### Epic 3 - Prompt 1: Global Observability & Quota Dashboards
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. We are starting Epic 3.
 > *CRITICAL UI DIRECTIVE: You have already built functional UI elements, state management, and settings modals in Epics 0-2. DO NOT delete or overwrite existing functionality. You must use `roadmap/Index.html` as a structural and stylistic blueprint (CSS variables, grid layout, sidebar mechanics), but your objective is to MELD our existing UI components into this new responsive shell, preserving all prior features.*
 > 
@@ -1362,6 +1453,8 @@
 
 <a id="epic-3-prompt-2"></a>
 ### Epic 3 - Prompt 2: The Knowledge Grid Shell
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > *CRITICAL UI DIRECTIVE: You have already built functional UI elements, state management, and settings modals in Epics 0-2. DO NOT delete or overwrite existing functionality. You must use `roadmap/Index.html` as a structural and stylistic blueprint (CSS variables, grid layout, sidebar mechanics), but your objective is to MELD our existing UI components into this new responsive shell, preserving all prior features.*
 > 
@@ -1379,6 +1472,8 @@
 
 <a id="epic-3-prompt-3"></a>
 ### Epic 3 - Prompt 3: The Command-Line Omnibox
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > *CRITICAL UI DIRECTIVE: You have already built functional UI elements, state management, and settings modals in Epics 0-2. DO NOT delete or overwrite existing functionality. You must use `roadmap/Index.html` as a structural and stylistic blueprint (CSS variables, grid layout, sidebar mechanics), but your objective is to MELD our existing UI components into this new responsive shell, preserving all prior features.*
 >
@@ -1396,6 +1491,8 @@
 
 <a id="epic-3-prompt-4"></a>
 ### Epic 3 - Prompt 4: Aggregate Context Drawer & Zero-Shot Rules
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > *CRITICAL UI DIRECTIVE: You have already built functional UI elements, state management, and settings modals in Epics 0-2. DO NOT delete or overwrite existing functionality. You must use `roadmap/Index.html` as a structural and stylistic blueprint (CSS variables, grid layout, sidebar mechanics), but your objective is to MELD our existing UI components into this new responsive shell, preserving all prior features.*
 >
@@ -1412,6 +1509,8 @@
 
 <a id="epic-3-prompt-5"></a>
 ### Epic 3 - Prompt 5: The 'Select All' Bulk Pattern
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > *CRITICAL UI DIRECTIVE: You have already built functional UI elements, state management, and settings modals in Epics 0-2. DO NOT delete or overwrite existing functionality. You must use `roadmap/Index.html` as a structural and stylistic blueprint (CSS variables, grid layout, sidebar mechanics), but your objective is to MELD our existing UI components into this new responsive shell, preserving all prior features.*
 >
@@ -1427,6 +1526,8 @@
 
 <a id="epic-3-prompt-6"></a>
 ### Epic 3 - Prompt 6: System Analytics Dashboard
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > *CRITICAL UI DIRECTIVE: You have already built functional UI elements, state management, and settings modals in Epics 0-2. DO NOT delete or overwrite existing functionality. You must use `roadmap/Index.html` as a structural and stylistic blueprint (CSS variables, grid layout, sidebar mechanics), but your objective is to MELD our existing UI components into this new responsive shell, preserving all prior features.*
 >
@@ -1443,6 +1544,8 @@
 
 <a id="epic-3-prompt-7"></a>
 ### Epic 3 - Prompt 7: Threads UI & Color Weaving
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > *CRITICAL UI DIRECTIVE: You have already built functional UI elements, state management, and settings modals in Epics 0-2. DO NOT delete or overwrite existing functionality. You must use `roadmap/Index.html` as a structural and stylistic blueprint (CSS variables, grid layout, sidebar mechanics), but your objective is to MELD our existing UI components into this new responsive shell, preserving all prior features.*
 >
@@ -1460,6 +1563,8 @@
 
 <a id="epic-3-prompt-8"></a>
 ### Epic 3 - Prompt 8: Mission Control UI, Boot Routing, & UI Consolidation
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > *CRITICAL UI DIRECTIVE: You have already built functional UI elements, state management, and settings modals in Epics 0-2. DO NOT delete or overwrite existing functionality. You must use `roadmap/Index.html` as a structural and stylistic blueprint (CSS variables, grid layout, sidebar mechanics), but your objective is to MELD our existing UI components into this new responsive shell, preserving all prior features.*
 >
@@ -1475,11 +1580,16 @@
 > **Output Actions:**
 > 1. Silently update UI files and `README.md`."
 
-## EPIC 4: Infrastructure as Code (v4.x.x)
+</details>
+
+<details>
+<summary><h2>EPIC 4: Infrastructure as Code (v4.x.x)</h2></summary>
 *Notice to AI: We are now executing Epic 4. Update the README version history to v4.x.x for the following prompts.*
 
 <a id="epic-4-prompt-1"></a>
 ### Epic 4 - Prompt 1: The Zero-Touch Provisioner (`provision.sh`)
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. We are starting Epic 4.
 > 
 > **Task 1: Code Implementation (`scripts/provision.sh`)**
@@ -1500,6 +1610,8 @@
 
 <a id="epic-4-prompt-2"></a>
 ### Epic 4 - Prompt 2: The CI/CD Deployment Script (`deploy.sh`)
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. 
 > 
 > **Task 1: Code Implementation (`scripts/deploy.sh`)**
@@ -1519,11 +1631,16 @@
 > **Output Actions:**
 > 1. Silently delete `update.sh`, create `scripts/deploy.sh`, and update documentation."
 
-## EPIC 5: Post-Deployment Hardening & Cleanup (v5.x.x)
+</details>
+
+<details>
+<summary><h2>EPIC 5: Post-Deployment Hardening & Cleanup (v5.x.x)</h2></summary>
 *Notice to AI: We are now executing Epic 5. Update the README version history to v5.x.x for the following prompts.*
 
 <a id="epic-5-prompt-1a"></a>
 ### Epic 5 - Prompt 1: The Master Bi-Directional Pre-Flight Audit
+
+**Copy/Paste this to Gemini Code Assist:**
 > "Act as a Lead QA Architect. We have completed the core infrastructure for 'Nexus Hub' (Epics 0-4) and are preparing for our first live cloud deployment. I need you to perform an exhaustive, read-only static analysis of the entire workspace using a strict Bi-Directional Traceability method. Do not write or alter any code.
 > 
 > **Context: The Nexus Hub File Manifest**
@@ -1546,6 +1663,8 @@
 
 <a id="epic-5-prompt-1b"></a>
 ### Epic 5 - Prompt 1: The Master Bi-Directional Pre-Flight Audit
+
+**Copy/Paste this to Gemini Code Assist:**
 > "Act as a Lead QA Architect. We have completed the core infrastructure for 'Nexus Hub' (Epics 0-4) and are preparing for our first live cloud deployment. I need you to perform an exhaustive, read-only static analysis of the entire workspace using a strict Bi-Directional Traceability method. Do not write or alter any code.
 > 
 > **Context: The Nexus Hub File Manifest**
@@ -1568,6 +1687,8 @@
 
 <a id="epic-5-prompt-2"></a>
 ### Epic 5 - Prompt 2: The Master Bi-Directional Pre-Flight Audit
+
+**Copy/Paste this to Gemini Code Assist:**
 > "You are the Lead Developer and Technical Documentation Architect for 'Nexus Hub'. We need to execute a critical remediation pass to resolve Deployment Blockers identified in our Pre-Flight Audit. Ensure strict adherence to the existing architecture and use Write-Ahead Logging (`PRAGMA journal_mode=WAL;`) for all new SQLite operations.
 > 
 > **Task 1: Schema & Google Tasks Remediation**
@@ -1595,9 +1716,10 @@
 > **Output Actions:**
 > Silently update `db_init.py`, `sync_engine.py`, `retention_worker.py`, `Index.html`, `JS_Actions.html`, `Code.gs`, and `README.md`."
 
-
 <a id="epic-5-prompt-3"></a>
 ### Epic 5 - Prompt 3: UI Melding Audit Remediation
+
+**Copy/Paste this to Gemini Code Assist:**
 > "I am the Lead Architect. We have completed a UI Melding Audit and discovered several orphaned elements in `Index.html` that must be wired up immediately.
 > 
 > **Task 1: Wire the Omnibox Actions**
@@ -1616,47 +1738,6 @@
 > 1. Silently update `Index.html`.
 > 2. Silently update `README.md`."
 
+</details>
 
-<a id="epic-2-prompt-8"></a>
-### Epic 2 - Prompt 8: Semantic Clustering Engine & Auto-Resolution (Backend)
->"I am the Lead Architect. We are upgrading the Zero-Trust Quarantine queue to include a 'Semantic Clustering & Auto-Resolution Engine'. This prevents alert fatigue by grouping quarantined artifacts and using AI to establish consensus.
->
->Task 1: The Prompt Template
->1. Ensure PROMPTS/quarantine_consolidation.tmpl exists (the user has already created this file).
->Task 2: Database Initialization (db_init.py)
->1. In seed_default_config(), add a new key: auto_approve_quarantine_threshold with a default value of 10.
->2. In seed_default_prompts(), ensure the new quarantine_consolidation.tmpl file is read and seeded into the Config_Prompts table.
->
->Task 3: The Nightly Janitor (sync_engine.py)
->1. Create a new background worker function: evaluate_quarantine_clusters().
->2. Logic: Query all artifacts where status = 'QUARANTINED'. Group them by domain/sender.
->3. AI Consensus: If a domain has multiple artifacts with differing AI guesses in their custom_data, fetch the consolidation prompt from the DB, run it through the LLM engine, and overwrite the custom_data of all artifacts in that cluster with the unified consensus.
->4. Auto-Resolution: Check the cluster size against auto_approve_quarantine_threshold. If the cluster size >= the threshold, autonomously execute INSERT INTO Taxonomy_Correspondents, map the artifacts to the new ID, and update their status to COMPLETE.
->
->Task 4: Versioning
->1. In README.md: Add to Version History: - **v2026.2.8.0:** [Epic 2.8](#epic-2-prompt-8) - Built the Semantic Clustering & Auto-Resolution backend engine for the Quarantine Queue.
->
->Output Actions:
->1. Silently execute the code implementation.
->2. Silently update README.md."
-
-
-<a id="epic-3-prompt-10"></a>
-Epic 3 - Prompt 10: Quarantine Cluster Cards & UI Data Binding
->"I am the Lead Architect. We are updating the Zero-Trust Review UI to render 'Cluster Cards' based on the Semantic Clustering engine built in Epic 2.8.
->
->Task 1: Cluster Aggregation (JS_Actions.html)
->1. Update the JS function that renders the Zero-Trust Queue. Instead of rendering one card per artifact, group the fetched artifacts by the consensus_correspondent (or proposed_correspondent) found in their custom_data JSON.
->2. Render a single 'Cluster Card' per group. The card should display the Proposed Entity name, the volume of pending artifacts in that cluster, and the originating domain/sender.
->
->Task 2: The Context Drawer (JS_Actions.html & Index.html)
->1. Wire the Cluster Card so that clicking it opens the right-hand Aggregate Context Drawer.
->2. Title Listing: Inside the drawer, dynamically generate a bulleted list displaying the title (or subject line/filename) of every individual artifact contained within that cluster so the user knows exactly what documents are affected.
->3. Action Buttons: Add two primary buttons to the drawer: [Approve Cluster & Map All] and [Reject Cluster]. Bind these to a bulk update function that hits the taxonomy API (e.g., POST /api/taxonomy/zero-shot-rule).
->
->Task 3: Versioning
->1. In README.md: Add to Version History: - **v2026.3.10.0:** [Epic 3.10](#epic-3-prompt-10) - Upgraded Zero-Trust UI to use Cluster Cards and mapped artifact titles to the context drawer.
->
->Output Actions:
->1. Silently execute the code implementation.
->2. Silently update README.md."
+</details>

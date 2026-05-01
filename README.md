@@ -36,7 +36,7 @@ Nexus Hub abandons legacy folder-sorting and rigid keyword algorithms. Instead, 
 5. [The Database & Data Ontology](#5-the-database--data-ontology)
 6. [Zero-Trust AI & Sprawl Prevention](#6-zero-trust-ai--sprawl-prevention)
 7. [AI Prompt Ecosystem & Pipeline](#7-ai-prompt-ecosystem--pipeline)
-8. [Core Engines (Codebase Map)](#8-core-engines-codebase-map)
+8. [Core Engines (Codebase Map)](#8-core-engines-codebase-map)7
 9. [Infrastructure as Code (IaC)](#9-infrastructure-as-code-iac)
 10. [Diagnostics & Debug Logging](#10-diagnostics--debug-logging)
 11. [AI-Assisted Development CONOPS](#11-ai-assisted-development-conops)
@@ -313,6 +313,14 @@ sequenceDiagram
         Engine->>DB: Commit Artifact to Taxonomy
     end
 ```
+
+### Semantic Clustering & Auto-Resolution (The Nightly Janitor)
+To prevent alert fatigue and "Queue Rot" within the Zero-Trust Review UI, Nexus Hub employs an asynchronous Semantic Clustering Engine.
+
+Rather than forcing the user to manually review every single quarantined artifact one by one, a background daemon automatically groups isolated artifacts by their originating domain. It then passes the entire cluster back to the LLM to establish a unified statistical consensus, stripping away fragmented hallucinations.
+
+### Knowledge Point: Auto-Resolution Thresholds
+If the "Nightly Janitor" detects that an unapproved Entity has amassed enough identical, high-confidence artifacts to meet your user-defined auto_approve_quarantine_threshold (e.g., 10 artifacts), it safely bypasses the human gatekeeper. The system autonomously injects the new Entity into the Knowledge Graph and maps the artifacts in bulk, turning a potential chore into a seamless, self-healing taxonomy update.
 
 ---
 
