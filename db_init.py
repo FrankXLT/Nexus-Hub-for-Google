@@ -115,7 +115,7 @@ def init_db(db_path: str = DB_PATH) -> None:
             name TEXT NOT NULL,
             custom_field_schema TEXT NOT NULL CHECK(json_valid(custom_field_schema)),
             is_global INTEGER DEFAULT 0,
-            auto_archive BOOLEAN DEFAULT 0,
+            auto_archive INTEGER DEFAULT 0,
             custom_extraction_rules TEXT,
             frequency_weight INTEGER DEFAULT 0,
             confidence_weight REAL DEFAULT 0.0,
@@ -160,7 +160,7 @@ def init_db(db_path: str = DB_PATH) -> None:
             new_state TEXT CHECK(json_valid(new_state)),
             processing_time_ms INTEGER,
             api_tokens_used INTEGER,
-            is_human_corrected BOOLEAN DEFAULT 0,
+            is_human_corrected INTEGER DEFAULT 0,
             FOREIGN KEY (artifact_id) REFERENCES Workspace_Artifacts (artifact_id) ON DELETE CASCADE
         ) STRICT;
     """)
@@ -275,7 +275,7 @@ def seed_default_prompts(conn: sqlite3.Connection) -> None:
 {
   "taxonomy_path": "string",
   "summary": "string",
-  "requires_action": boolean,
+  "requires_action": INTEGER,
   "custom_fields": { "Field1": "value" },
   "discovered_purpose": "string"
 }"""
