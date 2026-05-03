@@ -23,7 +23,7 @@ $sshCommand = @"
     set -e
     echo -e '\n[VM] 1. Pulling latest code from git...'
     cd /opt/nexus
-    git pull origin main || echo 'Warning: Could not pull git. Make sure you pushed your changes or setup SSH.'
+    git pull origin development || echo 'Warning: Could not pull git. Make sure you pushed your changes or setup SSH.'
     
     echo -e '\n[VM] 2. Activating Python Virtual Environment...'
     source venv/bin/activate

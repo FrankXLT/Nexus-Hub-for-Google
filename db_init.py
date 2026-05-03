@@ -188,7 +188,7 @@ def init_db(db_path: str = DB_PATH) -> None:
             source TEXT NOT NULL,
             source_id TEXT NOT NULL,
             status TEXT DEFAULT 'PENDING',
-            added_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            added_timestamp TEXT DEFAULT CURRENT_TIMESTAMP
         ) STRICT;
     """)
     
