@@ -1,9 +1,9 @@
-# HOW NEXUS HUB WORKS: Master Software Requirements & Architecture Specification
+# HOW NEXUS WORKS: Master Software Requirements & Architecture Specification
 
 ## 1. Executive Summary & Core Features
 
 ### The Zero-Inbox Philosophy
-Nexus Hub operates on the principle of a "zero-inbox" philosophy, acting as the spiritual successor to Google Inbox. Instead of relying on manual sorting or rigid keyword algorithms, the system employs Large Language Models (LLMs) to semantically comprehend unstructured documents and emails. It categorizes, extracts custom data, and routes these artifacts into a unified, centralized relational database (`nexus.db`). By automating the organizational overhead, Nexus Hub transforms a chaotic digital workspace into a highly organized, task-oriented knowledge graph.
+Nexus operates on the principle of a "zero-inbox" philosophy, acting as the spiritual successor to Google Inbox. Instead of relying on manual sorting or rigid keyword algorithms, the system employs Large Language Models (LLMs) to semantically comprehend unstructured documents and emails. It categorizes, extracts custom data, and routes these artifacts into a unified, centralized relational database (`nexus.db`). By automating the organizational overhead, Nexus transforms a chaotic digital workspace into a highly organized, task-oriented knowledge graph.
 
 **File Reference:**
 * `db_init.py` - Initializes the centralized SQLite `nexus.db` engine that makes zero-inbox tracking possible.
@@ -21,7 +21,7 @@ Nexus Hub operates on the principle of a "zero-inbox" philosophy, acting as the 
 
 ## 2. Infrastructure & Multi-Level Topology
 
-Nexus Hub bridges the serverless convenience of Google Apps Script with the computational power of a dedicated Python Virtual Machine (VM). 
+Nexus bridges the serverless convenience of Google Apps Script with the computational power of a dedicated Python Virtual Machine (VM). 
 
 ### The Three Levels of Architecture
 * **Service Level (GCP VM vs. Apps Script):** 
@@ -136,7 +136,7 @@ Apps Script communicates with the FastAPI backend over a cryptographically secur
 The engine uses SQLite configured with Write-Ahead Logging (`PRAGMA journal_mode=WAL;`). This is critical because it allows the FastAPI webhook threads to read the database simultaneously while the background `sync_engine` is writing bulk document updates, preventing database lock exceptions.
 
 ### The 3-Tier Hierarchy
-Nexus Hub abandons flat labeling for a strict hierarchical path: `Category` -> `Correspondent/Division` -> `Purpose`. The `Workspace_Artifacts` table uses `purpose_id` as its sole foreign key constraint. Because a Purpose intrinsically belongs to a specific Correspondent and Category, this cascading structure allows administrators to rename or shift nodes without requiring expensive bulk updates to the artifact rows themselves.
+Nexus abandons flat labeling for a strict hierarchical path: `Category` -> `Correspondent/Division` -> `Purpose`. The `Workspace_Artifacts` table uses `purpose_id` as its sole foreign key constraint. Because a Purpose intrinsically belongs to a specific Correspondent and Category, this cascading structure allows administrators to rename or shift nodes without requiring expensive bulk updates to the artifact rows themselves.
 
 ### Entity Bootstrapping & Zero-Trust Quarantine
 * **Drive Seed Ingestion:** A background process detects `taxonomy_seed.json` in Google Drive to import bulk configurations.
@@ -301,7 +301,7 @@ flowchart TD
 
 ## 6. The Intelligent Quota Governor
 
-To prevent Google API exhaustion and ensure real-time responsiveness, Nexus Hub features an intelligent `QuotaGovernor`. 
+To prevent Google API exhaustion and ensure real-time responsiveness, Nexus features an intelligent `QuotaGovernor`. 
 
 ### 72-Hour Priority Lane Math
 For every artifact fetched during a sync, the governor calculates its age. If it was generated within the last 72 hours, it skips throttling entirely—utilizing a reserved 30% API budget. Artifacts older than 72 hours (historical backlog) are subjected to the throttle; if the daily API calls exceed the remaining 70% limit, processing halts. This ensures urgent daily tasks are never starved by massive mailbox migrations.
@@ -333,7 +333,7 @@ flowchart TD
 
 ## 7. The AI & Dynamic Prompt Pipeline
 
-Nexus Hub abandons hardcoded system prompts in favor of a dynamic, database-driven tuning loop.
+Nexus abandons hardcoded system prompts in favor of a dynamic, database-driven tuning loop.
 
 * **Dynamic `Config_Prompts`:** Core system roles and tuning rules are stored in SQLite. Administrators can modify AI behavior on-the-fly via the UI without editing Python code or redeploying Docker containers.
 * **Context-Aware Injection:** Rather than passing flat "whitelist" names, the system dynamically generates an `[ENTITY_PROFILES]` dictionary containing the known `sending_subdomains` and `physical_addresses` of correspondents. The LLM cross-references the raw document against these profiles for incredibly deterministic routing.
@@ -363,7 +363,7 @@ The architecture enforces strict containerization using Docker for reproducibili
 
 ## 9. Telemetry, Diagnostics & Notifications
 
-Nexus Hub is deeply observable, equipped with an alerting matrix to protect automated infrastructure.
+Nexus is deeply observable, equipped with an alerting matrix to protect automated infrastructure.
 
 ### Error Logs (DLQ)
 If an API crashes or the Gemini LLM hallucinates malformed JSON, the stack trace and payload are logged directly into the `Error_Logs` table. This serves as a Dead-Letter Queue (DLQ) for later retry or administrator review.
@@ -429,7 +429,7 @@ flowchart TB
 
 ## 10. Acronym Glossary
 
-* **API (Application Programming Interface):** The interface allowing Nexus Hub to fetch data from external services (Gmail, Drive).
+* **API (Application Programming Interface):** The interface allowing Nexus to fetch data from external services (Gmail, Drive).
 * **DLQ (Dead-Letter Queue):** A queue (in this case, `Error_Logs`) where messages or tasks that fail to process are safely routed for analysis.
 * **GCP (Google Cloud Platform):** Google's infrastructure offering, where the persistent e2-micro VM resides.
 * **HMAC (Hash-Based Message Authentication Code):** A cryptographic signature utilizing a shared secret to verify both data integrity and authenticity.

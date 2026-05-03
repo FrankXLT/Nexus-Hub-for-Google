@@ -30,7 +30,7 @@ Use the matrix below (if you are asked to [X], read Section [Y]) to find the spe
 *   **Idempotency Focus:** When writing configuration files or deployment scripts, you must ensure they are safe to run multiple times without causing errors.
 
 ## 4. Database Safety & Idempotency
-Nexus Hub uses SQLite in WAL mode. Database integrity is critical.
+Nexus uses SQLite in WAL mode. Database integrity is critical.
 *   **Diff Requirements:** When asked to generate a deployment script (`update.sh`) or a new database migration script, you MUST first request or perform a `git diff pre-release..main` (or equivalent branch comparison) to understand the delta.
 *   **Transaction Blocks:** ALL generated SQL that alters data or schema MUST be wrapped in explicit transaction blocks:
     ```sql

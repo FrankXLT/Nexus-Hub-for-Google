@@ -1,6 +1,6 @@
 """
 Module: diagnostics.py
-Purpose: Diagnostic suite for Nexus Hub. Performs read/write verification on the SQLite database, 
+Purpose: Diagnostic suite for Nexus. Performs read/write verification on the SQLite database, 
 checks OAuth token validity, and uploads diagnostic reports securely to Google Drive.
 """
 
@@ -183,7 +183,7 @@ def run_all_diagnostics() -> dict:
     # If there are any collected errors, send an urgent webhook notification.
     if errors:
         notifier.send_urgent_webhook({
-            "title": "Nexus Hub: Diagnostic Watchdog Failure",
+            "title": "Nexus: Diagnostic Watchdog Failure",
             "message": "\n".join(errors),
             "priority": 1
         })

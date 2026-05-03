@@ -1,5 +1,5 @@
 """
-FastAPI Backend Application for Nexus Hub.
+FastAPI Backend Application for Nexus.
 Handles incoming webhooks from Google Apps Script with cryptographic replay protection.
 """
 
@@ -25,7 +25,7 @@ load_dotenv()
 
 NEXUS_HMAC_SECRET = os.getenv("NEXUS_HMAC_SECRET", "")
 
-app = FastAPI(title="Nexus Hub Webhook Receiver", description="Receives secure webhook events from Google Apps Script.")
+app = FastAPI(title="Nexus Webhook Receiver", description="Receives secure webhook events from Google Apps Script.")
 
 app.add_middleware(
     CORSMiddleware,
@@ -73,7 +73,7 @@ async def start_cron_jobs():
                 quarantined = cursor.fetchall()
                 conn.close()
                 
-                html_body = "<h2>Nexus Hub Daily Digest</h2>"
+                html_body = "<h2>Nexus Daily Digest</h2>"
                 
                 html_body += "<h3>Zero-Trust Quarantine Queue</h3>"
                 if quarantined:

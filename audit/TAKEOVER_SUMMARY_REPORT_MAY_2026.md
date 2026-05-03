@@ -1,14 +1,14 @@
 # TAKEOVER SUMMARY REPORT - MAY 2026
 
-**Author:** Nexus Hub Lead Architect / Takeover Developer (AI)
+**Author:** Nexus Lead Architect / Takeover Developer (AI)
 **Date:** May 2026
-**Target Workspace:** Nexus Hub for Google
+**Target Workspace:** Nexus for Google
 **Status:** Ready to execute Epic 3.2
 
 ---
 
 ## 1. Project Overview & Current State
-Nexus Hub is a self-hosted, zero-trust knowledge management system utilizing Google Workspace (Gmail/Drive) and Gemini LLM. The system's goal is a "zero-inbox" philosophy, turning unstructured data into a queried SQLite metadata store via a hybrid Google Apps Script (frontend) and GCP Python e2-micro VM (backend) architecture.
+Nexus is a self-hosted, zero-trust knowledge management system utilizing Google Workspace (Gmail/Drive) and Gemini LLM. The system's goal is a "zero-inbox" philosophy, turning unstructured data into a queried SQLite metadata store via a hybrid Google Apps Script (frontend) and GCP Python e2-micro VM (backend) architecture.
 
 ### Milestones Reached
 - **Epic 0 (Baseline):** Foundation built (SQLite strict schema, webhook HMAC verification, containerization).

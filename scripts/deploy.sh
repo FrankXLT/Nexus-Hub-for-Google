@@ -1,6 +1,6 @@
 #!/bin/bash
 # scripts/deploy.sh
-# Verbose CI/CD Deployment Script for Nexus Hub
+# Verbose CI/CD Deployment Script for Nexus
 
 set -e
 set -o pipefail
@@ -15,11 +15,11 @@ NC='\033[0m' # No Color
 trap 'echo -e "\n${RED}Deployment failed! Please check the logs above.${NC}"' ERR
 
 echo -e "${CYAN}====================================================${NC}"
-echo -e "${CYAN}       Nexus Hub One-Click Deployment Wizard        ${NC}"
+echo -e "${CYAN}       Nexus One-Click Deployment Wizard        ${NC}"
 echo -e "${CYAN}====================================================${NC}"
 
 # Configuration
-INSTANCE_NAME="nexus-hub-vm"
+INSTANCE_NAME="nexus-vm"
 ZONE="us-central1-f"
 
 echo -e "\n${YELLOW}[1/2] Syncing Serverless Frontend (Google Apps Script)...${NC}"
@@ -38,7 +38,7 @@ echo -e "Connecting securely via SSH to pull updates, sync dependencies, and res
 gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="
     set -e
     echo -e '\n[VM] 1. Pulling latest code from git...'
-    cd /opt/nexus-hub
+    cd /opt/nexus
     git pull origin main || echo 'Warning: Could not pull git. Make sure you pushed your changes or setup SSH.'
     
     echo -e '\n[VM] 2. Activating Python Virtual Environment...'
@@ -52,7 +52,7 @@ gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="
     
     echo -e '\n[VM] 5. Restarting the FastAPI systemd daemon...'
     sudo systemctl daemon-reload
-    sudo systemctl restart nexus-hub.service
+    sudo systemctl restart nexus.service
     
     echo -e '\n[VM] Deployment sequence completed securely.'
 "

@@ -212,7 +212,7 @@ def patch_index():
             <button class="menu-toggle" onclick="toggleSidebar()">
                 <i class="material-icons">menu</i>
             </button>
-            <span class="brand-text">Nexus Hub</span>
+            <span class="brand-text">Nexus</span>
         </div>
         
         <div class="nav-menu">

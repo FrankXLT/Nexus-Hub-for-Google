@@ -1,4 +1,4 @@
-# Nexus Hub - Pre-Flight Static Analysis Audit Report
+# Nexus - Pre-Flight Static Analysis Audit Report
 **Auditor**: Lead QA Architect (Gemini / Cline)
 **Methodology**: Read-only, Strict Bi-Directional Traceability
 

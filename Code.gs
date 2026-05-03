@@ -1,6 +1,6 @@
 /**
  * Module: Code.gs
- * Purpose: Nexus Hub for Google - Apps Script Backend Router.
+ * Purpose: Nexus for Google - Apps Script Backend Router.
  * This file serves the web app interface and acts as a secure bridge to the Python VM.
  */
 
@@ -21,7 +21,7 @@ function include(filename) {
 function doGet(e) {
   return HtmlService.createTemplateFromFile('Index')
     .evaluate()
-    .setTitle('Nexus Hub')
+    .setTitle('Nexus')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 

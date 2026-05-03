@@ -69,7 +69,7 @@ class NexusNotifier:
             message.add_alternative(email_body, subtype='html')
             message['To'] = user_email
             message['From'] = user_email
-            message['Subject'] = "Nexus Hub: Daily Digest & Quarantine Report"
+            message['Subject'] = "Nexus: Daily Digest & Quarantine Report"
 
             encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
             create_message = {'raw': encoded_message}

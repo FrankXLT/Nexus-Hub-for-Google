@@ -1,6 +1,6 @@
 """
 Module: branding_engine.py
-Purpose: Branding Engine for Nexus Hub. Handles Programmatic Color Management 
+Purpose: Branding Engine for Nexus. Handles Programmatic Color Management 
 across Gmail and Google Drive based on Section 2.2 of ARCHITECTURE.md.
 """
 

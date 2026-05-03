@@ -1,6 +1,6 @@
 """
 Module: db_init.py
-Purpose: Initializes the Nexus Hub SQLite database (nexus.db).
+Purpose: Initializes the Nexus SQLite database (nexus.db).
 Enforces STRICT tables, WAL journaling mode, and JSON data type validation.
 """
 import sqlite3

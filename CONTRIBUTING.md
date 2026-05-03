@@ -1,6 +1,6 @@
-# Contributing to Nexus Hub
+# Contributing to Nexus
 
-Welcome to the Nexus Hub project! We're thrilled to have you contribute. Whether you are a seasoned software engineer or writing your very first line of code, this document is designed to guide you. It's not just a list of commands—it's a masterclass designed to teach you *how* and *why* we work the way we do in our environment.
+Welcome to Nexus for Google project! We're thrilled to have you contribute. Whether you are a seasoned software engineer or writing your very first line of code, this document is designed to guide you. It's not just a list of commands—it's a masterclass designed to teach you *how* and *why* we work the way we do in our environment.
 
 By following this guide, you will learn industry-standard Git workflows, how to collaborate effectively with AI, and how to safely deploy code to production.
 
@@ -11,8 +11,8 @@ To get started with development, follow these steps to configure your local VS C
 1. **Clone the Repository:**
    Open your terminal and clone the repository:
    ```bash
-   git clone https://github.com/FrankXLT/Nexus-Hub-for-Google.git
-   cd Nexus-Hub-for-Google
+   git clone https://github.com/FrankXLT/Nexus-for-Google.git
+   cd Nexus-for-Google
    ```
 
 2. **Switch to the Development Branch:**
@@ -80,7 +80,7 @@ flowchart TD
 
 ## 4. Human-AI Collaboration Expectations
 
-Nexus Hub heavily integrates AI agents (like Gemini, Claude, Cursor) into our development lifecycle. Here is what we expect from you as a human contributor when collaborating with our AI assistants:
+Nexus heavily integrates AI agents (like Gemini, Claude, Cursor) into our development lifecycle. Here is what we expect from you as a human contributor when collaborating with our AI assistants:
 
 *   **Automated Workflows:** Our AI is configured to automatically generate changelogs, propose Semantic Versions during PR reviews, and analyze external code changes from forks. Rely on the AI for these repetitive tasks.
 *   **Maintaining FEATURE_TRACKING.md:** We track features and bugs using a universal tracking file named `FEATURE_TRACKING.md`. When you use AI to build a feature, you must actively maintain this document alongside the AI. Ensure you capture the prompt or strategy in one column, and the AI's (or your) summary of the output in the other.
@@ -88,7 +88,7 @@ Nexus Hub heavily integrates AI agents (like Gemini, Claude, Cursor) into our de
 
 ## 5. Anatomy of a Perfect Pull Request
 
-A great Pull Request (PR) accelerates the review process, provides excellent historical context, and enables our AI tools to function smoothly. Here is what makes a perfect PR at Nexus Hub:
+A great Pull Request (PR) accelerates the review process, provides excellent historical context, and enables our AI tools to function smoothly. Here is what makes a perfect PR at Nexus:
 
 *   **Conventional Commits:** We strictly use the Conventional Commits specification. Your PR title (and individual commits) should look like `feat: add user authentication` or `fix: resolve crash on login`. This enables our AI to accurately determine version bumps and write automated changelogs.
 *   **Descriptive Title:** Ensure the title clearly summarizes the purpose of the PR at a glance.
@@ -100,7 +100,7 @@ A great Pull Request (PR) accelerates the review process, provides excellent his
 
 ## 6. Database Safety Protocols
 
-Because Nexus Hub relies heavily on a structured SQLite (WAL mode) database, database integrity is paramount.
+Because Nexus relies heavily on a structured SQLite (WAL mode) database, database integrity is paramount.
 
 Any deployment, feature, or script that modifies the database schema or bulk data **MUST** adhere to the following safety protocols:
 
@@ -135,7 +135,7 @@ To ensure everyone is speaking the same language, here are clear definitions of 
 *   **Squash Merge:** Combines all the commits of a feature branch into a single, cohesive commit before adding it to the target branch. This keeps the target branch history very clean, as a feature with 20 tiny commits becomes just 1 meaningful commit.
 *   **Origin vs. Upstream:** (Crucial when working from Forks)
     *   *Origin:* The remote repository that your local copy is directly linked to. If you fork our project, your fork on GitHub is your `origin`.
-    *   *Upstream:* The original, primary repository (Nexus Hub) that you originally forked from. You fetch from `upstream` to keep your fork up to date.
+    *   *Upstream:* The original, primary repository (Nexus) that you originally forked from. You fetch from `upstream` to keep your fork up to date.
 *   **Feature Branch vs. Release Branch:**
     *   *Feature Branch:* A temporary, short-lived branch created (usually off `development`) to work on a specific new feature or bug fix.
     *   *Release Branch:* A stabilizing branch (like our `pre-release`) where code is polished, tested, and frozen before being deployed to production.

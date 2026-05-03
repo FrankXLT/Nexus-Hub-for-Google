@@ -1,6 +1,6 @@
 """
 Module: auth.py
-Purpose: Authentication bridge for the Nexus Hub Python VM to access Google Workspace APIs.
+Purpose: Authentication bridge for the Nexus Python VM to access Google Workspace APIs.
 Handles headless OAuth 2.0 flow for Gmail and Drive scopes.
 """
 

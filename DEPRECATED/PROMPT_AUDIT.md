@@ -1,10 +1,10 @@
-# Nexus Hub for Google - Prompt Audit Log
+# Nexus for Google - Prompt Audit Log
 
 ## Phase 1: Infrastructure & CI/CD Scripts
 **Date:** April 25, 2026
 
 **Summary:** 
-Initiated Phase 1 of the Nexus Hub for Google project based on Section 3 of the ARCHITECTURE.md. Established the foundational infrastructure automation and deployment lifecycle scripts for the Google Cloud VM.
+Initiated Phase 1 of the Nexus for Google project based on Section 3 of the ARCHITECTURE.md. Established the foundational infrastructure automation and deployment lifecycle scripts for the Google Cloud VM.
 
 **Decisions Made:**
 - Created an idempotent `setup.sh` script to handle the installation of required VM dependencies: Docker, Docker Compose, Node.js, Python3, and `@google/clasp`. Added clear manual intervention instructions for handling the highly sensitive `.clasprc.json` OAuth token to maintain security and avoid version control leaks.

@@ -1,5 +1,5 @@
 """
-Sync Engine for Nexus Hub.
+Sync Engine for Nexus.
 Fetches delta changes from Google Drive and Gmail to strictly avoid full polling.
 Includes Quota Governor and Seed Ingestion logic.
 """
@@ -190,7 +190,7 @@ def push_to_google_tasks(creds: Credentials, artifact_data: sqlite3.Row, conn: s
         tasks_service = build('tasks', 'v1', credentials=creds)
         task_body = {
             'title': f"Action Required: {artifact_data['summary']}",
-            'notes': f"Generated from Nexus Hub Artifact: {artifact_data['artifact_id']}"
+            'notes': f"Generated from Nexus Artifact: {artifact_data['artifact_id']}"
         }
         
         task = tasks_service.tasks().insert(tasklist=task_list_id, body=task_body).execute()
@@ -700,7 +700,7 @@ def run_sync() -> None:
         if not creds or not creds.valid:
             error_msg = "Authentication failed. Ensure token is valid."
             print(error_msg)
-            notifier.send_urgent_webhook({"title": "Nexus Hub: Fatal Auth Error", "message": error_msg, "priority": 1})
+            notifier.send_urgent_webhook({"title": "Nexus: Fatal Auth Error", "message": error_msg, "priority": 1})
             return
             
         conn = sqlite3.connect(DB_PATH)
@@ -759,11 +759,11 @@ def run_sync() -> None:
     except sqlite3.OperationalError as e:
         error_msg = f"Database Lock or Operational Error: {e}"
         print(error_msg)
-        notifier.send_urgent_webhook({"title": "Nexus Hub: Database Lock", "message": error_msg, "priority": 1})
+        notifier.send_urgent_webhook({"title": "Nexus: Database Lock", "message": error_msg, "priority": 1})
     except Exception as e:
         error_msg = f"Synchronization error occurred: {e}"
         print(error_msg)
-        notifier.send_urgent_webhook({"title": "Nexus Hub: Sync Error", "message": error_msg, "priority": 0})
+        notifier.send_urgent_webhook({"title": "Nexus: Sync Error", "message": error_msg, "priority": 0})
     finally:
         if 'conn' in locals():
             try:

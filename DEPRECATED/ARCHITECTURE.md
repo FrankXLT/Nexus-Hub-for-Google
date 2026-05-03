@@ -1,10 +1,10 @@
-# **Nexus Hub for Google: Master Software Requirements & Architecture Specification**
+# **Nexus for Google: Master Software Requirements & Architecture Specification**
 
 This document outlines the architectural shift from isolated, event-driven Google Apps Scripts to a unified, entity-based knowledge management system across the Google Workspace ecosystem. It serves as the definitive master blueprint for the frontend, backend, database, and security protocols.
 
 ## **1\. Executive Summary**
 
-The "Nexus Hub" unifies the management of entities across Gmail, Google Drive, and Google Calendar. By enforcing a strict taxonomy and dynamic custom data extraction, the system transforms discrete files and emails into a centralized relational database. It relies on a hybrid architecture: a responsive, standalone Google Apps Script frontend backed by a persistent Google Cloud VM running a Python synchronization engine.
+The "Nexus" unifies the management of entities across Gmail, Google Drive, and Google Calendar. By enforcing a strict taxonomy and dynamic custom data extraction, the system transforms discrete files and emails into a centralized relational database. It relies on a hybrid architecture: a responsive, standalone Google Apps Script frontend backed by a persistent Google Cloud VM running a Python synchronization engine.
 
 ```mermaid
 flowchart TB
@@ -66,16 +66,16 @@ flowchart TB
 ```
 
 ### **1.1 Philosophical Inspiration: The Spiritual Successor to Google Inbox**
-Nexus Hub is heavily inspired by the design philosophy of the discontinued "Inbox by Gmail" application. Where Inbox attempted to use rigid algorithms to "bundle" emails and extract actionable data, Nexus Hub leverages the semantic reasoning of Gemini AI to achieve what Inbox envisioned: a true zero-inbox, task-oriented interface. By applying this philosophy not just to Gmail, but extending it to Google Drive, the system transforms unstructured chaos into a highly organized, queryable knowledge graph.
+Nexus is heavily inspired by the design philosophy of the discontinued "Inbox by Gmail" application. Where Inbox attempted to use rigid algorithms to "bundle" emails and extract actionable data, Nexus leverages the semantic reasoning of Gemini AI to achieve what Inbox envisioned: a true zero-inbox, task-oriented interface. By applying this philosophy not just to Gmail, but extending it to Google Drive, the system transforms unstructured chaos into a highly organized, queryable knowledge graph.
 
 ### **1.2 Influences & Referenced Architectures**
 
-The Nexus Hub architecture heavily synthesizes lessons learned and proven paradigms from the following open-source projects:
+The Nexus architecture heavily synthesizes lessons learned and proven paradigms from the following open-source projects:
 
 * **[Nexus for Gmail](https://github.com/fkatzenb/nexus-for-gmail):** Proved the viability of zero-touch autonomy within the Google Workspace ecosystem. It demonstrated how to bypass Apps Script's 6-minute execution limits using Advanced API bulk mutations and highlighted the necessity of a strict validation gateway to prevent LLM hallucination and "label creep."
 * **[Paperless-ngx](https://github.com/paperless-ngx/paperless-ngx):** The community gold-standard for document management. It established the baseline requirements for treating a relational database as the single source of truth, utilizing an exception-based "Inbox" review queue, and ensuring background processes (like OCR) are completely decoupled from frontend web threads.
 * **[Paperless-GPT](https://github.com/icereed/paperless-gpt):** Validated the power of replacing fragile traditional OCR pipelines with Vision LLMs. It demonstrated how to use chained prompts to extract complex custom fields and generate highly descriptive titles, underscoring the need for a provider-agnostic AI factory that can switch between cheap models (like Gemini Flash) and complex reasoning models.
-* **[Paperless-AI](https://github.com/clusterzx/paperless-ai) & [Paperless-AI Next](https://github.com/admonstrator/paperless-ai-next):** Showcased the complexities of RAG and AI-tagging at scale. These projects highlighted the extreme fragility of decentralized state management across microservices, driving Nexus Hub's decision to use a single, centralized SQLite index (`nexus.db`). Furthermore, their evolution emphasized the critical need for aggressive server-side caching and pagination to prevent browser crashes during high-volume document ingestion.
+* **[Paperless-AI](https://github.com/clusterzx/paperless-ai) & [Paperless-AI Next](https://github.com/admonstrator/paperless-ai-next):** Showcased the complexities of RAG and AI-tagging at scale. These projects highlighted the extreme fragility of decentralized state management across microservices, driving Nexus's decision to use a single, centralized SQLite index (`nexus.db`). Furthermore, their evolution emphasized the critical need for aggressive server-side caching and pagination to prevent browser crashes during high-volume document ingestion.
 
 ## **2\. Universal Taxonomy & Visual Branding**
 

@@ -1,4 +1,4 @@
-# Nexus Hub - Security & State Exclusions
+# Nexus - Security & State Exclusions
 nexus.db
 nexus_backup_*.db
 .env

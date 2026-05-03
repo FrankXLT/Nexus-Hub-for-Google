@@ -1,6 +1,6 @@
 #!/bin/bash
 # scripts/provision.sh
-# Interactive Zero-Touch Provisioner for Nexus Hub
+# Interactive Zero-Touch Provisioner for Nexus
 
 set -e
 set -o pipefail
@@ -13,7 +13,7 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 echo -e "${CYAN}====================================================${NC}"
-echo -e "${CYAN}    Welcome to the Nexus Hub Provisioning Wizard    ${NC}"
+echo -e "${CYAN}    Welcome to Nexus for Google Provisioning Wizard    ${NC}"
 echo -e "${CYAN}====================================================${NC}"
 echo -e "This script will automatically configure your Google Cloud project,"
 echo -e "enable the necessary APIs, and build your backend server."
@@ -34,7 +34,7 @@ if [ -z "$PROJECT_ID" ]; then
 fi
 
 ZONE="us-central1-f"
-INSTANCE_NAME="nexus-hub-vm"
+INSTANCE_NAME="nexus-vm"
 
 echo -e "Using Project: ${YELLOW}$PROJECT_ID${NC}"
 echo -e "Using Zone:    ${YELLOW}$ZONE${NC}"
@@ -44,7 +44,7 @@ echo ""
 read -p "Press [Enter] to begin the provisioning process..."
 
 echo -e "\n${CYAN}[1/5] Enabling Google Workspace & AI APIs...${NC}"
-echo -e "Nexus Hub needs permission to interact with your data. We are turning on the APIs for Gmail, Drive, Document AI, People, Tasks, and Pub/Sub."
+echo -e "Nexus needs permission to interact with your data. We are turning on the APIs for Gmail, Drive, Document AI, People, Tasks, and Pub/Sub."
 gcloud services enable \
     gmail.googleapis.com \
     drive.googleapis.com \
@@ -57,14 +57,14 @@ echo -e "${GREEN}APIs successfully enabled!${NC}"
 
 echo -e "\n${CYAN}[2/5] Configuring Network Security...${NC}"
 echo -e "Opening port 8000 so the Google Apps Script frontend can talk to our Python backend."
-if gcloud compute firewall-rules describe nexus-hub-allow-8000 &> /dev/null; then
-    echo -e "${GREEN}Firewall rule 'nexus-hub-allow-8000' already exists. Skipping.${NC}"
+if gcloud compute firewall-rules describe nexus-allow-8000 &> /dev/null; then
+    echo -e "${GREEN}Firewall rule 'nexus-allow-8000' already exists. Skipping.${NC}"
 else
-    gcloud compute firewall-rules create nexus-hub-allow-8000 \
+    gcloud compute firewall-rules create nexus-allow-8000 \
         --action=ALLOW \
         --rules=tcp:8000 \
         --source-ranges=0.0.0.0/0 \
-        --target-tags=nexus-hub-api \
+        --target-tags=nexus-api \
         --project=$PROJECT_ID
     echo -e "${GREEN}Firewall rule created!${NC}"
 fi
@@ -98,35 +98,35 @@ gcloud compute instances create $INSTANCE_NAME \
     --project=$PROJECT_ID \
     --zone=$ZONE \
     --machine-type=e2-micro \
-    --tags=nexus-hub-api \
+    --tags=nexus-api \
     --scopes=https://www.googleapis.com/auth/cloud-platform \
     --metadata=startup-script='#!/bin/bash
-echo ">>> Starting Nexus Hub Bootstrap..."
+echo ">>> Starting Nexus Bootstrap..."
 apt-get update
 apt-get install -y python3 python3-pip python3-venv sqlite3 git curl
 
-echo ">>> Creating /opt/nexus-hub directory..."
-mkdir -p /opt/nexus-hub
-chmod 777 /opt/nexus-hub
-cd /opt/nexus-hub
+echo ">>> Creating /opt/nexus directory..."
+mkdir -p /opt/nexus
+chmod 777 /opt/nexus
+cd /opt/nexus
 
-echo ">>> Cloning Nexus Hub repository from GitHub..."
-git clone https://github.com/FrankXLT/Nexus-Hub-for-Google.git . || echo "Directory not empty, skipping clone."
+echo ">>> Cloning Nexus repository from GitHub..."
+git clone https://github.com/FrankXLT/Nexus-for-Google.git . || echo "Directory not empty, skipping clone."
 
 echo ">>> Initializing Python Virtual Environment..."
 python3 -m venv venv
 
 echo ">>> Configuring systemd daemon for FastAPI..."
-cat > /etc/systemd/system/nexus-hub.service <<EOF
+cat > /etc/systemd/system/nexus.service <<EOF
 [Unit]
-Description=Nexus Hub FastAPI Backend
+Description=Nexus FastAPI Backend
 After=network.target
 
 [Service]
 User=root
-WorkingDirectory=/opt/nexus-hub
-Environment=PATH=/opt/nexus-hub/venv/bin
-ExecStart=/opt/nexus-hub/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+WorkingDirectory=/opt/nexus
+Environment=PATH=/opt/nexus/venv/bin
+ExecStart=/opt/nexus/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
 Restart=always
 
 [Install]
@@ -134,7 +134,7 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable nexus-hub.service
+systemctl enable nexus.service
 echo ">>> Bootstrap complete!"
 '
 

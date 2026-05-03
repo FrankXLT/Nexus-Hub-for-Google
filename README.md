@@ -1,4 +1,4 @@
-# Nexus Hub for Google
+# Nexus for Google
 ![Python](https://img.shields.io/badge/Python-3.11-blue?style=flat-square&logo=python)
 ![Google Cloud](https://img.shields.io/badge/Google_Cloud-e2--micro-4285F4?style=flat-square&logo=googlecloud)
 ![FastAPI](https://img.shields.io/badge/FastAPI-Framework-009688?style=flat-square&logo=fastapi)
@@ -8,23 +8,23 @@
 ![License](https://img.shields.io/badge/license-GPLv3-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Google_Workspace-orange.svg)
 
-Welcome to the **Nexus Hub**, a self-hosted, AI-powered knowledge management system unifying your Google Workspace ecosystem. Acting as the spiritual successor to Google Inbox, it transforms unstructured emails and Google Drive documents into a centralized, queryable relational database.
+Welcome to **Nexus for Google**, a self-hosted, AI-powered knowledge management system unifying your Google Workspace ecosystem. Acting as the spiritual successor to Google Inbox, it transforms unstructured emails and Google Drive documents into a centralized, queryable relational database.
 
-By leveraging Google's Gemini Large Language Models (LLMs) and a strictly governed Zero-Trust Taxonomy, Nexus Hub autonomously categorizes, extracts, and organizes your digital life.
+By leveraging Google's Gemini Large Language Models (LLMs) and a strictly governed Zero-Trust Taxonomy, Nexus autonomously categorizes, extracts, and organizes your digital life.
 
 ---
 
 ## 1. Executive Summary
 
 ### The Zero-Inbox Philosophy
-Nexus Hub abandons legacy folder-sorting and rigid keyword algorithms. Instead, it employs Semantic AI to comprehend the *intent* of unstructured documents and emails. It automatically categorizes them, extracts custom metadata fields, and routes these artifacts into a unified relational database. By automating organizational overhead, Nexus Hub transforms a chaotic digital workspace into a highly organized, task-oriented knowledge graph.
+Nexus abandons legacy folder-sorting and rigid keyword algorithms. Instead, it employs Semantic AI to comprehend the *intent* of unstructured documents and emails. It automatically categorizes them, extracts custom metadata fields, and routes these artifacts into a unified relational database. By automating organizational overhead, Nexus transforms a chaotic digital workspace into a highly organized, task-oriented knowledge graph.
 
 > 🧠 **Knowledge Point: Semantic AI vs. Lexical Search**
-> Traditional (lexical) search looks for exact keyword matches (e.g., finding the word "Invoice"). Semantic AI understands context and relationships. Nexus Hub can identify a document as an invoice even if the word "Invoice" is never explicitly written, vastly outperforming legacy folder rules.
+> Traditional (lexical) search looks for exact keyword matches (e.g., finding the word "Invoice"). Semantic AI understands context and relationships. Nexus can identify a document as an invoice even if the word "Invoice" is never explicitly written, vastly outperforming legacy folder rules.
 
 ### The Privacy Guarantee: Your Data, Your Walled Garden
 > 🧠 **Knowledge Point: What is a Walled Garden?**
-> A "Walled Garden" is a closed ecosystem. Many AI startups require you to forward your private emails to their proprietary servers. Nexus Hub is deployed *entirely* within your personal Google Cloud Platform (GCP) project. Your data never transits a third-party server, and because we utilize Google's Enterprise API terms, your private documents are **never** used to train public foundation models.
+> A "Walled Garden" is a closed ecosystem. Many AI startups require you to forward your private emails to their proprietary servers. Nexus is deployed *entirely* within your personal Google Cloud Platform (GCP) project. Your data never transits a third-party server, and because we utilize Google's Enterprise API terms, your private documents are **never** used to train public foundation models.
 
 ---
 
@@ -47,7 +47,7 @@ Nexus Hub abandons legacy folder-sorting and rigid keyword algorithms. Instead, 
 
 ## 3. System Architecture & Macro Topology
 
-Nexus Hub operates on a serverless-hybrid 3-Tier architecture. It perfectly balances the zero-maintenance benefits of Google Apps Script with the computational depth of a persistent cloud Virtual Machine.
+Nexus operates on a serverless-hybrid 3-Tier architecture. It perfectly balances the zero-maintenance benefits of Google Apps Script with the computational depth of a persistent cloud Virtual Machine.
 
 > 🧠 **Knowledge Point: Why an e2-micro VM instead of Docker/Cloud Run?**
 > Google Cloud offers a free-tier `e2-micro` VM. By managing the Python environment natively via `systemd` rather than spinning up heavy, ephemeral Docker containers for every webhook, we preserve the limited 1GB of RAM entirely for the SQLite database engine and the FastAPI worker loops. This ensures lightning-fast performance for absolutely zero recurring cloud costs.
@@ -108,7 +108,7 @@ flowchart TB
 
 ## 4. Authentication & Security Boundaries
 
-Security in Nexus Hub relies on a strict separation of concerns. The visual interface (Frontend) and the automated workers (Backend) authenticate through entirely different mechanisms to minimize attack surfaces.
+Security in Nexus relies on a strict separation of concerns. The visual interface (Frontend) and the automated workers (Backend) authenticate through entirely different mechanisms to minimize attack surfaces.
 
 ### Webhook Authentication (The HMAC Handshake)
 > 🧠 **Knowledge Point: Why use HMAC-SHA256?**
@@ -131,7 +131,7 @@ sequenceDiagram
     participant GAS as Apps Script UI
     end
     
-    box rgba(30, 142, 62, 0.1) "Nexus Hub VM"
+    box rgba(30, 142, 62, 0.1) "Nexus VM"
     participant VM as Python FastAPI
     end
     
@@ -161,10 +161,10 @@ sequenceDiagram
 
 ## 5. The Database & Data Ontology
 
-The structural foundation of the Nexus Hub relies on a rigorously defined Data Ontology to eliminate chaos and bring absolute order to your artifacts.
+The structural foundation of the Nexus relies on a rigorously defined Data Ontology to eliminate chaos and bring absolute order to your artifacts.
 
 > 🏛️ **Architecture Principle: The Anti-Folder Philosophy**
-> Nexus Hub natively avoids traditional nested folders. Instead of forcing an artifact into a rigid filesystem path, our engine maps semantic intent to a strict relational hierarchy. The artifact simply exists in the void, organized entirely by its metadata relationships.
+> Nexus natively avoids traditional nested folders. Instead of forcing an artifact into a rigid filesystem path, our engine maps semantic intent to a strict relational hierarchy. The artifact simply exists in the void, organized entirely by its metadata relationships.
 
 > 🧠 **Knowledge Point: What is SQLite WAL Mode?**
 > By default, SQLite locks the *entire* database whenever it writes data. If the AI is busy writing a massive email summary, the UI would freeze if it tried to read data simultaneously. We use `PRAGMA journal_mode=WAL;` (Write-Ahead Logging), enabling extremely fast concurrency. Our background worker can write gigabytes of data while the frontend serves search queries perfectly simultaneously.
@@ -276,7 +276,7 @@ flowchart TD
 
 ## 6. Zero-Trust AI & Sprawl Prevention
 
-The taxonomy flow strictly enforces data hygiene. To completely eliminate AI hallucinations and "directory sprawl," Nexus Hub employs a **Zero-Trust Architecture** for all AI taxonomy recommendations. We treat the Large Language Model as an untrusted agent.
+The taxonomy flow strictly enforces data hygiene. To completely eliminate AI hallucinations and "directory sprawl," Nexus employs a **Zero-Trust Architecture** for all AI taxonomy recommendations. We treat the Large Language Model as an untrusted agent.
 
 > 🧠 **Knowledge Point: Context Drift & Directory Sprawl**
 > If you give an AI free rein to tag documents, it will create "Amazon", "Amazon.com", and "Amzn" as three separate folders (Directory Sprawl). Over time, its definition of what belongs where shifts (Context Drift). Zero-Trust AI means the AI can only select from pre-approved databases, or its suggestions are quarantined.
@@ -315,7 +315,7 @@ sequenceDiagram
 ```
 
 ### Semantic Clustering & Auto-Resolution (The Nightly Janitor)
-To prevent alert fatigue and "Queue Rot" within the Zero-Trust Review UI, Nexus Hub employs an asynchronous Semantic Clustering Engine.
+To prevent alert fatigue and "Queue Rot" within the Zero-Trust Review UI, Nexus employs an asynchronous Semantic Clustering Engine.
 
 Rather than forcing the user to manually review every single quarantined artifact one by one, a background daemon automatically groups isolated artifacts by their originating domain. It then passes the entire cluster back to the LLM to establish a unified statistical consensus, stripping away fragmented hallucinations.
 
@@ -326,10 +326,10 @@ If the "Nightly Janitor" detects that an unapproved Entity has amassed enough id
 
 ## 7. AI Prompt Ecosystem & Pipeline
 
-Nexus Hub does not use one massive "Do Everything" prompt. It utilizes a highly orchestrated pipeline of smaller, specialized prompts to optimize token usage, minimize context windows, and maximize extraction accuracy. 
+Nexus does not use one massive "Do Everything" prompt. It utilizes a highly orchestrated pipeline of smaller, specialized prompts to optimize token usage, minimize context windows, and maximize extraction accuracy. 
 
 > 🧠 **Knowledge Point: Retrieval-Augmented Generation (RAG)**
-> When you use the "AI Assistant" in the UI, Nexus Hub uses RAG. It doesn't rely on the AI's general memory. Instead, it converts your question into a SQL query, *Retrieves* the exact rows from your SQLite database, and feeds them to the LLM to *Augment* its *Generation* of the answer.
+> When you use the "AI Assistant" in the UI, Nexus uses RAG. It doesn't rely on the AI's general memory. Instead, it converts your question into a SQL query, *Retrieves* the exact rows from your SQLite database, and feeds them to the LLM to *Augment* its *Generation* of the answer.
 
 ### The Pipeline Phases
 1. **The Triage Prompt (Zero-Shot):** This lightweight frontline dispatcher quickly assesses if the artifact is actionable (needs a Google Task), spam (auto-archive), or requires deep extraction.
@@ -362,7 +362,7 @@ flowchart LR
 
 ## 8. Core Engines (Codebase Map)
 
-Nexus Hub's codebase is meticulously organized into discrete engines:
+Nexus's codebase is meticulously organized into discrete engines:
 
 ### The Backend Brains (Python)
 * **[`main.py`](./main.py):** The FastAPI application. It is the central nervous system that listens for Pub/Sub webhooks and HMAC-secured requests from the UI. It hosts the **Advanced Search AST parser** and Analytics endpoints.
@@ -399,17 +399,17 @@ For a detailed walkthrough on configuring your Walled Garden and running the dep
 
 ## 10. Diagnostics & Debug Logging
 
-Nexus Hub features a resilient, distributed logging architecture to ensure system observability even when the UI is inaccessible.
+Nexus features a resilient, distributed logging architecture to ensure system observability even when the UI is inaccessible.
 
 * **Active Monitoring:** The backend continuously syncs critical errors and state changes to Drive, making it easy to review system health without SSH access.
 * **Dead-Letter Queue Integration:** Unhandled exceptions or AI hallucination failures are routed to the `Error_Logs` table (DLQ) and subsequently summarized in the Drive diagnostic dumps.
-* **Cloud Infrastructure Fallback:** If the web UI loses connection to the VM, you can SSH into the GCP VM (`gcloud compute ssh`) and inspect the `systemd` journals using `journalctl -u nexus-hub.service`.
+* **Cloud Infrastructure Fallback:** If the web UI loses connection to the VM, you can SSH into the GCP VM (`gcloud compute ssh`) and inspect the `systemd` journals using `journalctl -u nexus.service`.
 
 ---
 
 ## 11. AI-Assisted Development CONOPS
 
-Nexus Hub is designed to be maintained by Human-AI pairs. To ensure absolute stability in a multi-developer environment, all contributors must strictly adhere to the following Concept of Operations (CONOPS):
+Nexus is designed to be maintained by Human-AI pairs. To ensure absolute stability in a multi-developer environment, all contributors must strictly adhere to the following Concept of Operations (CONOPS):
 
 ### The Prompt Engineering & Audit Pipeline
 1. **The Architect (Gemini Pro/Advanced):** Use a conversational LLM to brainstorm features, review pseudocode, and generate the final execution prompt. 
@@ -426,7 +426,7 @@ Every execution prompt fed to the IDE agent must include a standard footer manda
 
 | Term | Definition |
 | :--- | :--- |
-| **API** | **Application Programming Interface:** Protocol allowing Nexus Hub to fetch raw data. |
+| **API** | **Application Programming Interface:** Protocol allowing Nexus to fetch raw data. |
 | **AST** | **Abstract Syntax Tree:** Logic used to parse complex omnibox search queries into safe SQLite commands. |
 | **DLQ** | **Dead-Letter Queue:** An isolated database table (`Error_Logs`) where failed messages are safely caught for human review. |
 | **GCP** | **Google Cloud Platform:** Google's infrastructure hosting the `e2-micro` Virtual Machine. |

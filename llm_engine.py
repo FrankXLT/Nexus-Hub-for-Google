@@ -1,5 +1,5 @@
 """
-LLM Engine for Nexus Hub.
+LLM Engine for Nexus.
 Handles batch processing and Gemini API interactions for automated metadata extraction.
 Implements Two-Stage Triage for Drive documents and Single-Pass extraction for Gmail.
 """
@@ -701,4 +701,4 @@ async def append_zero_shot_rule(artifact_ids: list[str], instruction: str) -> di
         conn.close()
 
 if __name__ == "__main__":
-    print("Nexus Hub LLM Engine initialized.")
+    print("Nexus LLM Engine initialized.")

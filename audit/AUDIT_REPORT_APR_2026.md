@@ -1,7 +1,7 @@
 # AUDIT_REPORT_APR_2026.md
 
 **Author:** Senior QA Architect  
-**Target Workspace:** Nexus Hub for Google  
+**Target Workspace:** Nexus for Google  
 **Scope:** Deep Read-Only Static Analysis (`db_init.py`, `main.py`, `sync_engine.py`, `llm_engine.py`)  
 
 ---
