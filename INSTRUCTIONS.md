@@ -56,12 +56,22 @@ We have engineered an Infrastructure as Code (IaC) deployment script that does a
    gcloud auth login
    gcloud config set project [YOUR_PROJECT_ID]
    ```
-4. Navigate to the folder where you downloaded/cloned the Nexus code.
-5. Run the provisioning wizard:
-   ```bash
-   chmod +x scripts/provision.sh
-   ./scripts/provision.sh
-   ```
+4. Navigate to the folder where you downloaded/cloned the Nexus for Google code.
+5. Run the provisioning wizard based on your operating system:
+
+### Windows Users
+You will run the PowerShell script. Before running it, you may need to allow scripts to execute on your system. This tells Windows that you trust the script you are about to run.
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+.\scripts\provision.ps1
+```
+
+### Mac/Linux Users
+You will run the Bash script. First, you must make it executable so your system knows it is a program and not just a text file.
+```bash
+chmod +x scripts/provision.sh
+./scripts/provision.sh
+```
 
 **What is the wizard doing?**
 - **Enabling APIs:** It turns on the invisible pipelines to Gmail, Drive, Document AI, Tasks, and People.
@@ -111,11 +121,20 @@ Now that the backend brain is running, we need to upload the visual dashboard.
    ```bash
    clasp login
    ```
-4. Now, deploy the entire system using our verbose wizard:
-   ```bash
-   chmod +x scripts/deploy.sh
-   ./scripts/deploy.sh
-   ```
+4. Now, deploy the entire system using our verbose wizard based on your operating system:
+
+### Windows Users
+Run the deployment script using PowerShell. It automatically pushes updates to your server and frontend.
+```powershell
+.\scripts\deploy.ps1
+```
+
+### Mac/Linux Users
+Make the script executable and run it using Bash. It automatically pushes updates to your server and frontend.
+```bash
+chmod +x scripts/deploy.sh
+./scripts/deploy.sh
+```
 
 **What is the deployer doing?**
 It automatically pushes your HTML and CSS files to Google Apps Script. Then, it securely reaches into your cloud server, pulls any code updates, updates the Python libraries, runs database migrations, and cleanly restarts the background server.

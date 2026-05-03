@@ -1,0 +1,131 @@
+# scripts/provision.ps1
+$ErrorActionPreference = "Stop"
+
+Write-Host "====================================================" -ForegroundColor Cyan
+Write-Host "    Welcome to the Nexus for Google Provisioning Wizard    " -ForegroundColor Cyan
+Write-Host "====================================================" -ForegroundColor Cyan
+Write-Host "This script will automatically configure your Google Cloud project,"
+Write-Host "enable the necessary APIs, and build your backend server.`n"
+
+# Verify gcloud
+if (-not (Get-Command "gcloud" -ErrorAction SilentlyContinue)) {
+    Write-Host "Error: Google Cloud CLI (gcloud) is not installed." -ForegroundColor Red
+    Write-Host "Please install it from: https://cloud.google.com/sdk/docs/install"
+    exit
+}
+
+$PROJECT_ID = gcloud config get-value project
+if ([string]::IsNullOrWhiteSpace($PROJECT_ID)) {
+    Write-Host "Error: No Google Cloud Project selected." -ForegroundColor Red
+    Write-Host "Please run: gcloud config set project YOUR_PROJECT_ID" -ForegroundColor Yellow
+    exit
+}
+
+$ZONE = "us-central1-f"
+$INSTANCE_NAME = "nexus-vm"
+
+Write-Host "Using Project: $PROJECT_ID" -ForegroundColor Yellow
+Write-Host "Using Zone:    $ZONE" -ForegroundColor Yellow
+Write-Host "Instance Name: $INSTANCE_NAME`n" -ForegroundColor Yellow
+
+Read-Host "Press [Enter] to begin the provisioning process..."
+
+Write-Host "`n[1/5] Enabling Google Workspace & AI APIs..." -ForegroundColor Cyan
+gcloud services enable `
+    gmail.googleapis.com `
+    drive.googleapis.com `
+    pubsub.googleapis.com `
+    documentai.googleapis.com `
+    people.googleapis.com `
+    tasks.googleapis.com `
+    --project=$PROJECT_ID
+Write-Host "APIs successfully enabled!" -ForegroundColor Green
+
+Write-Host "`n[2/5] Configuring Network Security..." -ForegroundColor Cyan
+$firewallCheck = gcloud compute firewall-rules describe nexus-allow-8000 2>&1
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "Firewall rule 'nexus-allow-8000' already exists. Skipping." -ForegroundColor Green
+} else {
+    gcloud compute firewall-rules create nexus-allow-8000 `
+        --action=ALLOW `
+        --rules=tcp:8000 `
+        --source-ranges=0.0.0.0/0 `
+        --target-tags=nexus-api `
+        --project=$PROJECT_ID
+    Write-Host "Firewall rule created!" -ForegroundColor Green
+}
+
+Write-Host "`n[3/5] Manual Step: OAuth Configuration" -ForegroundColor Cyan
+Write-Host "Instructions:" -ForegroundColor Yellow
+Write-Host "1. Go to: https://console.cloud.google.com/apis/credentials/consent?project=$PROJECT_ID"
+Write-Host "2. Select 'Internal' or 'External' and click Create."
+Write-Host "3. Fill in the required app names and emails."
+Write-Host "4. Skip adding scopes here, just save and continue.`n"
+Read-Host "Press [Enter] when you have configured the Consent Screen..."
+
+Write-Host "`n[4/5] Manual Step: Generating Credentials" -ForegroundColor Cyan
+Write-Host "Instructions:" -ForegroundColor Yellow
+Write-Host "1. Go to: https://console.cloud.google.com/apis/credentials?project=$PROJECT_ID"
+Write-Host "2. Click 'CREATE CREDENTIALS' > 'OAuth client ID'."
+Write-Host "3. Select 'Desktop app' for the Application type."
+Write-Host "4. Click Create, then DOWNLOAD the JSON file."
+Write-Host "5. Rename the downloaded file EXACTLY to: credentials.json`n"
+Read-Host "Press [Enter] when you have downloaded 'credentials.json' to your local machine..."
+
+Write-Host "`n[5/5] Provisioning the Virtual Machine (VM)..." -ForegroundColor Cyan
+
+# The startup script stays in bash because it runs on the Linux VM
+$startupScript = @"
+#!/bin/bash
+echo ">>> Starting Nexus Bootstrap..."
+apt-get update
+apt-get install -y python3 python3-pip python3-venv sqlite3 git curl
+
+echo ">>> Creating /opt/nexus directory..."
+mkdir -p /opt/nexus
+chmod 777 /opt/nexus
+cd /opt/nexus
+
+echo ">>> Cloning Nexus repository from GitHub..."
+git clone https://github.com/FrankXLT/Nexus-for-Google.git . || echo "Directory not empty, skipping clone."
+
+echo ">>> Initializing Python Virtual Environment..."
+python3 -m venv venv
+
+echo ">>> Configuring systemd daemon for FastAPI..."
+cat > /etc/systemd/system/nexus.service <<EOF
+[Unit]
+Description=Nexus FastAPI Backend
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/opt/nexus
+Environment=PATH=/opt/nexus/venv/bin
+ExecStart=/opt/nexus/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable nexus.service
+echo ">>> Bootstrap complete!"
+"@
+
+gcloud compute instances create $INSTANCE_NAME `
+    --project=$PROJECT_ID `
+    --zone=$ZONE `
+    --machine-type=e2-micro `
+    --tags=nexus-api `
+    --scopes=https://www.googleapis.com/auth/cloud-platform `
+    --metadata="startup-script=$startupScript"
+
+Write-Host "`n====================================================" -ForegroundColor Green
+Write-Host "             Provisioning Complete!                 " -ForegroundColor Green
+Write-Host "====================================================" -ForegroundColor Green
+Write-Host "Your server is booting up. It will take ~2 minutes to install Python."
+Write-Host "Next steps (See INSTRUCTIONS.md):"
+Write-Host "1. Transfer your credentials.json to the VM."
+Write-Host "2. Run scripts/deploy.ps1 to push the code and start the backend.`n"

@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 trap 'echo -e "\n${RED}Deployment failed! Please check the logs above.${NC}"' ERR
 
 echo -e "${CYAN}====================================================${NC}"
-echo -e "${CYAN}       Nexus One-Click Deployment Wizard        ${NC}"
+echo -e "${CYAN}       Nexus for Google One-Click Deployment Wizard        ${NC}"
 echo -e "${CYAN}====================================================${NC}"
 
 # Configuration
