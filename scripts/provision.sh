@@ -52,6 +52,7 @@ gcloud services enable \
     documentai.googleapis.com \
     people.googleapis.com \
     tasks.googleapis.com \
+    compute.googleapis.com \
     --project=$PROJECT_ID
 echo -e "${GREEN}APIs successfully enabled!${NC}"
 

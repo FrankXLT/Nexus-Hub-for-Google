@@ -40,7 +40,8 @@ $sshCommand = @"
     
     echo -e '\n[VM] Deployment sequence completed securely.'
 "@
-
+# Strip Windows carriage returns before sending to Linux
+$sshCommand = $sshCommand -replace "`r", ""
 gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command=$sshCommand
 
 Write-Host "`n====================================================" -ForegroundColor Green

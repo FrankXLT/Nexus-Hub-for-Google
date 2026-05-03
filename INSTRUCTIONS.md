@@ -30,7 +30,10 @@ We need to tell Google Cloud to allow your new server to talk to your personal G
 1. Using the left-hand hamburger menu, go to **APIs & Services > OAuth consent screen**.
 2. Select **Internal** (if you have a Google Workspace account) or **External** (if you have a standard `@gmail.com` account). Click **Create**.
 3. Fill in the **App name** (`Nexus`), **User support email**, and **Developer contact information** (just use your own email).
-4. Click **Save and Continue** at the bottom of the subsequent screens. You don't need to add Test users or Scopes manually here.
+4. Click **Save and Continue** at the bottom of the subsequent screens. You don't need to add Scopes manually here.
+
+> **⚠️ GOTCHA: ADDING YOURSELF AS A TEST USER**
+> Before you finish Phase 0, you **MUST** add your own Gmail address to the "Test users" list if you selected "External". If you skip this, you will hit a hard "Error 403: access_denied" when trying to log into your own app later!
 
 ### Step 3: Generating Your Secret Keys
 > **🧠 Knowledge Point: What is Headless Authentication?**
@@ -89,6 +92,9 @@ Your server is alive, but it doesn't have the VIP pass (`credentials.json`) to r
    gcloud compute scp /path/to/your/credentials.json nexus-vm:/opt/nexus/ --zone=us-central1-f
    ```
 
+> **⚠️ GOTCHA: WINDOWS SCP & LOCKED FOLDERS**
+> If you are on Windows and your `credentials.json` is located in a locked or synced folder (like a timed-out OneDrive Personal Vault or a strictly managed Desktop), the underlying Windows `pscp` tool will fail with a cryptic "unable to open" error. Move the file to a simple path like `C:\Nexus\credentials.json` before running the command.
+
 2. Next, we need to generate an active login session. We do this by creating a secure "SSH Tunnel" from your local computer to the cloud server. Run this command:
    ```bash
    gcloud compute ssh nexus-vm --zone=us-central1-f --ssh-flag="-L 8080:localhost:8080"
@@ -96,11 +102,15 @@ Your server is alive, but it doesn't have the VIP pass (`credentials.json`) to r
 
 3. You are now logged into the cloud server! Run these commands to trigger the login flow:
    ```bash
+   sudo chown -R $USER:$USER /opt/nexus
    cd /opt/nexus
    source venv/bin/activate
    pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
    python3 auth.py
    ```
+
+> **⚠️ MASSIVE GOTCHA: THE CTRL+C TRAP**
+> When the terminal outputs the `http://localhost:8080` link, **DO NOT PRESS Ctrl+C TO COPY IT!** In a Linux SSH terminal, `Ctrl+C` means "Cancel/Kill." Doing this will instantly kill the local auth server, collapse your SSH tunnel, and cause a "Localhost refused to connect" error in your browser. Instead, highlight the link and right-click to copy it.
 
 4. The terminal will print a message saying a local server is running. Open your web browser and go to: `http://localhost:8080`.
 5. Follow the Google Login prompts. You will see a warning saying "Google hasn't verified this app." Click **Advanced**, then **Go to Nexus (unsafe)**. Click **Continue** to grant access to your Gmail and Drive.
@@ -112,6 +122,9 @@ Your server is alive, but it doesn't have the VIP pass (`credentials.json`) to r
 
 Now that the backend brain is running, we need to upload the visual dashboard.
 
+> **⚠️ GOTCHA: ENABLE THE APPS SCRIPT API**
+> Before you can use `clasp` to upload the code, you must manually grant your computer permission. Visit [https://script.google.com/home/usersettings](https://script.google.com/home/usersettings) and toggle the **"Google Apps Script API"** to **ON**. If you don't, the deployment will fail with an API permission error.
+
 1. Ensure you have [Node.js](https://nodejs.org/) installed on your local computer.
 2. Install Google's Apps Script tool globally by running:
    ```bash
@@ -121,7 +134,13 @@ Now that the backend brain is running, we need to upload the visual dashboard.
    ```bash
    clasp login
    ```
-4. Now, deploy the entire system using our verbose wizard based on your operating system:
+4. **INITIALIZE YOUR PROJECT:** Before deploying, generate the required configuration map so `clasp` knows where to send the code. Run:
+   ```bash
+   clasp create --title "Nexus for Google"
+   ```
+   *(Without this step, the deployer will fail with a "Project settings not found" error!)*
+
+5. Now, deploy the entire system using our verbose wizard based on your operating system:
 
 ### Windows Users
 Run the deployment script using PowerShell. It automatically pushes updates to your server and frontend.
@@ -169,5 +188,27 @@ It automatically pushes your HTML and CSS files to Google Apps Script. Then, it 
 11. Add your Gemini API key on a new line: `GEMINI_API_KEY=your_key_here`.
 12. Press `Ctrl+O` to save, `Enter` to confirm, and `Ctrl+X` to exit.
 13. Type `sudo systemctl restart nexus.service`.
+
+---
+
+## Phase 5: Launching Your Dashboard
+
+Now that your Walled Garden is built and secured, it's time to access the Nexus for Google Knowledge Graph.
+
+1. Open your local terminal (where you originally ran the deploy scripts) and run:
+   ```bash
+   clasp open
+   ```
+   *This will launch the Google Apps Script editor in your browser.*
+2. In the top right corner of the editor, click the blue **Deploy** button, then select **New deployment**.
+3. Click the gear icon next to "Select type" and choose **Web app**.
+4. In the configuration settings:
+   - **Description:** `Initial Release`
+   - **Execute as:** `Me (your email)`
+   - **Who has access:** `Only myself` *(Crucial for privacy!)*
+5. Click **Deploy**.
+6. Google will provide you with a **Web App URL**. Copy this link!
+
+**This URL is the permanent, private home for your AI knowledge graph.** Bookmark it.
 
 **Congratulations! You have successfully built and secured a multi-tier cloud application. Welcome to Nexus for Google.**

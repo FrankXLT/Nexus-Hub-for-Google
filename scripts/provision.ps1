@@ -38,19 +38,22 @@ gcloud services enable `
     documentai.googleapis.com `
     people.googleapis.com `
     tasks.googleapis.com `
+    compute.googleapis.com `
     --project=$PROJECT_ID
 Write-Host "APIs successfully enabled!" -ForegroundColor Green
 
 Write-Host "`n[2/5] Configuring Network Security..." -ForegroundColor Cyan
-$firewallCheck = gcloud compute firewall-rules describe nexus-allow-8000 2>&1
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "Firewall rule 'nexus-allow-8000' already exists. Skipping." -ForegroundColor Green
+$ruleName = "nexus-hub-allow-8000"
+$existingRule = gcloud compute firewall-rules list --filter="name=$ruleName" --format="value(name)" --project=$PROJECT_ID
+
+if (![string]::IsNullOrWhiteSpace($existingRule) -and $existingRule -match $ruleName) {
+    Write-Host "Firewall rule '$ruleName' already exists. Skipping." -ForegroundColor Green
 } else {
-    gcloud compute firewall-rules create nexus-allow-8000 `
+    gcloud compute firewall-rules create $ruleName `
         --action=ALLOW `
         --rules=tcp:8000 `
         --source-ranges=0.0.0.0/0 `
-        --target-tags=nexus-api `
+        --target-tags=nexus-hub-api `
         --project=$PROJECT_ID
     Write-Host "Firewall rule created!" -ForegroundColor Green
 }
@@ -74,7 +77,7 @@ Read-Host "Press [Enter] when you have downloaded 'credentials.json' to your loc
 
 Write-Host "`n[5/5] Provisioning the Virtual Machine (VM)..." -ForegroundColor Cyan
 
-# The startup script stays in bash because it runs on the Linux VM
+# The startup script payload
 $startupScript = @"
 #!/bin/bash
 echo ">>> Starting Nexus Bootstrap..."
@@ -114,18 +117,37 @@ systemctl enable nexus.service
 echo ">>> Bootstrap complete!"
 "@
 
+# Write to a temporary file to bypass PowerShell string parsing issues
+$tempScriptPath = "startup-script.sh"
+Set-Content -Path $tempScriptPath -Value $startupScript -Encoding Ascii
+
+# Execute gcloud using the file instead of the inline string
 gcloud compute instances create $INSTANCE_NAME `
     --project=$PROJECT_ID `
     --zone=$ZONE `
     --machine-type=e2-micro `
     --tags=nexus-api `
     --scopes=https://www.googleapis.com/auth/cloud-platform `
-    --metadata="startup-script=$startupScript"
+    --metadata-from-file="startup-script=$tempScriptPath"
 
-Write-Host "`n====================================================" -ForegroundColor Green
-Write-Host "             Provisioning Complete!                 " -ForegroundColor Green
-Write-Host "====================================================" -ForegroundColor Green
-Write-Host "Your server is booting up. It will take ~2 minutes to install Python."
-Write-Host "Next steps (See INSTRUCTIONS.md):"
-Write-Host "1. Transfer your credentials.json to the VM."
-Write-Host "2. Run scripts/deploy.ps1 to push the code and start the backend.`n"
+# Check if the VM actually built before claiming success
+if ($LASTEXITCODE -eq 0) {
+    # Clean up the temporary file
+    Remove-Item -Path $tempScriptPath -Force -ErrorAction SilentlyContinue
+
+    Write-Host "`n====================================================" -ForegroundColor Green
+    Write-Host "             Provisioning Complete!                 " -ForegroundColor Green
+    Write-Host "====================================================" -ForegroundColor Green
+    Write-Host "Your server is booting up. It will take ~2 minutes to install Python."
+    Write-Host "Next steps (See INSTRUCTIONS.md):"
+    Write-Host "1. Transfer your credentials.json to the VM."
+    Write-Host "2. Run scripts\deploy.ps1 to push the code and start the backend.`n"
+} else {
+    Write-Host "`n====================================================" -ForegroundColor Red
+    Write-Host "          Error: VM Provisioning Failed!            " -ForegroundColor Red
+    Write-Host "====================================================" -ForegroundColor Red
+    Write-Host "Please check the gcloud error output above."
+    
+    # Keep the temp file for debugging
+    exit
+}
