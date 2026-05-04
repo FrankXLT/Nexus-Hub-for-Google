@@ -237,6 +237,54 @@ def update_sync_state(cursor: sqlite3.Cursor, app_name: str, sync_token: str) ->
             last_updated = excluded.last_updated
     """, (app_name, sync_token, now))
 
+def initialize_drive_structure(drive_service):
+    """
+    Idempotent function to ensure Nexus Google Drive folder scaffolding exists.
+    Retrieves or creates 'Nexus Root', 'Ingest Dropbox', 'Document Archive', and 'Diagnostics'.
+    Saves the corresponding folderIds securely in the Config_System SQLite table.
+    """
+    folders_to_create = {
+        'Nexus Root': None,
+        'Ingest Dropbox': 'Nexus Root',
+        'Document Archive': 'Nexus Root',
+        'Diagnostics': 'Nexus Root'
+    }
+    folder_ids = {}
+    
+    def find_or_create_folder(name, parent_id=None):
+        q = f"name='{name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
+        if parent_id:
+            q += f" and '{parent_id}' in parents"
+            
+        results = drive_service.files().list(q=q, spaces='drive', fields='files(id, name)').execute()
+        items = results.get('files', [])
+        
+        if items:
+            return items[0]['id']
+        else:
+            metadata = {
+                'name': name,
+                'mimeType': 'application/vnd.google-apps.folder'
+            }
+            if parent_id:
+                metadata['parents'] = [parent_id]
+            folder = drive_service.files().create(body=metadata, fields='id').execute()
+            return folder.get('id')
+
+    nexus_root_id = find_or_create_folder('Nexus Root')
+    folder_ids['drive_nexus_root_id'] = nexus_root_id
+    folder_ids['drive_ingest_dropbox_id'] = find_or_create_folder('Ingest Dropbox', nexus_root_id)
+    folder_ids['drive_document_archive_id'] = find_or_create_folder('Document Archive', nexus_root_id)
+    folder_ids['drive_diagnostics_id'] = find_or_create_folder('Diagnostics', nexus_root_id)
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    for k, v in folder_ids.items():
+        cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)", (k, v, f"Auto-generated folder ID for {k}"))
+        cursor.execute("UPDATE Config_System SET value = ? WHERE key = ?", (v, k))
+    conn.commit()
+    conn.close()
+
 def ingest_taxonomy_seed(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGovernor) -> None:
     """
     Checks Google Drive for taxonomy_seed.json. If found, parses and safely updates the taxonomy schema.

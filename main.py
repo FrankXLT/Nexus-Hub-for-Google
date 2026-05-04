@@ -39,6 +39,19 @@ async def start_cron_jobs():
     """
     Initializes background cron tasks upon server startup.
     """
+    try:
+        from auth import authenticate
+        from googleapiclient.discovery import build
+        from sync_engine import initialize_drive_structure
+        
+        creds = authenticate()
+        if creds and creds.valid:
+            drive_service = build('drive', 'v3', credentials=creds)
+            await asyncio.to_thread(initialize_drive_structure, drive_service)
+            print("Drive scaffolding initialized successfully.")
+    except Exception as e:
+        print(f"Failed to initialize Drive structure on startup: {e}")
+
     async def periodic_sync():
         while True:
             try:

@@ -578,12 +578,12 @@ const appActions = {
 
       let listHtml = cluster.artifacts.map(art => {
           const title = (art.custom_data && art.custom_data.title) || art.summary || art.artifact_id;
-          return \`<li style="font-size:0.875rem; margin-bottom:4px;">\${title}</li>\`;
+          return `<li style="font-size:0.875rem; margin-bottom:4px;">\${title}</li>`;
       }).join('');
 
       const idsJson = JSON.stringify(cluster.artifacts.map(a => a.artifact_id)).replace(/"/g, '&quot;');
 
-      pane.innerHTML = \`
+      pane.innerHTML = `
         <div class="detail-group">
           <h4>Cluster Context</h4>
           <p style="font-size:0.875rem; margin-bottom: 4px;"><strong>Proposed Entity:</strong> \${cluster.entity}</p>
@@ -597,7 +597,7 @@ const appActions = {
           <button class="btn btn-primary" onclick="appActions.approveCluster('\${cluster.entity}', '\${idsJson}')" style="width: 100%;">Approve Cluster & Map All</button>
           <button class="btn btn-secondary" onclick="appActions.rejectCluster('\${idsJson}')" style="width: 100%;">Reject Cluster</button>
         </div>
-      \`;
+      `;
   },
   
   approveCluster: function(entity, idsJsonStr) {
