@@ -298,7 +298,7 @@ def ingest_taxonomy_seed(creds: Credentials, conn: sqlite3.Connection, governor:
     service = build('drive', 'v3', credentials=creds)
     governor.record_api_call()
     
-    results = service.files().list(q="name='taxonomy_seed.json' and trashed=false", spaces='drive', fields='files(id, name)').execute()
+    results = service.files().list(q="name='taxonomy_seed.json' and trashed=false", spaces='drive', fields='files(id, name, mimeType)').execute()
     items = results.get('files', [])
     if not items:
         return
@@ -431,7 +431,7 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
                 mime_type = file_metadata.get('mimeType', '')
                 governor.record_api_call(cost=1)
                 
-                if mime_type.startswith('application/vnd.google-apps.'):
+                if mime_type and mime_type.startswith('application/vnd.google-apps.'):
                     request = service.files().export_media(fileId=file_id, mimeType='text/plain')
                 else:
                     request = service.files().get_media(fileId=file_id)
