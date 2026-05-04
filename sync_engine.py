@@ -13,6 +13,7 @@ from typing import Optional, Dict, Any, Tuple
 
 from googleapiclient.discovery import build, Resource
 from googleapiclient.http import MediaIoBaseDownload
+from googleapiclient.errors import HttpError
 from google.oauth2.credentials import Credentials
 from tenacity import retry, wait_exponential, stop_after_attempt
 
