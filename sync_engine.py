@@ -425,7 +425,16 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
             governor.record_api_call(cost=1)
             
             try:
-                request = service.files().get_media(fileId=file_id)
+                # Fetch file metadata to check mimeType
+                file_metadata = service.files().get(fileId=file_id, fields='mimeType').execute()
+                mime_type = file_metadata.get('mimeType', '')
+                governor.record_api_call(cost=1)
+                
+                if mime_type.startswith('application/vnd.google-apps.'):
+                    request = service.files().export_media(fileId=file_id, mimeType='text/plain')
+                else:
+                    request = service.files().get_media(fileId=file_id)
+                
                 fh = io.BytesIO()
                 downloader = MediaIoBaseDownload(fh, request)
                 done = False
@@ -444,6 +453,9 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
                     if custom_data.get('action_required') == 1 or custom_data.get('action_required') is True or artifact_data['status'] == 'SYSTEM_ALERT':
                         push_to_google_tasks(creds, artifact_data, conn)
 
+            except HttpError as he:
+                print(f"Google API Error processing file {file_id}: {he}")
+                continue
             except Exception as e:
                 print(f"LLM processing failed for {file_id}: {e}")
                 continue
