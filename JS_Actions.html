@@ -394,75 +394,31 @@ const appActions = {
    * Generates mock data for development.
    * In a real flow, this would call `google.script.run.getNexusData(...)`
    */
-  refreshData: function() {
-    this.showToast("Syncing with Nexus...");
+refreshData: function() {
+    this.showToast("Syncing with Nexus backend...");
     
-    // Simulated fetch delay
-    setTimeout(() => {
-      const mockArtifacts = [
-        {
-          artifact_id: 'doc_12345',
-          category: 'Finance', correspondent: 'AWS', purpose: 'Invoice',
-          taxonomy: 'Finance / AWS / Invoice',
-          summary: 'AWS Monthly Billing - October 2026',
-          status: 'PROCESSED',
-          operation_cost: 15,
-          custom_data: { title: 'AWS Oct 2026', total_amount: '$145.20', due_date: '2026-11-01' }
-        },
-        {
-          artifact_id: 'mail_67890',
-          category: 'HR', correspondent: 'Stripe', purpose: 'Update',
-          taxonomy: 'HR / Stripe / Update',
-          summary: 'Stripe API Terms of Service Update',
-          status: 'PROCESSED',
-          operation_cost: 8,
-          custom_data: { requires_action: false, impact: 'Low' }
-        },
-        {
-          artifact_id: 'doc_55555',
-          category: '', correspondent: '', purpose: '',
-          taxonomy: 'UNKNOWN',
-          summary: 'Scanned Image 001',
-          status: 'ERROR_STAGE_1_FAILED',
-          operation_cost: 3,
-          custom_data: { error: 'Illegible OCR' }
+    // Call the search endpoint with an empty string to fetch the latest active database records
+    google.script.run
+      .withSuccessHandler((result) => {
+        if(result && result.success && result.data && result.data.results) {
+           // Update the local state with the REAL data from your VM
+           appState.setArtifacts(result.data.results);
+           
+           // Re-render the UI components with the live data
+           this.populateCategoryDropdown();
+           this.renderZeroTrustQueue();
+           this.renderGrid();
+           this.updateBulkEstimate();
+           
+           this.showToast("Live data refreshed successfully.", 2000);
+        } else {
+           this.showToast("Backend connected, but returned no data.");
         }
-      ];
-
-      const mockHistory = [
-        {
-          log_id: 1,
-          artifact_id: 'doc_12345',
-          timestamp: Date.now() / 1000 - 3600,
-          actor: 'LLM_ENGINE',
-          action_type: 'AI_EXTRACTION',
-          previous_state: {},
-          new_state: { title: 'AWS Oct 2026', total_amount: '$145.20' }
-        }
-      ];
-
-      const mockTaxonomy = {
-        "Finance": { "AWS": [{name: "Invoice", is_global: false}, {name: "Receipt", is_global: true}] },
-        "HR": { "Stripe": [{name: "Update", is_global: false}] },
-        "System": { "Global": [{name: "Bill / Statement", is_global: true}, {name: "Policy / Terms Update", is_global: true}] }
-      };
-
-      const mockZeroTrust = [
-        { id: 1, type: 'Purpose', path: 'Finance / UnknownVendor / Receipt', is_gmail_enabled: false, is_drive_enabled: false },
-        { id: 2, type: 'Correspondent', path: 'Operations / NewCorp', is_gmail_enabled: false, is_drive_enabled: false }
-      ];
-
-      appState.taxonomyTree = mockTaxonomy;
-      appState.zeroTrustQueue = mockZeroTrust;
-      appState.setArtifacts(mockArtifacts);
-      appState.setHistory(mockHistory);
-      
-      this.populateCategoryDropdown();
-      this.renderZeroTrustQueue();
-      this.renderGrid();
-      this.updateBulkEstimate();
-      this.showToast("Data Refreshed", 2000);
-    }, 800);
+      })
+      .withFailureHandler((error) => {
+        this.showToast("Apps Script Error: " + error.message);
+      })
+      .searchArtifacts("");
   },
 
   populateCategoryDropdown: function() {

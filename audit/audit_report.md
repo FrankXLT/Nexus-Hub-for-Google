@@ -84,3 +84,6 @@ graph TD
 - Fixed 403 Error in `sync_engine.py` by explicitly requesting the `mimeType` field in Drive API list calls and updating the download logic to ensure `mimeType` is checked safely (`if mime_type and mime_type.startswith(...)`).
 - Updated Frontend UI model selection dropdowns in `Index.html` to feature `gemini-2.5-flash` (default) and `gemini-2.5-pro`, replacing the outdated Gemini 1.5 references.
 - Implemented architectural isolation in `sync_engine.py` to prevent indexing the user's entire Drive. The `sync_drive` function now fetches the `drive_ingest_dropbox_id` from the config table and explicitly checks if this ID is in the file's `parents` list. If not, the file is immediately skipped and no LLM processing occurs.
+- Fixed two `NameError` exceptions in `sync_engine.py`:
+  - Added explicit import for `generate_sender_profile` from `llm_engine`.
+  - Defined `ingest_dropbox_id` by retrieving its value from the `Config_System` database table before the Google Drive file processing loop begins.

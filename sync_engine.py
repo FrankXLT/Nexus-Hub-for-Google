@@ -400,6 +400,11 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
     cursor = conn.cursor()
     
     page_token = get_sync_state(cursor, 'drive')
+    
+    cursor.execute("SELECT value FROM Config_System WHERE key = 'drive_ingest_dropbox_id'")
+    dropbox_row = cursor.fetchone()
+    ingest_dropbox_id = dropbox_row['value'].strip('"') if dropbox_row and dropbox_row['value'] and dropbox_row['value'] != '""' else None
+
     if not page_token:
         print("No Drive pageToken found in DB. Initializing new token...")
         governor.record_api_call()
