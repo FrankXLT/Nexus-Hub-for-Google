@@ -1059,8 +1059,21 @@ const appActions = {
       .runAskAI(payload);
   },
 
+closeContextDrawer: function() {
+    const workspaceDrawer = document.getElementById('workspace-context-drawer');
+    const ztDrawer = document.getElementById('zt-context-drawer');
+    if (workspaceDrawer) workspaceDrawer.classList.remove('open');
+    if (ztDrawer) ztDrawer.classList.remove('open');
+    
+    // Clear selection highlights when drawer closes
+    appState.selectedArtifactId = null;
+    appState.selectedIds.clear();
+    this.renderGrid(); 
+  },
+
   renderDetailsPane: function() {
     const pane = document.getElementById('details-view');
+    const drawer = document.getElementById('workspace-context-drawer');
     
     if (appState.selectedIds.size > 1 || appState.isGlobalSelectActive) {
       let ids = Array.from(appState.selectedIds);
@@ -1074,15 +1087,16 @@ const appActions = {
           <h4>${appState.isGlobalSelectActive ? 'Aggregate Context (All Matching Items)' : 'Aggregate Context (' + ids.length + ' items)'}</h4>
           <ul style="padding-left: 20px; color: var(--text-muted); max-height: 200px; overflow-y: auto;">
              ${listHtml}
-             ${appState.isGlobalSelectActive ? '<li style="font-size:0.875rem; margin-bottom:4px; font-style: italic;">...and all other matching items in the database.</li>' : ''}
+             ${appState.isGlobalSelectActive ? '<li style="font-size:0.875rem; margin-bottom:4px; font-style: italic;">...and all matching items in the database.</li>' : ''}
           </ul>
         </div>
         <div class="detail-group" style="margin-top: 16px;">
           <h4>Zero-Shot Rule Creation</h4>
-          <textarea id="zero-shot-instruction" placeholder="Enter custom instruction for these items..." style="width:100%; height:80px; padding:8px; margin-bottom:12px; resize:none; font-family:monospace; box-sizing:border-box; background: var(--bg-dark, #121212); color: var(--text-main, #e0e0e0); border: 1px solid #444; border-radius: 4px;"></textarea>
+          <textarea id="zero-shot-instruction" placeholder="Enter custom instruction..." style="width:100%; height:80px; padding:8px; margin-bottom:12px; resize:none; font-family:monospace; background: var(--bg-dark); color: var(--text-main); border: 1px solid #444; border-radius: 4px;"></textarea>
           <button class="btn btn-primary" onclick="appActions.submitZeroShotRule()" style="width:100%;">Submit with AI (Create Rule)</button>
         </div>
       `;
+      if (drawer) drawer.classList.add('open');
       return;
     }
 
@@ -1090,6 +1104,7 @@ const appActions = {
 
     if (!artifact) {
       pane.innerHTML = `<p class="placeholder-text">Select an item to view details</p>`;
+      if (drawer) drawer.classList.remove('open');
       return;
     }
 
@@ -1120,10 +1135,8 @@ const appActions = {
         <h4>Extracted Custom Data</h4>
         ${customDataRows || '<p style="font-size:0.875rem; color:var(--text-secondary);">No custom data available.</p>'}
       </div>
-      <div class="detail-group" style="display:flex; gap:8px;">
-         <button class="btn btn-primary" onclick="appActions.showToast('Feature coming soon')">View Native Document</button>
-      </div>
     `;
+    if (drawer) drawer.classList.add('open');
   },
 
   renderTimeline: function() {
