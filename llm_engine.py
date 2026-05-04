@@ -654,6 +654,13 @@ Return ONLY valid JSON containing the answer.
     
     return "Sorry, I couldn't generate a summary."
 
+def evaluate_quarantine_clusters(conn: sqlite3.Connection) -> None:
+    """
+    Evaluates clustered artifacts in the quarantine queue.
+    Currently acts as a safe stub to prevent sync_engine crashes.
+    """
+    print("Quarantine evaluation bypassed: Stub implementation active.")
+
 async def append_zero_shot_rule(artifact_ids: list[str], instruction: str) -> dict:
     """
     Appends a new extraction rule instruction to the purpose shared by the provided artifacts.
