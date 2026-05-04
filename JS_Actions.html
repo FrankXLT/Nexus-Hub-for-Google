@@ -1059,13 +1059,13 @@ const appActions = {
       .runAskAI(payload);
   },
 
-closeContextDrawer: function() {
+// Missing function to slide the drawers back out of view
+  closeContextDrawer: function() {
     const workspaceDrawer = document.getElementById('workspace-context-drawer');
     const ztDrawer = document.getElementById('zt-context-drawer');
     if (workspaceDrawer) workspaceDrawer.classList.remove('open');
     if (ztDrawer) ztDrawer.classList.remove('open');
     
-    // Clear selection highlights when drawer closes
     appState.selectedArtifactId = null;
     appState.selectedIds.clear();
     this.renderGrid(); 
@@ -1075,30 +1075,45 @@ closeContextDrawer: function() {
     const pane = document.getElementById('details-view');
     const drawer = document.getElementById('workspace-context-drawer');
     
+    // Aggregate View Logic
     if (appState.selectedIds.size > 1 || appState.isGlobalSelectActive) {
       let ids = Array.from(appState.selectedIds);
-      let listHtml = ids.map(id => {
-         let art = appState.getArtifact(id);
-         return `<li style="font-size:0.875rem; margin-bottom:4px;">${art ? art.summary || art.artifact_id : id}</li>`;
-      }).join('');
-      
       pane.innerHTML = `
         <div class="detail-group">
-          <h4>${appState.isGlobalSelectActive ? 'Aggregate Context (All Matching Items)' : 'Aggregate Context (' + ids.length + ' items)'}</h4>
-          <ul style="padding-left: 20px; color: var(--text-muted); max-height: 200px; overflow-y: auto;">
-             ${listHtml}
-             ${appState.isGlobalSelectActive ? '<li style="font-size:0.875rem; margin-bottom:4px; font-style: italic;">...and all matching items in the database.</li>' : ''}
-          </ul>
+          <h4>Aggregate Context (${ids.length} items)</h4>
+          <p style="font-size:0.875rem; color: var(--text-muted);">Multiple items selected for rule creation.</p>
         </div>
-        <div class="detail-group" style="margin-top: 16px;">
+        <div class="detail-group">
           <h4>Zero-Shot Rule Creation</h4>
-          <textarea id="zero-shot-instruction" placeholder="Enter custom instruction..." style="width:100%; height:80px; padding:8px; margin-bottom:12px; resize:none; font-family:monospace; background: var(--bg-dark); color: var(--text-main); border: 1px solid #444; border-radius: 4px;"></textarea>
-          <button class="btn btn-primary" onclick="appActions.submitZeroShotRule()" style="width:100%;">Submit with AI (Create Rule)</button>
+          <textarea id="zero-shot-instruction" placeholder="Enter custom instruction..." style="width:100%; height:80px; background: var(--bg-dark); color: var(--text-main); border: 1px solid #444; border-radius: 4px; padding: 8px;"></textarea>
+          <button class="btn btn-primary" onclick="appActions.submitZeroShotRule()" style="width:100%; margin-top:10px;">Submit with AI</button>
         </div>
       `;
-      if (drawer) drawer.classList.add('open');
+      if (drawer) drawer.classList.add('open'); // TRIGGER THE SLIDE
       return;
     }
+
+    const artifact = appState.getArtifact(appState.selectedArtifactId);
+
+    if (!artifact) {
+      if (drawer) drawer.classList.remove('open'); // HIDE IF NOTHING SELECTED
+      return;
+    }
+
+    // Single Item View Logic
+    pane.innerHTML = `
+      <div class="detail-group">
+        <h4>Core Metadata</h4>
+        <div class="detail-row"><span class="detail-label">ID</span><span class="detail-value">${artifact.artifact_id}</span></div>
+        <div class="detail-row"><span class="detail-label">Status</span><span class="detail-value">${artifact.status}</span></div>
+      </div>
+      <div class="detail-group">
+        <h4>Summary</h4>
+        <p style="font-size:0.875rem;">${artifact.summary}</p>
+      </div>
+    `;
+    if (drawer) drawer.classList.add('open'); // TRIGGER THE SLIDE
+  },
 
     const artifact = appState.getArtifact(appState.selectedArtifactId);
 
