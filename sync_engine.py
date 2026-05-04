@@ -21,7 +21,6 @@ from auth import authenticate
 from db_init import DB_PATH
 from notifier import NexusNotifier
 from llm_engine import evaluate_quarantine_clusters
-from llm_engine import evaluate_quaratine_clusters
 
 DAILY_QUOTA_LIMIT = 10000
 PRIORITY_RESERVE_RATIO = 0.30
