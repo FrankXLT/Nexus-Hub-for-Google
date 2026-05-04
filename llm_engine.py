@@ -8,7 +8,7 @@ import json
 import os
 import sqlite3
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple, List
 
 from google import genai
 from google.genai import types
