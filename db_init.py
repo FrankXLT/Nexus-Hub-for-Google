@@ -93,9 +93,9 @@ def init_db(db_path: str = DB_PATH) -> None:
             category_id INTEGER NOT NULL,
             name TEXT NOT NULL,
             division TEXT,
-            sending_subdomains TEXT CHECK(json_valid(sending_subdomains)),
-            physical_addresses TEXT CHECK(json_valid(physical_addresses)),
-            brand_colors TEXT CHECK(json_valid(brand_colors)),
+            sending_subdomains TEXT CHECK(sending_subdomains IS NULL OR json_valid(sending_subdomains)),
+            physical_addresses TEXT CHECK(physical_addresses IS NULL OR json_valid(physical_addresses)),
+            brand_colors TEXT CHECK(brand_colors IS NULL OR json_valid(brand_colors)),
             brand_color TEXT,
             custom_extraction_rules TEXT,
             operation_cost INTEGER DEFAULT 0,
@@ -113,7 +113,7 @@ def init_db(db_path: str = DB_PATH) -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             correspondent_id INTEGER NOT NULL,
             name TEXT NOT NULL,
-            custom_field_schema TEXT NOT NULL CHECK(json_valid(custom_field_schema)),
+            custom_field_schema TEXT NOT NULL CHECK(custom_field_schema IS NULL OR json_valid(custom_field_schema)),
             is_global INTEGER DEFAULT 0,
             auto_archive INTEGER DEFAULT 0,
             custom_extraction_rules TEXT,
@@ -136,7 +136,7 @@ def init_db(db_path: str = DB_PATH) -> None:
             purpose_id INTEGER,
             raw_text TEXT,
             summary TEXT,
-            custom_data TEXT CHECK(json_valid(custom_data)),
+            custom_data TEXT CHECK(custom_data IS NULL OR json_valid(custom_data)),
             status TEXT,
             locked_by_system INTEGER DEFAULT 0,
             parent_artifact_id TEXT,
@@ -156,8 +156,8 @@ def init_db(db_path: str = DB_PATH) -> None:
             timestamp INTEGER NOT NULL,
             actor TEXT NOT NULL,
             action_type TEXT NOT NULL,
-            previous_state TEXT CHECK(json_valid(previous_state)),
-            new_state TEXT CHECK(json_valid(new_state)),
+            previous_state TEXT CHECK(previous_state IS NULL OR json_valid(previous_state)),
+            new_state TEXT CHECK(new_state IS NULL OR json_valid(new_state)),
             processing_time_ms INTEGER,
             api_tokens_used INTEGER,
             is_human_corrected INTEGER DEFAULT 0,
@@ -175,7 +175,7 @@ def init_db(db_path: str = DB_PATH) -> None:
             module_name TEXT NOT NULL,
             artifact_id TEXT,
             error_message TEXT NOT NULL,
-            stack_trace TEXT CHECK(json_valid(stack_trace)),
+            stack_trace TEXT CHECK(stack_trace IS NULL OR json_valid(stack_trace)),
             FOREIGN KEY (artifact_id) REFERENCES Workspace_Artifacts (artifact_id) ON DELETE CASCADE
         ) STRICT;
     """)
@@ -207,28 +207,54 @@ def seed_default_configs(conn: sqlite3.Connection) -> None:
     Expected Outputs: None. Populates the Config_System table with initial values.
     """
     cursor = conn.cursor()
-    cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)",
-        ('ui_gmail_filters', '["CATEGORY_PROMOTIONS", "CATEGORY_SOCIAL", "CATEGORY_FORUMS"]', 'Ignored Gmail labels'))
-    cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)",
-        ('ui_ai_config', '{"drive_model": "gemini-1.5-pro", "gmail_model": "gemini-1.5-flash"}', 'LLM model selection'))
-    cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)",
-        ('ui_post_processing', '{"auto_archive_gmail": false, "quarantine_unconfident": true}', 'Post-processing actions'))
-    cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)",
-        ('drive_permanent_archive_id', '""', 'Permanent Archive Folder ID'))
-    cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)",
-        ('nexus_task_list_id', '""', 'Google Tasks List ID for actionable items'))
-    cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)",
-        ('default_view', 'dashboard', 'UI Startup View'))
+    cursor.execute("SELECT key FROM Config_System WHERE key = ?", ('ui_gmail_filters',))
+    if cursor.fetchone() is None:
+        cursor.execute("INSERT INTO Config_System (key, value, description) VALUES (?, ?, ?)",
+            ('ui_gmail_filters', '["CATEGORY_PROMOTIONS", "CATEGORY_SOCIAL", "CATEGORY_FORUMS"]', 'Ignored Gmail labels'))
+    
+    cursor.execute("SELECT key FROM Config_System WHERE key = ?", ('ui_ai_config',))
+    if cursor.fetchone() is None:
+        cursor.execute("INSERT INTO Config_System (key, value, description) VALUES (?, ?, ?)",
+            ('ui_ai_config', '{"drive_model": "gemini-2.5-flash-lite", "gmail_model": "gemini-2.5-flash-lite"}', 'LLM model selection'))
+    cursor.execute("SELECT key FROM Config_System WHERE key = ?", ('ui_post_processing',))
+    if cursor.fetchone() is None:
+        cursor.execute("INSERT INTO Config_System (key, value, description) VALUES (?, ?, ?)",
+            ('ui_post_processing', '{"auto_archive_gmail": false, "quarantine_unconfident": true}', 'Post-processing actions'))
+    
+    cursor.execute("SELECT key FROM Config_System WHERE key = ?", ('drive_permanent_archive_id',))
+    if cursor.fetchone() is None:
+        cursor.execute("INSERT INTO Config_System (key, value, description) VALUES (?, ?, ?)",
+            ('drive_permanent_archive_id', '""', 'Permanent Archive Folder ID'))
+    cursor.execute("SELECT key FROM Config_System WHERE key = ?", ('nexus_task_list_id',))
+    if cursor.fetchone() is None:
+        cursor.execute("INSERT INTO Config_System (key, value, description) VALUES (?, ?, ?)",
+            ('nexus_task_list_id', '""', 'Google Tasks List ID for actionable items'))
+    
+    cursor.execute("SELECT key FROM Config_System WHERE key = ?", ('default_view',))
+    if cursor.fetchone() is None:
+        cursor.execute("INSERT INTO Config_System (key, value, description) VALUES (?, ?, ?)",
+            ('default_view', 'dashboard', 'UI Startup View'))
     
     # Epic 5 Safe Mode Gatekeepers
-    cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)",
-        ('feature_retention_sweeper', '0', 'Safe Mode: Retention Sweeper'))
-    cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)",
-        ('feature_drive_relocator', '0', 'Safe Mode: Drive Relocator'))
-    cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)",
-        ('feature_materialization', '0', 'Safe Mode: Materialization Pipeline'))
-    cursor.execute("INSERT OR IGNORE INTO Config_System (key, value, description) VALUES (?, ?, ?)",
-        ('feature_google_tasks', '0', 'Safe Mode: Autonomous Google Tasks'))
+    cursor.execute("SELECT key FROM Config_System WHERE key = ?", ('feature_retention_sweeper',))
+    if cursor.fetchone() is None:
+        cursor.execute("INSERT INTO Config_System (key, value, description) VALUES (?, ?, ?)",
+            ('feature_retention_sweeper', '0', 'Safe Mode: Retention Sweeper'))
+    
+    cursor.execute("SELECT key FROM Config_System WHERE key = ?", ('feature_drive_relocator',))
+    if cursor.fetchone() is None:
+        cursor.execute("INSERT INTO Config_System (key, value, description) VALUES (?, ?, ?)",
+            ('feature_drive_relocator', '0', 'Safe Mode: Drive Relocator'))
+    
+    cursor.execute("SELECT key FROM Config_System WHERE key = ?", ('feature_materialization',))
+    if cursor.fetchone() is None:
+        cursor.execute("INSERT INTO Config_System (key, value, description) VALUES (?, ?, ?)",
+            ('feature_materialization', '0', 'Safe Mode: Materialization Pipeline'))
+    
+    cursor.execute("SELECT key FROM Config_System WHERE key = ?", ('feature_google_tasks',))
+    if cursor.fetchone() is None:
+        cursor.execute("INSERT INTO Config_System (key, value, description) VALUES (?, ?, ?)",
+            ('feature_google_tasks', '0', 'Safe Mode: Autonomous Google Tasks'))
 
 
 def seed_default_taxonomy(conn):
@@ -239,27 +265,35 @@ def seed_default_taxonomy(conn):
     """
     cursor = conn.cursor()
     # Create a dummy category and correspondent for global purposes if they don't exist
-    cursor.execute("INSERT OR IGNORE INTO Taxonomy_Categories (name, is_gmail_enabled, is_drive_enabled) VALUES ('System', 1, 1)")
     cursor.execute("SELECT id FROM Taxonomy_Categories WHERE name = 'System'")
     cat_row = cursor.fetchone()
     if cat_row is None:
-        raise ValueError("Failed to retrieve or create the 'System' Taxonomy_Category.")
+        cursor.execute("INSERT INTO Taxonomy_Categories (name, is_gmail_enabled, is_drive_enabled) VALUES ('System', 1, 1)")
+        cursor.execute("SELECT id FROM Taxonomy_Categories WHERE name = 'System'")
+        cat_row = cursor.fetchone()
+        if cat_row is None:
+            raise ValueError("Failed to retrieve or create the 'System' Taxonomy_Category.")
     cat_id = cat_row['id']
     
-    cursor.execute("INSERT OR IGNORE INTO Taxonomy_Correspondents (category_id, name, brand_color, is_gmail_enabled, is_drive_enabled) VALUES (?, 'Global', '#4285F4', 1, 1)", (cat_id,))
     cursor.execute("SELECT id FROM Taxonomy_Correspondents WHERE name = 'Global'")
     corr_row = cursor.fetchone()
     if corr_row is None:
-        raise ValueError("Failed to retrieve or create the 'Global' Taxonomy_Correspondent.")
+        cursor.execute("INSERT INTO Taxonomy_Correspondents (category_id, name, brand_color, is_gmail_enabled, is_drive_enabled) VALUES (?, 'Global', '#4285F4', 1, 1)", (cat_id,))
+        cursor.execute("SELECT id FROM Taxonomy_Correspondents WHERE name = 'Global'")
+        corr_row = cursor.fetchone()
+        if corr_row is None:
+            raise ValueError("Failed to retrieve or create the 'Global' Taxonomy_Correspondent.")
     corr_id = corr_row['id']
     
     global_purposes = ['Receipt / Invoice', 'Bill / Statement', 'Policy / Terms Update']
     # Loop over the list of default purposes to insert them into the database.
     for p in global_purposes:
-        cursor.execute("""
-            INSERT OR IGNORE INTO Taxonomy_Purposes (correspondent_id, name, custom_field_schema, is_global, is_gmail_enabled, is_drive_enabled)
-            VALUES (?, ?, '{}', 1, 1, 1)
-        """, (corr_id, p))
+        cursor.execute("SELECT id FROM Taxonomy_Purposes WHERE name = ? AND correspondent_id = ?", (p, corr_id))
+        if cursor.fetchone() is None:
+            cursor.execute("""
+                INSERT INTO Taxonomy_Purposes (correspondent_id, name, custom_field_schema, is_global, is_gmail_enabled, is_drive_enabled)
+                VALUES (?, ?, '{}', 1, 1, 1)
+            """, (corr_id, p))
 
 def seed_default_prompts(conn: sqlite3.Connection) -> None:
     """
@@ -315,14 +349,24 @@ def seed_default_prompts(conn: sqlite3.Connection) -> None:
 }"""
 
     cursor = conn.cursor()
-    cursor.execute("INSERT OR IGNORE INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('GMAIL', PROMPT_GMAIL))
-    cursor.execute("INSERT OR IGNORE INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('DRIVE_STAGE_1', PROMPT_DRIVE_STAGE_1))
-    cursor.execute("INSERT OR IGNORE INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('DRIVE_STAGE_2', PROMPT_DRIVE_STAGE_2))
+    cursor.execute("SELECT target_app FROM Config_Prompts WHERE target_app = ?", ('GMAIL',))
+    if cursor.fetchone() is None:
+        cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('GMAIL', PROMPT_GMAIL))
+    
+    cursor.execute("SELECT target_app FROM Config_Prompts WHERE target_app = ?", ('DRIVE_STAGE_1',))
+    if cursor.fetchone() is None:
+        cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('DRIVE_STAGE_1', PROMPT_DRIVE_STAGE_1))
+    
+    cursor.execute("SELECT target_app FROM Config_Prompts WHERE target_app = ?", ('DRIVE_STAGE_2',))
+    if cursor.fetchone() is None:
+        cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('DRIVE_STAGE_2', PROMPT_DRIVE_STAGE_2))
 
     try:
         with open(os.path.join('PROMPTS', 'quarantine_consolidation.tmpl'), 'r') as f:
             consolidation_tmpl = f.read()
-        cursor.execute("INSERT OR IGNORE INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('QUARANTINE_CONSOLIDATION', consolidation_tmpl))
+        cursor.execute("SELECT target_app FROM Config_Prompts WHERE target_app = ?", ('QUARANTINE_CONSOLIDATION',))
+        if cursor.fetchone() is None:
+            cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('QUARANTINE_CONSOLIDATION', consolidation_tmpl))
     except Exception as e:
         print(f"Failed to seed QUARANTINE_CONSOLIDATION prompt: {e}")
 
