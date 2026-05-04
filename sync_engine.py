@@ -24,6 +24,7 @@ from llm_engine import evaluate_quarantine_clusters
 
 DAILY_QUOTA_LIMIT = 10000
 PRIORITY_RESERVE_RATIO = 0.30
+IGNORED_GMAIL_LABELS = {'TRASH', 'SPAM', 'SENT', 'DRAFT'}
 
 class QuotaGovernor:
     """
