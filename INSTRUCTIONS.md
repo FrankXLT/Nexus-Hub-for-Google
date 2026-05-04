@@ -88,14 +88,21 @@ chmod +x scripts/provision.sh
 Your server is alive, but it doesn't have the VIP pass (`credentials.json`) to read your emails yet.
 
 1. Open a terminal and use `gcloud` to securely transfer your file to the new server:
+   > **⚠️ GOTCHA: WINDOWS SCP & LOCKED FOLDERS**
+   > If you are on Windows and your `credentials.json` is located in a locked or synced folder (like a timed-out OneDrive Personal Vault or a strictly managed Desktop), the underlying Windows `pscp` tool will fail with a cryptic "unable to open" error. Move the file to a simple path like `C:\Nexus\credentials.json` before running the command.
+   ### Windows Users
+   ```powershell
+   gcloud compute scp "C:\path\to\your\credentials.json" nexus-vm:/opt/nexus/ --zone=us-central1-f
+   ```
+
+   ### Mac/Linux Users
    ```bash
    gcloud compute scp /path/to/your/credentials.json nexus-vm:/opt/nexus/ --zone=us-central1-f
    ```
 
-> **⚠️ GOTCHA: WINDOWS SCP & LOCKED FOLDERS**
-> If you are on Windows and your `credentials.json` is located in a locked or synced folder (like a timed-out OneDrive Personal Vault or a strictly managed Desktop), the underlying Windows `pscp` tool will fail with a cryptic "unable to open" error. Move the file to a simple path like `C:\Nexus\credentials.json` before running the command.
-
 2. Next, we need to generate an active login session. We do this by creating a secure "SSH Tunnel" from your local computer to the cloud server. Run this command:
+   > **⚠️ MASSIVE GOTCHA: THE CTRL+C TRAP**
+   > When the terminal outputs the `http://localhost:8080` link, **DO NOT PRESS Ctrl+C TO COPY IT!** In a Linux SSH terminal, `Ctrl+C` means "Cancel/Kill." Doing this will instantly kill the local auth server, collapse your SSH tunnel, and cause a "Localhost refused to connect" error in your browser. Instead, highlight the link and right-click to copy it.
    ```bash
    gcloud compute ssh nexus-vm --zone=us-central1-f --ssh-flag="-L 8080:localhost:8080"
    ```
@@ -108,10 +115,6 @@ Your server is alive, but it doesn't have the VIP pass (`credentials.json`) to r
    pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
    python3 auth.py
    ```
-
-> **⚠️ MASSIVE GOTCHA: THE CTRL+C TRAP**
-> When the terminal outputs the `http://localhost:8080` link, **DO NOT PRESS Ctrl+C TO COPY IT!** In a Linux SSH terminal, `Ctrl+C` means "Cancel/Kill." Doing this will instantly kill the local auth server, collapse your SSH tunnel, and cause a "Localhost refused to connect" error in your browser. Instead, highlight the link and right-click to copy it.
-
 4. The terminal will print a message saying a local server is running. Open your web browser and go to: `http://localhost:8080`.
 5. Follow the Google Login prompts. You will see a warning saying "Google hasn't verified this app." Click **Advanced**, then **Go to Nexus (unsafe)**. Click **Continue** to grant access to your Gmail and Drive.
 6. The terminal will automatically save a new file called `token.json`. Your server is permanently authenticated! You can type `exit` to leave the SSH session.

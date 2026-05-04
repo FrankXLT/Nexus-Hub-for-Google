@@ -241,11 +241,17 @@ def seed_default_taxonomy(conn):
     # Create a dummy category and correspondent for global purposes if they don't exist
     cursor.execute("INSERT OR IGNORE INTO Taxonomy_Categories (name, is_gmail_enabled, is_drive_enabled) VALUES ('System', 1, 1)")
     cursor.execute("SELECT id FROM Taxonomy_Categories WHERE name = 'System'")
-    cat_id = cursor.fetchone()['id']
+    cat_row = cursor.fetchone()
+    if cat_row is None:
+        raise ValueError("Failed to retrieve or create the 'System' Taxonomy_Category.")
+    cat_id = cat_row['id']
     
     cursor.execute("INSERT OR IGNORE INTO Taxonomy_Correspondents (category_id, name, brand_color, is_gmail_enabled, is_drive_enabled) VALUES (?, 'Global', '#4285F4', 1, 1)", (cat_id,))
     cursor.execute("SELECT id FROM Taxonomy_Correspondents WHERE name = 'Global'")
-    corr_id = cursor.fetchone()['id']
+    corr_row = cursor.fetchone()
+    if corr_row is None:
+        raise ValueError("Failed to retrieve or create the 'Global' Taxonomy_Correspondent.")
+    corr_id = corr_row['id']
     
     global_purposes = ['Receipt / Invoice', 'Bill / Statement', 'Policy / Terms Update']
     # Loop over the list of default purposes to insert them into the database.
