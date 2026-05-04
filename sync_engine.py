@@ -422,11 +422,6 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
                             print(f"   -> Relocation failed for {file_id}: {e}")
             else:
                 print(f"Safe Mode Bypass: Drive Relocator is disabled. Skipping relocation for {file_id}.")
-                        file_obj = service.files().get(fileId=file_id, fields='parents').execute()
-                        governor.record_api_call(cost=1)
-                        current_parents = ",".join(file_obj.get('parents', []))
-                        
->>>>>> THIS BLOCK INTENTIONALLY OMITTED BECAUSE I REPLACED IT ENTIRELY ABOVE
     else:
         print("No new Drive changes.")
     
