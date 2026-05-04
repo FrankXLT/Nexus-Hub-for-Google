@@ -180,7 +180,7 @@ It automatically pushes your HTML and CSS files to Google Apps Script. Then, it 
 5. **CRITICAL:** Once it succeeds, delete the `runOnce` function entirely.
 6. Next, tell the UI where your server lives. Go to **Project Settings** (gear icon) on the left.
 7. Scroll down to **Script Properties** and click **Edit script properties**.
-8. Add a property named `NEXUS_VM_URL`. Set the value to your server's External IP address (e.g., `http://34.123.45.67:8000`). You can find your IP in the Google Cloud Console under VM Instances.
+8. Add a property named `NEXUS_VM_URL`. Set the value to your server's External IP address (e.g., `http://192.168.10.125:8000`). You can find your IP in the Google Cloud Console under VM Instances.
 9. **Lastly, on your cloud server:**
    ```bash
    gcloud compute ssh nexus-vm --zone=us-central1-f

@@ -571,7 +571,10 @@ const appActions = {
       if(!cluster) return;
       
       const pane = document.getElementById('zt-details-view');
+      const drawer = document.getElementById('zt-context-drawer');
       if(!pane) return;
+      
+      if (drawer) drawer.classList.add('open');
 
       let listHtml = cluster.artifacts.map(art => {
           const title = (art.custom_data && art.custom_data.title) || art.summary || art.artifact_id;
