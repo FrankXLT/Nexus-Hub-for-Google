@@ -426,10 +426,16 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
             governor.record_api_call(cost=1)
             
             try:
-                # Fetch file metadata to check mimeType
-                file_metadata = service.files().get(fileId=file_id, fields='mimeType').execute()
+                # Fetch file metadata to check mimeType and parents
+                file_metadata = service.files().get(fileId=file_id, fields='mimeType, parents').execute()
                 mime_type = file_metadata.get('mimeType', '')
+                parents = file_metadata.get('parents', [])
                 governor.record_api_call(cost=1)
+                
+                if ingest_dropbox_id and ingest_dropbox_id not in parents:
+                    continue
+                
+                print(f" - Drive Change: File ID {file_id}")
                 
                 if mime_type and mime_type.startswith('application/vnd.google-apps.'):
                     request = service.files().export_media(fileId=file_id, mimeType='text/plain')
