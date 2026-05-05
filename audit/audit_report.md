@@ -87,3 +87,11 @@ graph TD
 - Fixed two `NameError` exceptions in `sync_engine.py`:
   - Added explicit import for `generate_sender_profile` from `llm_engine`.
   - Defined `ingest_dropbox_id` by retrieving its value from the `Config_System` database table before the Google Drive file processing loop begins.
+
+## Fixes Applied: JS_Actions.html Syntax Error
+
+- Investigated the reported frontend freeze issue.
+- Diagnosed the core issue: A duplicate/orphaned code block inside the \ppActions\ object (lines 1074-1111) was causing a fatal JavaScript syntax error (\Unexpected identifier 'artifact'\). The code block contained unclosed logic for \enderDetailsPane\ that was floating outside of any function scope.
+- Replaced the fragmented single-item view logic with a properly consolidated \enderDetailsPane\ function.
+- Verified that \Code.gs\ successfully implements the \searchArtifacts\ pass-through webhook calling \/api/artifacts/search\ with no modifications needed.
+- Ran runtime syntax validation confirming resolution of the issue.
