@@ -19,19 +19,29 @@ echo -e "This script will automatically configure your Google Cloud project,"
 echo -e "enable the necessary APIs, and build your backend server."
 echo ""
 
+echo -e "${CYAN}Prerequisite: Google Cloud CLI${NC}"
+echo -e "${YELLOW}Please ensure you have installed the Google Cloud CLI (gcloud).${NC}"
+echo -e "${YELLOW}Download from: https://cloud.google.com/sdk/docs/install${NC}"
+read -p "Press [Enter] when you have installed gcloud and run 'gcloud auth login'..."
+
 # Verify gcloud is installed and authenticated
 if ! command -v gcloud &> /dev/null; then
     echo -e "${RED}Error: Google Cloud CLI (gcloud) is not installed.${NC}"
-    echo -e "Please install it from: https://cloud.google.com/sdk/docs/install"
     exit 1
 fi
 
-PROJECT_ID=$(gcloud config get-value project)
+echo -e "\n${CYAN}Prerequisite: Google Cloud Project & Billing${NC}"
+echo -e "${YELLOW}1. Go to https://console.cloud.google.com/${NC}"
+echo -e "${YELLOW}2. Create a new project (e.g., 'Nexus').${NC}"
+echo -e "${YELLOW}3. Go to the Billing menu and link a credit card.${NC}"
+read -p "Press [Enter] when your project is created and billing is enabled..."
+
+read -p "Please enter your Google Cloud Project ID: " PROJECT_ID
 if [ -z "$PROJECT_ID" ]; then
-    echo -e "${RED}Error: No Google Cloud Project selected.${NC}"
-    echo -e "Please run: ${YELLOW}gcloud config set project YOUR_PROJECT_ID${NC}"
+    echo -e "${RED}Error: No Google Cloud Project ID provided.${NC}"
     exit 1
 fi
+gcloud config set project "$PROJECT_ID"
 
 ZONE="us-central1-f"
 INSTANCE_NAME="nexus-vm"
@@ -44,6 +54,8 @@ echo ""
 read -p "Press [Enter] to begin the provisioning process..."
 
 echo -e "\n${CYAN}[1/5] Enabling Google Workspace & AI APIs...${NC}"
+echo -e "Please go to Google Cloud Console and enable the Drive and Gmail APIs."
+read -p "Press Enter when complete..."
 echo -e "Nexus needs permission to interact with your data. We are turning on the APIs for Gmail, Drive, Document AI, People, Tasks, and Pub/Sub."
 gcloud services enable \
     gmail.googleapis.com \

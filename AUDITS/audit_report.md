@@ -105,3 +105,10 @@ graph TD
 ## Fixes Applied: JS_Actions.html runtime reference error
 
 - Fixed an undeclared variable 'newStatus' inside 'submitManualReview'. Replaced \if(art) art.status = newStatus;\ with \if(art) { art.status = "PROCESSED"; art.purpose = newPurpose; }\.
+
+## Fixes Applied: 405 Method Not Allowed on /api/artifacts/search
+
+- Confirmed that FastAPI /api/artifacts/search is a GET route.
+- Discovered that Apps Script's UrlFetchApp always attaches a 'payload' object in Code.gs sendToNexusVM, which is invalid for GET requests.
+- Updated Code.gs sendToNexusVM to only attach 'payload' if the method is NOT 'get'.
+- The frontend will now correctly issue a strictly formed GET request without a body, preventing the 405 error.

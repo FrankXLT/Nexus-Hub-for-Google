@@ -88,12 +88,15 @@ function sendToNexusVM(endpoint, payload, method = 'post') {
   const options = {
     'method': method,
     'contentType': 'application/json',
-    'payload': payloadString,
     'headers': {
       'X-Nexus-Signature': signature
     },
     'muteHttpExceptions': true
   };
+  
+  if (method.toLowerCase() !== 'get') {
+    options.payload = payloadString;
+  }
   
   try {
     const response = UrlFetchApp.fetch(targetUrl, options);

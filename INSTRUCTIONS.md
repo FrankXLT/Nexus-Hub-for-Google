@@ -215,3 +215,12 @@ Now that your Walled Garden is built and secured, it's time to access the Nexus 
 **This URL is the permanent, private home for your AI knowledge graph.** Bookmark it.
 
 **Congratulations! You have successfully built and secured a multi-tier cloud application. Welcome to Nexus for Google.**
+
+---
+
+## Critical Troubleshooting (Lessons Learned)
+
+- **Apps Script Phantom Cache:** The `/exec` deployment URL is an immutable snapshot. Active UI development must strictly use the `/dev` (Test Deployment) URL. To force Google to clear the inner iframe cache after a clasp push, developers must append a version string to the URL (e.g., `?v=123`).
+- **The OAuth Black Hole:** If the `/dev` URL loads a completely blank white screen, the browser has blocked a hidden authorization popup. Fix: Open `Code.gs` in the native Apps Script Editor, manually run `doGet()`, and accept the OAuth permission scopes.
+- **API Method Matching:** A 405 Method Not Allowed error between Apps Script and FastAPI means the `UrlFetchApp` method (`'method': 'get'`) mismatches the FastAPI route decorator (`@app.get`). They must align perfectly.
+- **Webhook Loop:** For the Python backend to push notifications back to the UI, the `NEXUS_WEBHOOK_URL` in the VM's `.env` file must be set to the permanent `/exec` deployment URL.

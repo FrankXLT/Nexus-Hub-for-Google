@@ -7,19 +7,29 @@ Write-Host "====================================================" -ForegroundCol
 Write-Host "This script will automatically configure your Google Cloud project,"
 Write-Host "enable the necessary APIs, and build your backend server.`n"
 
+Write-Host "Prerequisite: Google Cloud CLI" -ForegroundColor Cyan
+Write-Host "Please ensure you have installed the Google Cloud CLI (gcloud)." -ForegroundColor Yellow
+Write-Host "Download from: https://cloud.google.com/sdk/docs/install" -ForegroundColor Yellow
+Read-Host "Press [Enter] when you have installed gcloud and run 'gcloud auth login'..."
+
 # Verify gcloud
 if (-not (Get-Command "gcloud" -ErrorAction SilentlyContinue)) {
     Write-Host "Error: Google Cloud CLI (gcloud) is not installed." -ForegroundColor Red
-    Write-Host "Please install it from: https://cloud.google.com/sdk/docs/install"
     exit
 }
 
-$PROJECT_ID = gcloud config get-value project
+Write-Host "`nPrerequisite: Google Cloud Project & Billing" -ForegroundColor Cyan
+Write-Host "1. Go to https://console.cloud.google.com/" -ForegroundColor Yellow
+Write-Host "2. Create a new project (e.g., 'Nexus')." -ForegroundColor Yellow
+Write-Host "3. Go to the Billing menu and link a credit card." -ForegroundColor Yellow
+Read-Host "Press [Enter] when your project is created and billing is enabled..."
+
+$PROJECT_ID = Read-Host "Please enter your Google Cloud Project ID"
 if ([string]::IsNullOrWhiteSpace($PROJECT_ID)) {
-    Write-Host "Error: No Google Cloud Project selected." -ForegroundColor Red
-    Write-Host "Please run: gcloud config set project YOUR_PROJECT_ID" -ForegroundColor Yellow
+    Write-Host "Error: No Google Cloud Project ID provided." -ForegroundColor Red
     exit
 }
+gcloud config set project $PROJECT_ID
 
 $ZONE = "us-central1-f"
 $INSTANCE_NAME = "nexus-vm"
@@ -31,6 +41,8 @@ Write-Host "Instance Name: $INSTANCE_NAME`n" -ForegroundColor Yellow
 Read-Host "Press [Enter] to begin the provisioning process..."
 
 Write-Host "`n[1/5] Enabling Google Workspace & AI APIs..." -ForegroundColor Cyan
+Write-Host "Please go to Google Cloud Console and enable the Drive and Gmail APIs." -ForegroundColor Yellow
+Read-Host "Press [Enter] when complete..."
 gcloud services enable `
     gmail.googleapis.com `
     drive.googleapis.com `
