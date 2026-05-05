@@ -151,6 +151,17 @@ systemctl enable nexus.service
 echo ">>> Bootstrap complete!"
 '
 
+echo -e "\n${CYAN}Apps Script Initialization${NC}"
+echo -e "${YELLOW}Please open the Google Apps Script Editor for your project.${NC}"
+echo -e "${YELLOW}Click the Gear Icon (Project Settings) on the left sidebar.${NC}"
+echo -e "${YELLOW}Under 'IDs', copy the Script ID.${NC}"
+read -p "Please paste your Script ID here: " SCRIPT_ID
+
+cat > .clasp.json <<EOF
+{"scriptId":"$SCRIPT_ID","rootDir":"frontend/"}
+EOF
+echo -e "${GREEN}Success! Local clasp is now securely linked to your Google account and restricted to the frontend/ directory.${NC}"
+
 echo -e "\n${GREEN}====================================================${NC}"
 echo -e "${GREEN}             Provisioning Complete!                 ${NC}"
 echo -e "${GREEN}====================================================${NC}"

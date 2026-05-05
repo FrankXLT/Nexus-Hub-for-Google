@@ -1218,6 +1218,19 @@ refreshData: function() {
       .getROIDashboard();
   },
 
+  dumpRawPayload: function() {
+    this.showToast("Fetching raw payload... check F12 Console.");
+    google.script.run
+      .withSuccessHandler((result) => {
+        console.warn("=== RAW NEXUS BACKEND PAYLOAD ===");
+        console.log(result);
+        console.warn("=================================");
+        this.showToast("Payload dumped to console.");
+      })
+      .withFailureHandler((error) => console.error("Payload Dump Failed:", error))
+      .searchArtifacts("");
+  },
+
   triggerDiagnostics: function() {
     this.showToast("Running diagnostics... Check VM logs if it fails.");
     google.script.run

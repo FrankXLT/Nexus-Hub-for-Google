@@ -112,3 +112,11 @@ graph TD
 - Discovered that Apps Script's UrlFetchApp always attaches a 'payload' object in Code.gs sendToNexusVM, which is invalid for GET requests.
 - Updated Code.gs sendToNexusVM to only attach 'payload' if the method is NOT 'get'.
 - The frontend will now correctly issue a strictly formed GET request without a body, preventing the 405 error.
+
+## Apps Script Provisioning Automation
+
+- Added an interactive "Apps Script Initialization" section to `scripts/provision.ps1` and `scripts/provision.sh`.
+- Provided clear instructions to the user on how to locate their Script ID in the Google Apps Script Editor.
+- The scripts now pause and prompt the user to input their `scriptId`.
+- Dynamically generates the `.clasp.json` file in the project root, inserting the provided `scriptId` and setting the `rootDir` to `frontend/`.
+- Included a success validation message confirming that local clasp is securely linked to the user's Google account and restricted to the `frontend/` directory.

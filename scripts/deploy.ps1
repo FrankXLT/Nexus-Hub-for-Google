@@ -18,6 +18,31 @@ Write-Host "--> Apps Script UI synced successfully!" -ForegroundColor Green
 
 Write-Host "`n[2/2] Deploying Backend to Google Cloud VM..." -ForegroundColor Yellow
 
+$envExists = gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="if [ -f /opt/nexus/backend/.env ]; then echo 'YES'; else echo 'NO'; fi"
+$envExists = $envExists -replace "`r", ""
+$envExists = $envExists -replace "`n", ""
+
+if ($envExists -eq "NO") {
+    Write-Host "`n*** ACTION REQUIRED: backend/.env FILE MISSING ***" -ForegroundColor Red
+    $NEXUS_HMAC_SECRET = Read-Host "NEXUS_HMAC_SECRET (type a highly unique, secure passphrase)"
+    $NEXUS_API_KEY = Read-Host "NEXUS_API_KEY (Your Gemini API Key)"
+    $NEXUS_WEBHOOK_URL = Read-Host "NEXUS_WEBHOOK_URL (The permanent /exec URL for Apps Script)"
+
+    $envScript = @"
+        mkdir -p /opt/nexus/backend
+        echo "NEXUS_HMAC_SECRET=$NEXUS_HMAC_SECRET" > /opt/nexus/backend/.env
+        echo "NEXUS_API_KEY=$NEXUS_API_KEY" >> /opt/nexus/backend/.env
+        echo "NEXUS_WEBHOOK_URL=$NEXUS_WEBHOOK_URL" >> /opt/nexus/backend/.env
+        echo "backend/.env file generated successfully."
+"@
+    $envScript = $envScript -replace "`r", ""
+    gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command=$envScript
+} else {
+    $NEXUS_HMAC_SECRET = gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="grep '^NEXUS_HMAC_SECRET=' /opt/nexus/backend/.env | cut -d'=' -f2"
+    $NEXUS_HMAC_SECRET = $NEXUS_HMAC_SECRET -replace "`r", ""
+    $NEXUS_HMAC_SECRET = $NEXUS_HMAC_SECRET -replace "`n", ""
+}
+
 # The SSH command payload that executes on the Linux machine
 $sshCommand = @"
     set -e
@@ -44,7 +69,18 @@ $sshCommand = @"
 $sshCommand = $sshCommand -replace "`r", ""
 gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command=$sshCommand
 
-Write-Host "`n====================================================" -ForegroundColor Green
-Write-Host "          Deployment Completed Successfully!        " -ForegroundColor Green
-Write-Host "====================================================" -ForegroundColor Green
-Write-Host "Your frontend and backend are now perfectly synchronized."
+$vmIp = gcloud compute instances describe $INSTANCE_NAME --zone=$ZONE --format="get(networkInterfaces[0].accessConfigs[0].natIP)"
+$vmIp = $vmIp -replace "`r", ""
+$vmIp = $vmIp -replace "`n", ""
+$NEXUS_VM_URL = "http://${vmIp}:8000"
+
+Clear-Host
+Write-Host "====================================================" -ForegroundColor Red
+Write-Host "                 ACTION REQUIRED                    " -ForegroundColor Red
+Write-Host "====================================================" -ForegroundColor Red
+Write-Host "NEXUS_HMAC_SECRET: " -NoNewline; Write-Host $NEXUS_HMAC_SECRET -ForegroundColor Yellow
+Write-Host "NEXUS_VM_URL:      " -NoNewline; Write-Host $NEXUS_VM_URL -ForegroundColor Yellow
+Write-Host "`nPlease copy the values above. In a moment, your browser will open the Apps Script Editor. You MUST immediately go to: Project Settings (Gear Icon) -> Script Properties -> Add Script Property. Add NEXUS_HMAC_SECRET and NEXUS_VM_URL."
+
+Read-Host "Press Enter to open the Editor..."
+clasp open

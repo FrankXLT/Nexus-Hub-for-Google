@@ -147,6 +147,16 @@ if ($LASTEXITCODE -eq 0) {
     # Clean up the temporary file
     Remove-Item -Path $tempScriptPath -Force -ErrorAction SilentlyContinue
 
+    Write-Host "`nApps Script Initialization" -ForegroundColor Cyan
+    Write-Host "Please open the Google Apps Script Editor for your project." -ForegroundColor Yellow
+    Write-Host "Click the Gear Icon (Project Settings) on the left sidebar." -ForegroundColor Yellow
+    Write-Host "Under 'IDs', copy the Script ID." -ForegroundColor Yellow
+    $SCRIPT_ID = Read-Host "Please paste your Script ID here"
+
+    $claspJsonContent = "{`"scriptId`":`"$SCRIPT_ID`",`"rootDir`":`"frontend/`"}"
+    Set-Content -Path ".clasp.json" -Value $claspJsonContent -Encoding Ascii
+    Write-Host "Success! Local clasp is now securely linked to your Google account and restricted to the frontend/ directory." -ForegroundColor Green
+
     Write-Host "`n====================================================" -ForegroundColor Green
     Write-Host "             Provisioning Complete!                 " -ForegroundColor Green
     Write-Host "====================================================" -ForegroundColor Green
