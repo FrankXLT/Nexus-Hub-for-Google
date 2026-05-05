@@ -95,3 +95,9 @@ graph TD
 - Replaced the fragmented single-item view logic with a properly consolidated \enderDetailsPane\ function.
 - Verified that \Code.gs\ successfully implements the \searchArtifacts\ pass-through webhook calling \/api/artifacts/search\ with no modifications needed.
 - Ran runtime syntax validation confirming resolution of the issue.
+
+## Fixes Applied: UI Container Missing
+
+- Investigated the missing Inbox Cleanup container.
+- Verified that JS_Actions.html syntax is valid and the dangling \const artifact = appState.getArtifact...\ block was successfully removed from outside of the \enderDetailsPane\ function.
+- Added the \	ab-inbox-cleanup\ container inside the \<main class="main-content">\ area of Index.html to prevent null reference errors when the sidebar button is clicked.
