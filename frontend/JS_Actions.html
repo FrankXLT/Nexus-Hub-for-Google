@@ -401,6 +401,7 @@ refreshData: function() {
     google.script.run
       .withSuccessHandler((result) => {
         if(result && result.success && result.data && result.data.results) {
+           if (NEXUS_CONFIG.UI_FLAGS.showRawPayloads) { console.warn("RAW PAYLOAD:", result); }
            // Update the local state with the REAL data from your VM
            appState.setArtifacts(result.data.results);
            

@@ -116,28 +116,20 @@ def upload_diagnostic_log(report_data: dict) -> dict:
              return {"status": "error", "message": "Cannot upload log: credentials invalid"}
              
         drive_service = build('drive', 'v3', credentials=creds)
-        folder_name = "Nexus Diagnostics"
-        
-        # 1. Search for existing diagnostics folder
-        query = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
-        results = drive_service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
-        items = results.get('files', [])
-        
-        # If the diagnostics folder is not found, create a new one.
-        if not items:
-            # Create folder if it doesn't exist
-            folder_metadata = {
-                'name': folder_name,
-                'mimeType': 'application/vnd.google-apps.folder'
-            }
-            folder = drive_service.files().create(body=folder_metadata, fields='id').execute()
-            folder_id = folder.get('id')
-        # Otherwise, use the existing folder's ID.
-        else:
-            folder_id = items[0].get('id')
-            
-        # 2. Upload the JSON log
-        timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT value FROM Config_System WHERE key = 'drive_diagnostics_id'")
+        diag_row = cursor.fetchone()
+        conn.close()
+
+        folder_id = diag_row['value'].strip('"') if diag_row and diag_row['value'] and diag_row['value'] != '""' else None
+
+        if not folder_id:
+             return {"status": "error", "message": "Cannot upload log: drive_diagnostics_id not found in configuration."}
+
+        # 2. Upload the JSON log        timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
         file_metadata = {
             'name': f'nexus_diagnostic_{timestamp_str}.json',
             'parents': [folder_id]

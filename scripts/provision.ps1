@@ -31,8 +31,30 @@ if ([string]::IsNullOrWhiteSpace($PROJECT_ID)) {
 }
 gcloud config set project $PROJECT_ID
 
-$ZONE = "us-central1-f"
-$INSTANCE_NAME = "nexus-vm"
+$ENV_OPTION = Read-Host "Do you want to (1) Create a NEW Nexus Environment or (2) Configure an EXISTING one? (1/2)"
+
+if ($ENV_OPTION -eq "2") {
+    Write-Host "Fetching existing VMs..."
+    $vms = gcloud compute instances list --format="value(name,zone,status)" --project=$PROJECT_ID
+    $vmsList = @($vms)
+    for ($i=0; $i -lt $vmsList.Count; $i++) {
+        Write-Host "[$i] $($vmsList[$i])"
+    }
+    $vmIdx = Read-Host "Select VM number"
+    $SELECTED_VM = $vmsList[[int]$vmIdx]
+    $parts = $SELECTED_VM -split "\s+"
+    $INSTANCE_NAME = $parts[0]
+    $ZONE = $parts[1]
+    $ENV_LABEL = $INSTANCE_NAME -replace "^nexus-vm-",""
+} else {
+    $ENV_OPTION = "1"
+    $ZONE = "us-central1-f"
+    $ENV_LABEL = Read-Host "Enter the Environment Label (e.g., dev, staging, prod)"
+    if ([string]::IsNullOrWhiteSpace($ENV_LABEL)) {
+        $ENV_LABEL = "dev"
+    }
+    $INSTANCE_NAME = "nexus-vm-$ENV_LABEL"
+}
 
 Write-Host "Using Project: $PROJECT_ID" -ForegroundColor Yellow
 Write-Host "Using Zone:    $ZONE" -ForegroundColor Yellow
@@ -89,6 +111,7 @@ Read-Host "Press [Enter] when you have downloaded 'credentials.json' to your loc
 
 Write-Host "`n[5/5] Provisioning the Virtual Machine (VM)..." -ForegroundColor Cyan
 
+if ($ENV_OPTION -eq "1") {
 # The startup script payload
 $startupScript = @"
 #!/bin/bash
@@ -115,9 +138,9 @@ After=network.target
 
 [Service]
 User=root
-WorkingDirectory=/opt/nexus
-Environment=PATH=/opt/nexus/venv/bin
-ExecStart=/opt/nexus/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+WorkingDirectory=/home/frank/nexus/current/backend
+Environment=PATH=/home/frank/nexus/current/backend/venv/bin
+ExecStart=/home/frank/nexus/current/backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
 Restart=always
 
 [Install]
@@ -142,29 +165,7 @@ gcloud compute instances create $INSTANCE_NAME `
     --scopes=https://www.googleapis.com/auth/cloud-platform `
     --metadata-from-file="startup-script=$tempScriptPath"
 
-# Check if the VM actually built before claiming success
-if ($LASTEXITCODE -eq 0) {
-    # Clean up the temporary file
-    Remove-Item -Path $tempScriptPath -Force -ErrorAction SilentlyContinue
-
-    Write-Host "`nApps Script Initialization" -ForegroundColor Cyan
-    Write-Host "Please open the Google Apps Script Editor for your project." -ForegroundColor Yellow
-    Write-Host "Click the Gear Icon (Project Settings) on the left sidebar." -ForegroundColor Yellow
-    Write-Host "Under 'IDs', copy the Script ID." -ForegroundColor Yellow
-    $SCRIPT_ID = Read-Host "Please paste your Script ID here"
-
-    $claspJsonContent = "{`"scriptId`":`"$SCRIPT_ID`",`"rootDir`":`"frontend/`"}"
-    Set-Content -Path ".clasp.json" -Value $claspJsonContent -Encoding Ascii
-    Write-Host "Success! Local clasp is now securely linked to your Google account and restricted to the frontend/ directory." -ForegroundColor Green
-
-    Write-Host "`n====================================================" -ForegroundColor Green
-    Write-Host "             Provisioning Complete!                 " -ForegroundColor Green
-    Write-Host "====================================================" -ForegroundColor Green
-    Write-Host "Your server is booting up. It will take ~2 minutes to install Python."
-    Write-Host "Next steps (See INSTRUCTIONS.md):"
-    Write-Host "1. Transfer your credentials.json to the VM."
-    Write-Host "2. Run scripts\deploy.ps1 to push the code and start the backend.`n"
-} else {
+if ($LASTEXITCODE -ne 0) {
     Write-Host "`n====================================================" -ForegroundColor Red
     Write-Host "          Error: VM Provisioning Failed!            " -ForegroundColor Red
     Write-Host "====================================================" -ForegroundColor Red
@@ -173,3 +174,29 @@ if ($LASTEXITCODE -eq 0) {
     # Keep the temp file for debugging
     exit
 }
+
+# Clean up the temporary file
+Remove-Item -Path $tempScriptPath -Force -ErrorAction SilentlyContinue
+
+}
+
+Write-Host "`nApps Script Initialization" -ForegroundColor Cyan
+$UPPER_ENV = $ENV_LABEL.ToUpper()
+Write-Host "Please name your Apps Script project: 'Nexus for Google - [$UPPER_ENV]'" -ForegroundColor Cyan
+Write-Host "Please open the Google Apps Script Editor for your project." -ForegroundColor Yellow
+Write-Host "Click the Gear Icon (Project Settings) on the left sidebar." -ForegroundColor Yellow
+Write-Host "Under 'IDs', copy the Script ID." -ForegroundColor Yellow
+$SCRIPT_ID = Read-Host "Please paste your Script ID here"
+
+$claspJsonContent = "{`"scriptId`":`"$SCRIPT_ID`",`"rootDir`":`"frontend/`"}"
+Set-Content -Path ".clasp.json" -Value $claspJsonContent -Encoding Ascii
+Set-Content -Path ".nexus_env" -Value "TARGET_VM=$INSTANCE_NAME`nTARGET_ZONE=$ZONE" -Encoding Ascii
+Write-Host "Success! Local clasp is now securely linked to your Google account and restricted to the frontend/ directory." -ForegroundColor Green
+
+Write-Host "`n====================================================" -ForegroundColor Green
+Write-Host "             Provisioning Complete!                 " -ForegroundColor Green
+Write-Host "====================================================" -ForegroundColor Green
+Write-Host "Your server is ready."
+Write-Host "Next steps (See INSTRUCTIONS.md):"
+Write-Host "1. Transfer your credentials.json to the VM."
+Write-Host "2. Run scripts\deploy.ps1 to push the code and start the backend.`n"

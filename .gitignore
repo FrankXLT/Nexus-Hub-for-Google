@@ -19,3 +19,6 @@ Thumbs.db
 
 #Old Files
 DEPRECATED/*
+
+# Environment
+.nexus_env

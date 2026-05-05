@@ -19,8 +19,9 @@ function include(filename) {
  * Expected Outputs: HtmlOutput - The rendered Index.html template.
  */
 function doGet(e) {
-  return HtmlService.createTemplateFromFile('Index')
-    .evaluate()
+  const template = HtmlService.createTemplateFromFile('Index');
+  template.nexusConfig = JSON.stringify(NEXUS_CONFIG);
+  return template.evaluate()
     .setTitle('Nexus')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }

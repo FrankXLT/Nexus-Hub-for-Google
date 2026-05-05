@@ -120,3 +120,52 @@ graph TD
 - The scripts now pause and prompt the user to input their `scriptId`.
 - Dynamically generates the `.clasp.json` file in the project root, inserting the provided `scriptId` and setting the `rootDir` to `frontend/`.
 - Included a success validation message confirming that local clasp is securely linked to the user's Google account and restricted to the `frontend/` directory.
+
+## Blue-Green Deployment Architecture
+
+- Upgraded deployment scripts (`deploy.ps1` and `deploy.sh`) to support a zero-downtime "Blue-Green" deployment architecture using symlinks.
+- Implemented Branch Guardrails: The scripts fetch branches, prompt for selection, verify prod bounds (requiring confirmation for non-main pushes to prod), and execute a local git checkout/pull.
+- Enhanced Remote Architecture & Backup: Created remote shared directories (`shared/data`, `shared/backups`) and added a prompt to securely copy/backup the `nexus.db` SQLite database before pushing.
+- Refactored SSH Code Clone logic to pull the code into timestamped `RELEASE_DIR` folders, setup an isolated `venv`, symlink the shared `.env` and `nexus.db`, and swap the `/home/frank/nexus/current` pointer.
+- Documented the architecture and database location in `INSTRUCTIONS.md`.
+- Added the emergency Symlink Rollback commands to `DEBUGGING.md`.
+
+## Interactive GCP Discovery Menu
+
+- Overhauled `provision.ps1` and `provision.sh` to prompt the user: "Do you want to (1) Create a NEW Nexus Environment or (2) Configure an EXISTING one?".
+- Implemented a dynamic GCP Discovery Menu using `gcloud compute instances list` to automatically fetch existing VM names and zones, eliminating manual entry errors.
+- Updated `deploy.ps1` and `deploy.sh` to read both `TARGET_VM` and `TARGET_ZONE` from `.nexus_env`.
+- Modified deployment scripts to prompt: "Deploying to [TARGET_VM]. Press Enter to confirm, or type 'list' to choose a different VM", which seamlessly loops back into the Discovery Menu and updates `.nexus_env`.
+- Ensured all `gcloud compute ssh` commands explicitly use the dynamically resolved `--zone=$TARGET_ZONE`.
+- Updated `INSTRUCTIONS.md` to highlight the new interactive discovery menu and automated zone routing.
+
+## Quick-Connect SSH Tool
+
+- Created `scripts/connect.ps1` and `scripts/connect.sh` to abstract `gcloud compute ssh` commands and improve developer quality of life.
+- Implemented the dynamic GCP Discovery Menu within the connect scripts to fetch existing VMs, prompt the user for selection, and extract the `TARGET_VM` and `TARGET_ZONE`.
+- The scripts output a clear "Connecting to [TARGET_VM] in [TARGET_ZONE]..." message and establish the SSH session.
+- Updated `INSTRUCTIONS.md` and `DEBUGGING.md` to reference the new connect scripts instead of requiring developers to manually write `gcloud compute ssh` commands.
+
+## Frontend UI Refactoring & Feature Flagging
+
+- Created `frontend/debug.gs` to serve as a centralized configuration and feature flag system, defining `NEXUS_CONFIG` and a unified `systemLog` function.
+- Updated `Code.gs`'s `doGet` function to securely pass the `NEXUS_CONFIG` environment object synchronously to the UI client.
+- Injected the configuration into the `<head>` of `Index.html`.
+- Removed diagnostic clutter: deleted the "Dump Raw API Payload" button from the Audit Timeline tab in `Index.html` and its associated `dumpRawPayload` handler from `JS_Actions.html`.
+- Wrapped the raw payload console logging inside `JS_Actions.html` (`refreshData` call) within a feature flag conditional (`NEXUS_CONFIG.UI_FLAGS.showRawPayloads`).
+- Documented the new Environment Configuration controls in `DEBUGGING.md`.
+
+## Standardized Google Drive Folder Hierarchy
+
+- Updated `initialize_drive_structure` in `backend/sync_engine.py` to enforce the new root hierarchy: `Nexus` -> `Inbox`, `Archive`, and `System` -> `Diagnostics`.
+- Modified `sync_drive` in `backend/sync_engine.py` to target `drive_inbox_id` for staging/ingestion logic instead of the fragmented `drive_ingest_dropbox_id`.
+- Reconfigured the Drive Relocation Engine in `sync_drive` to automatically route documents to `drive_archive_id` rather than checking `drive_permanent_archive_id`.
+- Updated `backend/diagnostics.py` to fetch `drive_diagnostics_id` from the SQLite `Config_System` table, ensuring diagnostic logs target `Nexus/System/Diagnostics` directly instead of searching for `Nexus Diagnostics`.
+- Removed initialization of the obsolete `drive_permanent_archive_id` in `backend/db_init.py`.
+
+- Updated `scripts/provision.ps1` and `scripts/provision.sh` to prompt the user for an **Environment Label**.
+- VM instance names are now dynamically generated using the pattern `nexus-vm-[label]`.
+- Enforced a naming convention for the Apps Script project: `Nexus for Google - [UPPERCASE_ENV_LABEL]`.
+- Implemented environment tracking by generating a hidden `.nexus_env` file containing the `TARGET_VM` at the end of the provision scripts. Added `.nexus_env` to `.gitignore`.
+- Updated systemd `nexus.service` generation in provision scripts to set `WorkingDirectory=/home/frank/nexus/current/backend` and `ExecStart=/home/frank/nexus/current/backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000`.
+- Overhauled the "Setup and Installation" section in `INSTRUCTIONS.md` to explain the new Multi-Environment workflow, detailing the "Environment Label" and the use of the `.nexus_env` file.

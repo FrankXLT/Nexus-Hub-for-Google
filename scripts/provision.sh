@@ -43,8 +43,35 @@ if [ -z "$PROJECT_ID" ]; then
 fi
 gcloud config set project "$PROJECT_ID"
 
-ZONE="us-central1-f"
-INSTANCE_NAME="nexus-vm"
+echo -e "Do you want to:"
+echo -e "1) Create a NEW Nexus Environment"
+echo -e "2) Configure an EXISTING one"
+read -p "Select option (1 or 2): " ENV_OPTION
+
+if [ "$ENV_OPTION" == "2" ]; then
+    echo -e "Fetching existing VMs..."
+    IFS=$'\n' read -r -d '' -a vms < <( gcloud compute instances list --format="value(name,zone,status)" --project="$PROJECT_ID" && printf '\0' )
+    if [ ${#vms[@]} -eq 0 ]; then
+        echo -e "${RED}No VMs found.${NC}"
+        exit 1
+    fi
+    for i in "${!vms[@]}"; do
+        echo "[$i] ${vms[$i]}"
+    done
+    read -p "Select VM number: " vmIdx
+    SELECTED_VM="${vms[$vmIdx]}"
+    INSTANCE_NAME=$(echo "$SELECTED_VM" | awk '{print $1}')
+    ZONE=$(echo "$SELECTED_VM" | awk '{print $2}')
+    ENV_LABEL=${INSTANCE_NAME#nexus-vm-}
+else
+    ENV_OPTION="1"
+    ZONE="us-central1-f"
+    read -p "Enter the Environment Label (e.g., dev, staging, prod): " ENV_LABEL
+    if [ -z "$ENV_LABEL" ]; then
+        ENV_LABEL="dev"
+    fi
+    INSTANCE_NAME="nexus-vm-$ENV_LABEL"
+fi
 
 echo -e "Using Project: ${YELLOW}$PROJECT_ID${NC}"
 echo -e "Using Zone:    ${YELLOW}$ZONE${NC}"
@@ -104,6 +131,8 @@ echo ""
 read -p "Press [Enter] when you have downloaded 'credentials.json' to your local machine..."
 
 echo -e "\n${CYAN}[5/5] Provisioning the Virtual Machine (VM)...${NC}"
+
+if [ "$ENV_OPTION" == "1" ]; then
 echo -e "We are spinning up an e2-micro instance. The VM will automatically run a startup script to install Python, create the virtual environment, and configure the background service."
 
 # Create e2-micro VM with metadata startup script
@@ -137,9 +166,9 @@ After=network.target
 
 [Service]
 User=root
-WorkingDirectory=/opt/nexus
-Environment=PATH=/opt/nexus/venv/bin
-ExecStart=/opt/nexus/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+WorkingDirectory=/home/frank/nexus/current/backend
+Environment=PATH=/home/frank/nexus/current/backend/venv/bin
+ExecStart=/home/frank/nexus/current/backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
 Restart=always
 
 [Install]
@@ -150,8 +179,11 @@ systemctl daemon-reload
 systemctl enable nexus.service
 echo ">>> Bootstrap complete!"
 '
+fi
 
 echo -e "\n${CYAN}Apps Script Initialization${NC}"
+UPPER_ENV=$(echo "$ENV_LABEL" | tr '[:lower:]' '[:upper:]')
+echo -e "${CYAN}Please name your Apps Script project: 'Nexus for Google - [$UPPER_ENV]'${NC}"
 echo -e "${YELLOW}Please open the Google Apps Script Editor for your project.${NC}"
 echo -e "${YELLOW}Click the Gear Icon (Project Settings) on the left sidebar.${NC}"
 echo -e "${YELLOW}Under 'IDs', copy the Script ID.${NC}"
@@ -160,12 +192,16 @@ read -p "Please paste your Script ID here: " SCRIPT_ID
 cat > .clasp.json <<EOF
 {"scriptId":"$SCRIPT_ID","rootDir":"frontend/"}
 EOF
+cat > .nexus_env <<EOF
+TARGET_VM=$INSTANCE_NAME
+TARGET_ZONE=$ZONE
+EOF
 echo -e "${GREEN}Success! Local clasp is now securely linked to your Google account and restricted to the frontend/ directory.${NC}"
 
 echo -e "\n${GREEN}====================================================${NC}"
 echo -e "${GREEN}             Provisioning Complete!                 ${NC}"
 echo -e "${GREEN}====================================================${NC}"
-echo -e "Your server is booting up. It will take ~2 minutes to install Python."
+echo -e "Your server is ready."
 echo -e "Next steps (See INSTRUCTIONS.md):"
 echo -e "1. Transfer your credentials.json to the VM."
 echo -e "2. Run scripts/deploy.sh to push the code and start the backend."

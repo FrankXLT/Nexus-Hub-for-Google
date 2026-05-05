@@ -401,9 +401,9 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
     
     page_token = get_sync_state(cursor, 'drive')
     
-    cursor.execute("SELECT value FROM Config_System WHERE key = 'drive_ingest_dropbox_id'")
+    cursor.execute("SELECT value FROM Config_System WHERE key = 'drive_inbox_id'")
     dropbox_row = cursor.fetchone()
-    ingest_dropbox_id = dropbox_row['value'].strip('"') if dropbox_row and dropbox_row['value'] and dropbox_row['value'] != '""' else None
+    inbox_id = dropbox_row['value'].strip('"') if dropbox_row and dropbox_row['value'] and dropbox_row['value'] != '""' else None
 
     if not page_token:
         print("No Drive pageToken found in DB. Initializing new token...")
@@ -437,7 +437,7 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
                 parents = file_metadata.get('parents', [])
                 governor.record_api_call(cost=1)
                 
-                if ingest_dropbox_id and ingest_dropbox_id not in parents:
+                if inbox_id and inbox_id not in parents:
                     continue
                 
                 print(f" - Drive Change: File ID {file_id}")

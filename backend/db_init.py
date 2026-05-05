@@ -221,10 +221,6 @@ def seed_default_configs(conn: sqlite3.Connection) -> None:
         cursor.execute("INSERT INTO Config_System (key, value, description) VALUES (?, ?, ?)",
             ('ui_post_processing', '{"auto_archive_gmail": false, "quarantine_unconfident": true}', 'Post-processing actions'))
     
-    cursor.execute("SELECT key FROM Config_System WHERE key = ?", ('drive_permanent_archive_id',))
-    if cursor.fetchone() is None:
-        cursor.execute("INSERT INTO Config_System (key, value, description) VALUES (?, ?, ?)",
-            ('drive_permanent_archive_id', '""', 'Permanent Archive Folder ID'))
     cursor.execute("SELECT key FROM Config_System WHERE key = ?", ('nexus_task_list_id',))
     if cursor.fetchone() is None:
         cursor.execute("INSERT INTO Config_System (key, value, description) VALUES (?, ?, ?)",

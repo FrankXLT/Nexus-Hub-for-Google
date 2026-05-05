@@ -50,36 +50,12 @@ We need to tell Google Cloud to allow your new server to talk to your personal G
 
 ## Phase 1: The Interactive Provisioner Wizard
 
-We have engineered an Infrastructure as Code (IaC) deployment script that does all the heavy lifting. It will automatically spin up your server and install everything.
+We have engineered an Infrastructure as Code (IaC) deployment script that handles all the heavy lifting via an interactive prompt. 
 
-1. Open your computer's terminal (Command Prompt/PowerShell on Windows, Terminal on Mac/Linux).
-2. Ensure you have the Google Cloud CLI installed. (If not, download it [here](https://cloud.google.com/sdk/docs/install)).
-3. Authenticate your terminal by running:
-   ```bash
-   gcloud auth login
-   gcloud config set project [YOUR_PROJECT_ID]
-   ```
-4. Navigate to the folder where you downloaded/cloned the Nexus for Google code.
-5. Run the provisioning wizard based on your operating system:
+Run `./scripts/provision.ps1` (or `.sh`) and follow the interactive terminal prompts to provision your Google Cloud environment, OAuth consent screen, and API keys.
 
-### Windows Users
-You will run the PowerShell script. Before running it, you may need to allow scripts to execute on your system. This tells Windows that you trust the script you are about to run.
-```powershell
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-.\scripts\provision.ps1
-```
-
-### Mac/Linux Users
-You will run the Bash script. First, you must make it executable so your system knows it is a program and not just a text file.
-```bash
-chmod +x scripts/provision.sh
-./scripts/provision.sh
-```
-
-**What is the wizard doing?**
-- **Enabling APIs:** It turns on the invisible pipelines to Gmail, Drive, Document AI, Tasks, and People.
-- **Firewall Rules:** It punches a tiny, secure hole in the Google Cloud firewall (Port 8000) so your web dashboard can talk to the server.
-- **VM Creation:** It rents an `e2-micro` server and injects a "startup script". This script automatically installs Python, SQLite3, and sets up a `systemd` daemon (a background process that ensures your server runs 24/7 even if it reboots).
+**Multi-Environment Workflow:**
+The script will now ask you if you want to create a new environment or configure an existing one. If configuring an existing one, the script will automatically discover your existing VMs via Google Cloud. The `.nexus_env` file handles all the details invisibly, storing both the `TARGET_VM` and the `TARGET_ZONE`. When deploying, if you ever need to change your target VM, simply type `list` when prompted and select from the dynamically generated menu.
 
 ---
 
@@ -121,7 +97,11 @@ Your server is alive, but it doesn't have the VIP pass (`credentials.json`) to r
 
 ---
 
-## Phase 3: The Frontend UI & One-Click Deployer
+## Blue-Green Symlink Architecture
+
+Nexus uses a Zero-Downtime deployment model based on symlinks. When you run the deploy script, a new release is downloaded into `/home/frank/nexus/releases/[timestamp]`.
+- **Database Location:** The SQLite database safely lives in `/home/frank/nexus/shared/data/nexus.db` and is symlinked to the new release folder.
+- **Rollback:** The active directory is `/home/frank/nexus/current`. To perform an emergency rollback, see `DEBUGGING.md`.
 
 Now that the backend brain is running, we need to upload the visual dashboard.
 
@@ -182,8 +162,8 @@ It automatically pushes your HTML and CSS files to Google Apps Script. Then, it 
 7. Scroll down to **Script Properties** and click **Edit script properties**.
 8. Add a property named `NEXUS_VM_URL`. Set the value to your server's External IP address (e.g., `http://192.168.10.125:8000`). You can find your IP in the Google Cloud Console under VM Instances.
 9. **Lastly, on your cloud server:**
+   Run `./scripts/connect.ps1` (or `.sh`) to easily SSH into your VM.
    ```bash
-   gcloud compute ssh nexus-vm --zone=us-central1-f
    cd /opt/nexus
    nano .env
    ```
