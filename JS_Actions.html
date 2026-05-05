@@ -847,7 +847,7 @@ refreshData: function() {
           // Update local state mock for immediate feedback
           payload.artifact_ids.forEach(id => {
             const art = appState.getArtifact(id);
-            if(art) art.status = newStatus;
+            if(art) { art.status = "PROCESSED"; art.purpose = newPurpose; }
           });
           appState.selectedIds.clear();
           document.getElementById('select-all').checked = false;

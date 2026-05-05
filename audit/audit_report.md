@@ -101,3 +101,7 @@ graph TD
 - Investigated the missing Inbox Cleanup container.
 - Verified that JS_Actions.html syntax is valid and the dangling \const artifact = appState.getArtifact...\ block was successfully removed from outside of the \enderDetailsPane\ function.
 - Added the \	ab-inbox-cleanup\ container inside the \<main class="main-content">\ area of Index.html to prevent null reference errors when the sidebar button is clicked.
+
+## Fixes Applied: JS_Actions.html runtime reference error
+
+- Fixed an undeclared variable 'newStatus' inside 'submitManualReview'. Replaced \if(art) art.status = newStatus;\ with \if(art) { art.status = "PROCESSED"; art.purpose = newPurpose; }\.
