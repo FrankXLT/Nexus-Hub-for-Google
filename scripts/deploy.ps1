@@ -75,14 +75,7 @@ if ($envExists -eq "NO") {
     $NEXUS_API_KEY = Read-Host "NEXUS_API_KEY (Your Gemini API Key)"
     $NEXUS_WEBHOOK_URL = Read-Host "NEXUS_WEBHOOK_URL (The permanent /exec URL for Apps Script)"
 
-    $envScript = @"
-        mkdir -p /home/frank/nexus/shared
-        echo "NEXUS_HMAC_SECRET=$NEXUS_HMAC_SECRET" > /home/frank/nexus/shared/.env
-        echo "NEXUS_API_KEY=$NEXUS_API_KEY" >> /home/frank/nexus/shared/.env
-        echo "NEXUS_WEBHOOK_URL=$NEXUS_WEBHOOK_URL" >> /home/frank/nexus/shared/.env
-        echo "shared/.env file generated successfully."
-"@
-    $envScript = $envScript -replace "`r", ""
+    $envScript = "mkdir -p /home/frank/nexus/shared && echo 'NEXUS_HMAC_SECRET=$NEXUS_HMAC_SECRET' > /home/frank/nexus/shared/.env && echo 'NEXUS_API_KEY=$NEXUS_API_KEY' >> /home/frank/nexus/shared/.env && echo 'NEXUS_WEBHOOK_URL=$NEXUS_WEBHOOK_URL' >> /home/frank/nexus/shared/.env && echo 'shared/.env file generated successfully.'"
     gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command=$envScript
 } else {
     $NEXUS_HMAC_SECRET = gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="grep '^NEXUS_HMAC_SECRET=' /home/frank/nexus/shared/.env | cut -d'=' -f2"
@@ -92,8 +85,8 @@ if ($envExists -eq "NO") {
 
 $sshCommand = @"
     set -e
-    RELEASE_DIR="releases/\$(date +%Y%m%d_%H%M%S)"
-    FULL_RELEASE_DIR="/home/frank/nexus/\$RELEASE_DIR"
+    RELEASE_DIR="releases/`$(date +%Y%m%d_%H%M%S)"
+    FULL_RELEASE_DIR="/home/frank/nexus/`$RELEASE_DIR"
     
     echo -e '\n[VM] 1. Preparing directories...'
     mkdir -p /home/frank/nexus/shared/data
@@ -101,10 +94,10 @@ $sshCommand = @"
     mkdir -p /home/frank/nexus/releases
     
     echo -e '\n[VM] 2. Cloning code into new release directory...'
-    git clone --branch $SELECTED_BRANCH https://github.com/FrankXLT/Nexus-for-Google.git \$FULL_RELEASE_DIR
+    git clone --branch $SELECTED_BRANCH https://github.com/FrankXLT/Nexus-for-Google.git `$FULL_RELEASE_DIR
     
     echo -e '\n[VM] 3. Activating Python Virtual Environment...'
-    cd \$FULL_RELEASE_DIR/backend
+    cd `$FULL_RELEASE_DIR/backend
     python3 -m venv venv
     source venv/bin/activate
     
@@ -112,16 +105,16 @@ $sshCommand = @"
     pip install -r requirements.txt
     
     echo -e '\n[VM] 5. Setting up Symlinks...'
-    ln -s /home/frank/nexus/shared/data/nexus.db \$FULL_RELEASE_DIR/backend/nexus.db
-    ln -s /home/frank/nexus/shared/.env \$FULL_RELEASE_DIR/backend/.env
-    ln -s /home/frank/nexus/shared/credentials.json \$FULL_RELEASE_DIR/backend/credentials.json
-    ln -s /home/frank/nexus/shared/token.json \$FULL_RELEASE_DIR/backend/token.json
+    ln -s /home/frank/nexus/shared/data/nexus.db `$FULL_RELEASE_DIR/backend/nexus.db
+    ln -s /home/frank/nexus/shared/.env `$FULL_RELEASE_DIR/backend/.env
+    ln -s /home/frank/nexus/shared/credentials.json `$FULL_RELEASE_DIR/backend/credentials.json
+    ln -s /home/frank/nexus/shared/token.json `$FULL_RELEASE_DIR/backend/token.json
     
     echo -e '\n[VM] 6. Running SQLite3 database migrations...'
     python3 db_init.py
     
     echo -e '\n[VM] 7. Updating main symlink...'
-    ln -sfn \$FULL_RELEASE_DIR /home/frank/nexus/current
+    ln -sfn `$FULL_RELEASE_DIR /home/frank/nexus/current
     
     echo -e '\n[VM] 8. Restarting the FastAPI systemd daemon...'
     sudo systemctl daemon-reload

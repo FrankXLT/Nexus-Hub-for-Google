@@ -185,6 +185,11 @@ graph TD
 - Removed redundant sleep commands from the credentials upload block.
 - Suppressed interactive host-key prompts that were breaking automation on Windows (`plink.exe` hang) by appending the `--quiet` flag to all `gcloud compute ssh` and `gcloud compute scp` commands used during directory creation, credentials verification, and SCP transfers.
 
+## PowerShell Escaping & Automation Fixes
+
+- Fixed `.env` string formatting in `scripts/deploy.ps1`. The multi-line here-string was failing to parse correctly over SSH on Windows. Replaced the here-string with a single, flattened command chain using `&&` and single quotes to ensure safe interpretation by the remote Bash shell.
+- Fixed premature Bash variable evaluation in `scripts/deploy.ps1`. Replaced invalid backslash escapes (`\$`) with the correct PowerShell backtick escapes (`` `$ ``) for remote variables like `$(date)`, `$RELEASE_DIR`, and `$FULL_RELEASE_DIR` inside the `$sshCommand` here-string. This prevents PowerShell from attempting to evaluate them locally before execution on the VM.
+
 - Updated `scripts/provision.ps1` and `scripts/provision.sh` to prompt the user for an **Environment Label**.
 - VM instance names are now dynamically generated using the pattern `nexus-vm-[label]`.
 - Enforced a naming convention for the Apps Script project: `Nexus for Google - [UPPERCASE_ENV_LABEL]`.
