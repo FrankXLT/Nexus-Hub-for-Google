@@ -172,6 +172,13 @@ graph TD
 - Updated `deploy.ps1` and `deploy.sh` to automatically symlink `credentials.json` and `token.json` from the `shared/` directory into the active backend release folder.
 - Rewrote "Phase 2: Securely Authenticating Your Server" in `INSTRUCTIONS.md` to remove manual `scp` and `ssh` tunneling steps, instructing users to instead utilize the automated prompt in the provisioner and the new one-click `auth_tunnel` script.
 
+## Lifecycle Order & Auth Tunnel Bulletproofing
+
+- Overhauled `INSTRUCTIONS.md` to swap the deployment and authentication phases, correctly framing Deployment as Phase 2 and Authentication as Phase 3. This resolves directory-not-found errors resulting from the new Capistrano-style symlink architecture where code is no longer injected during VM provisioning.
+- Fixed the credentials logic in `scripts/provision.ps1` and `scripts/provision.sh` by moving the `credentials.json` prompt and SCP transfer outside of the new VM creation block, ensuring it correctly executes for users choosing to configure an existing environment.
+- Implemented an idempotency check in the credentials transfer logic to query the VM for an existing `credentials.json` via SSH, skipping the upload process if found to streamline re-provisioning.
+- Bulletproofed the `scripts/auth_tunnel.ps1` and `.sh` scripts by prepending a remote directory check (`if [ ! -d /home/frank/nexus/current/backend ]; then exit 1; fi`). If the backend directory is missing, the script halts safely and prompts the user to run the deploy script first.
+
 - Updated `scripts/provision.ps1` and `scripts/provision.sh` to prompt the user for an **Environment Label**.
 - VM instance names are now dynamically generated using the pattern `nexus-vm-[label]`.
 - Enforced a naming convention for the Apps Script project: `Nexus for Google - [UPPERCASE_ENV_LABEL]`.

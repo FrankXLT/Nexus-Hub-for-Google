@@ -23,6 +23,12 @@ fi
 TARGET_VM=$(grep "^TARGET_VM=" .nexus_env | cut -d'=' -f2)
 TARGET_ZONE=$(grep "^TARGET_ZONE=" .nexus_env | cut -d'=' -f2)
 
+echo -e "Checking for backend code on VM..."
+if ! gcloud compute ssh $TARGET_VM --zone=$TARGET_ZONE --command="if [ ! -d /home/frank/nexus/current/backend ]; then exit 1; fi"; then
+    echo -e "${RED}Error: Backend code not found on VM. You must run the deploy script before authenticating.${NC}"
+    exit 1
+fi
+
 echo -e "\n${YELLOW}An SSH tunnel is opening. When prompted, click the localhost link to authorize the application.${NC}"
 
 gcloud compute ssh $TARGET_VM --zone=$TARGET_ZONE --ssh-flag="-L 8080:localhost:8080" --command="cd /home/frank/nexus/current/backend && source venv/bin/activate && pip install google-auth-oauthlib google-api-python-client && python3 auth.py"

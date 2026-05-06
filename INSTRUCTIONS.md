@@ -59,22 +59,7 @@ The script will now ask you if you want to create a new environment or configure
 
 ---
 
-## Phase 2: Securely Authenticating Your Server
-
-Your server needs permission to interact with your data. 
-
-1. Ensure you have downloaded the `credentials.json` file as instructed in Phase 1. 
-2. During the provisioning script execution, when prompted, provide the full local path to this `credentials.json` file. The script will securely transfer it to your newly created VM.
-3. Once the provisioning and deployment phases are complete, run the interactive authentication tunnel script based on your operating system:
-   - **Windows:** `.\scripts\auth_tunnel.ps1`
-   - **Mac/Linux:** `./scripts/auth_tunnel.sh`
-4. The script will open a secure SSH tunnel to your VM. 
-5. When prompted in the terminal, click the provided `localhost` link. This will open your browser and ask you to log into your Google Account and authorize the application.
-6. Accept the permissions. The authentication token will automatically be saved securely on your server.
-
----
-
-## Blue-Green Symlink Architecture
+## Phase 2: Deploying the Application
 
 Nexus uses a Zero-Downtime deployment model based on symlinks. When you run the deploy script, a new release is downloaded into `/home/frank/nexus/releases/[timestamp]`.
 - **Database Location:** The SQLite database safely lives in `/home/frank/nexus/shared/data/nexus.db` and is symlinked to the new release folder.
@@ -117,6 +102,21 @@ chmod +x scripts/deploy.sh
 
 **What is the deployer doing?**
 It automatically pushes your HTML and CSS files to Google Apps Script. Then, it securely reaches into your cloud server, pulls any code updates, updates the Python libraries, runs database migrations, and cleanly restarts the background server.
+
+---
+
+## Phase 3: Securely Authenticating Your Server
+
+Your server needs permission to interact with your data. Because we use a Zero-Downtime Symlink architecture, you must deploy the code to the server BEFORE you can authenticate.
+
+1. Ensure you have downloaded the `credentials.json` file as instructed in Phase 1. 
+2. During the provisioning script execution, when prompted, provide the full local path to this `credentials.json` file. The script will securely transfer it to your newly created VM.
+3. Once the provisioning and deployment phases are complete, run the interactive authentication tunnel script based on your operating system:
+   - **Windows:** `.\scripts\auth_tunnel.ps1`
+   - **Mac/Linux:** `./scripts/auth_tunnel.sh`
+4. The script will open a secure SSH tunnel to your VM. 
+5. When prompted in the terminal, click the provided `localhost` link. This will open your browser and ask you to log into your Google Account and authorize the application.
+6. Accept the permissions. The authentication token will automatically be saved securely on your server.
 
 ---
 

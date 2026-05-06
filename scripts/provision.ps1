@@ -172,18 +172,27 @@ if ($LASTEXITCODE -ne 0) {
 # Clean up the temporary file
 Remove-Item -Path $tempScriptPath -Force -ErrorAction SilentlyContinue
 
-$CREDS_PATH = Read-Host "Please enter the full local path to your downloaded credentials.json file"
-if (-not (Test-Path $CREDS_PATH)) {
-    Write-Host "Error: credentials.json not found at $CREDS_PATH" -ForegroundColor Red
-    exit
 }
 
-Write-Host "Waiting for VM SSH daemon to start..." -ForegroundColor Cyan
-Start-Sleep -Seconds 15
+Write-Host "`n[6/6] Uploading Credentials..." -ForegroundColor Cyan
+$CREDS_EXISTS = gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="if [ -f /home/frank/nexus/shared/credentials.json ]; then echo 'YES'; else echo 'NO'; fi"
+$CREDS_EXISTS = $CREDS_EXISTS -replace "`r", ""
+$CREDS_EXISTS = $CREDS_EXISTS -replace "`n", ""
 
-gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="mkdir -p /home/frank/nexus/shared"
-gcloud compute scp $CREDS_PATH "$($INSTANCE_NAME):/home/frank/nexus/shared/credentials.json" --zone=$ZONE
+if ($CREDS_EXISTS -eq "YES") {
+    Write-Host "Credentials already found on VM, skipping upload." -ForegroundColor Green
+} else {
+    $CREDS_PATH = Read-Host "Please enter the full local path to your downloaded credentials.json file"
+    if (-not (Test-Path $CREDS_PATH)) {
+        Write-Host "Error: credentials.json not found at $CREDS_PATH" -ForegroundColor Red
+        exit
+    }
 
+    Write-Host "Waiting for VM SSH daemon to start..." -ForegroundColor Cyan
+    Start-Sleep -Seconds 15
+
+    gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="mkdir -p /home/frank/nexus/shared"
+    gcloud compute scp $CREDS_PATH "$($INSTANCE_NAME):/home/frank/nexus/shared/credentials.json" --zone=$ZONE
 }
 
 Write-Host "`nApps Script Initialization" -ForegroundColor Cyan
@@ -204,5 +213,5 @@ Write-Host "             Provisioning Complete!                 " -ForegroundCol
 Write-Host "====================================================" -ForegroundColor Green
 Write-Host "Your server is ready."
 Write-Host "Next steps (See INSTRUCTIONS.md):"
-Write-Host "1. Transfer your credentials.json to the VM."
-Write-Host "2. Run scripts\deploy.ps1 to push the code and start the backend.`n"
+Write-Host "1. Run scripts\deploy.ps1 to push the code and start the backend."
+Write-Host "2. Run scripts\auth_tunnel.ps1 to authenticate the server.`n"
