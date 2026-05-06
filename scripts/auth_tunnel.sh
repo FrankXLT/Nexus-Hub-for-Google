@@ -31,10 +31,4 @@ fi
 
 echo -e "\n${YELLOW}An SSH tunnel is opening. When prompted, click the localhost link to authorize the application.${NC}"
 
-gcloud compute ssh $TARGET_VM --zone=$TARGET_ZONE --ssh-flag="-L 8080:localhost:8080" --command="
-sudo fuser -k 8080/tcp || true
-cd \$HOME/nexus/current/backend
-source venv/bin/activate
-pip install google-auth-oauthlib google-api-python-client --progress-bar off --quiet
-python3 auth.py
-"
+gcloud compute ssh $TARGET_VM --zone=$TARGET_ZONE --ssh-flag="-L 8080:localhost:8080" --command="sudo fuser -k 8080/tcp ; cd \$HOME/nexus/current/backend && source venv/bin/activate && pip install google-auth-oauthlib google-api-python-client --quiet && python3 auth.py"

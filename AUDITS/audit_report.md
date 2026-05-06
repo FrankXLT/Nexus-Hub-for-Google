@@ -223,3 +223,8 @@ graph TD
 - Fixed Address already in use error by injecting `sudo fuser -k 8080/tcp || true` into the `auth_tunnel` scripts before launching the Python authentication server.
 - Prevented garbage character output on Windows by modifying the `pip install` commands in `deploy` and `auth_tunnel` to use `--progress-bar off --quiet`.
 - Unified CLI formatting to match the project taxonomy: applied distinct colors for Titles, Prompts, Success, Warnings, and Errors, and implemented reverse-video (white background/black text or `\e[7m`) highlighting for URLs across all deployment scripts.
+
+## Auth Tunnel CRLF Formatting Fix
+
+- Fixed a bug in `scripts/auth_tunnel.ps1` and `scripts/auth_tunnel.sh` where carriage returns (`\r`) in multi-line strings were causing OS line-ending collisions over SSH (e.g., parsing `backend\r` instead of `backend`).
+- Flattened the `gcloud compute ssh` target command into a single, strict inline string (`sudo fuser -k 8080/tcp ; cd $HOME/...`) to ensure cross-platform compatibility and successful remote execution.
