@@ -209,3 +209,9 @@ graph TD
 - Scripts now parse `.clasp.json` to extract `scriptId` and construct the Apps Script Editor URL manually.
 - Implemented native browser launch commands (`Start-Process`, `open`, `start`, `xdg-open`) to reliably open the URL cross-platform.
 - The editor URL is also printed cleanly to the console as a fallback.
+
+## PowerShell Multi-line String Escaping Fix
+
+- Fixed an issue in `scripts/deploy.ps1` where PowerShell split the `$sshCommand` multi-line string at the space inside the `$(date...)` bash command before passing it to gcloud.
+- Wrapped `$sshCommand` in double quotes in the `gcloud compute ssh` execution command to force PowerShell to pass it as a single argument.
+- Removed nested double quotes from the `RELEASE_DIR` assignment within the here-string to prevent Windows `cmd.exe` escaping collisions.

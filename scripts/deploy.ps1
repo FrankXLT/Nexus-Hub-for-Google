@@ -85,7 +85,7 @@ if ($envExists -eq "NO") {
 
 $sshCommand = @"
     set -e
-    RELEASE_DIR="releases/`$(date +%Y%m%d_%H%M%S)"
+    RELEASE_DIR=releases/`$(date +%Y%m%d_%H%M%S)
     FULL_RELEASE_DIR="/home/frank/nexus/`$RELEASE_DIR"
     
     echo -e '\n[VM] 1. Preparing directories...'
@@ -123,7 +123,7 @@ $sshCommand = @"
     echo -e '\n[VM] Deployment sequence completed securely.'
 "@
 $sshCommand = $sshCommand -replace "`r", ""
-gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command=$sshCommand
+gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="$sshCommand"
 
 $vmIp = gcloud compute instances describe $INSTANCE_NAME --zone=$ZONE --format="get(networkInterfaces[0].accessConfigs[0].natIP)"
 $vmIp = $vmIp -replace "`r", ""
