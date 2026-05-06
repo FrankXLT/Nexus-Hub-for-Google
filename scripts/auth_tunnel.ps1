@@ -20,7 +20,8 @@ if ($LASTEXITCODE -ne 0) {
     exit
 }
 
-Write-Host "`nAn SSH tunnel is opening. When prompted, click the localhost link to authorize the application." -ForegroundColor Yellow
+Write-Host "`nAn SSH tunnel is opening, please wait..." -ForegroundColor Yellow
+Write-Host "When the link appears, please use ctrl+click to open your browser and authorize. " -NoNewline -ForegroundColor Yellow
 
-$authCommand = "sudo fuser -k 8080/tcp ; cd `$HOME/nexus/current/backend && source venv/bin/activate && pip install google-auth-oauthlib google-api-python-client --quiet && python3 auth.py"
+$authCommand = "sudo fuser -k 8080/tcp >/dev/null 2>&1 ; cd `$HOME/nexus/current/backend && source venv/bin/activate && pip install google-auth-oauthlib google-api-python-client --quiet && python3 -u auth.py"
 gcloud compute ssh $TARGET_VM --zone=$TARGET_ZONE --ssh-flag="-L 8080:localhost:8080" --command="$authCommand"

@@ -228,3 +228,9 @@ graph TD
 
 - Fixed a bug in `scripts/auth_tunnel.ps1` and `scripts/auth_tunnel.sh` where carriage returns (`\r`) in multi-line strings were causing OS line-ending collisions over SSH (e.g., parsing `backend\r` instead of `backend`).
 - Flattened the `gcloud compute ssh` target command into a single, strict inline string (`sudo fuser -k 8080/tcp ; cd $HOME/...`) to ensure cross-platform compatibility and successful remote execution.
+
+## Auth Tunnel UX and Unbuffering Fix
+
+- Cleaned up the `auth_tunnel` execution by redirecting the `sudo fuser` output to `/dev/null` to prevent messy process IDs from printing to the terminal.
+- Added the `-u` (unbuffered) flag to the `python3 auth.py` execution to prevent Python from buffering its standard output over the SSH pipe, ensuring immediate terminal feedback.
+- Updated the CLI instructions in both `auth_tunnel.ps1` and `auth_tunnel.sh` to match the project's polished UI taxonomy, applying Reverse Video formatting to the `http://localhost:8080` URL for better visibility.
