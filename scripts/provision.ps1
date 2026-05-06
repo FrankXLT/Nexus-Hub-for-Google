@@ -169,13 +169,16 @@ if ($LASTEXITCODE -ne 0) {
     exit
 }
 
+Write-Host "Waiting 30 seconds for the VM's SSH daemon to initialize..." -ForegroundColor Cyan
+Start-Sleep -Seconds 30
+
 # Clean up the temporary file
 Remove-Item -Path $tempScriptPath -Force -ErrorAction SilentlyContinue
 
 }
 
 Write-Host "`n[6/6] Uploading Credentials..." -ForegroundColor Cyan
-$CREDS_EXISTS = gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="if [ -f /home/frank/nexus/shared/credentials.json ]; then echo 'YES'; else echo 'NO'; fi"
+$CREDS_EXISTS = gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --quiet --command="if [ -f /home/frank/nexus/shared/credentials.json ]; then echo 'YES'; else echo 'NO'; fi"
 $CREDS_EXISTS = $CREDS_EXISTS -replace "`r", ""
 $CREDS_EXISTS = $CREDS_EXISTS -replace "`n", ""
 
@@ -188,11 +191,8 @@ if ($CREDS_EXISTS -eq "YES") {
         exit
     }
 
-    Write-Host "Waiting for VM SSH daemon to start..." -ForegroundColor Cyan
-    Start-Sleep -Seconds 15
-
-    gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="mkdir -p /home/frank/nexus/shared"
-    gcloud compute scp $CREDS_PATH "$($INSTANCE_NAME):/home/frank/nexus/shared/credentials.json" --zone=$ZONE
+    gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --quiet --command="mkdir -p /home/frank/nexus/shared"
+    gcloud compute scp $CREDS_PATH "$($INSTANCE_NAME):/home/frank/nexus/shared/credentials.json" --zone=$ZONE --quiet
 }
 
 Write-Host "`nApps Script Initialization" -ForegroundColor Cyan

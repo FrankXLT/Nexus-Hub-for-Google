@@ -177,7 +177,7 @@ echo ">>> Bootstrap complete!"
 fi
 
 echo -e "\n${CYAN}[6/6] Uploading Credentials...${NC}"
-CREDS_EXISTS=$(gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="if [ -f /home/frank/nexus/shared/credentials.json ]; then echo 'YES'; else echo 'NO'; fi" 2>/dev/null | tr -d '\r')
+CREDS_EXISTS=$(gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --quiet --command="if [ -f /home/frank/nexus/shared/credentials.json ]; then echo 'YES'; else echo 'NO'; fi" 2>/dev/null | tr -d '\r')
 
 if [ "$CREDS_EXISTS" = "YES" ]; then
     echo -e "${GREEN}Credentials already found on VM, skipping upload.${NC}"
@@ -188,11 +188,8 @@ else
         exit 1
     fi
 
-    echo -e "${CYAN}Waiting for VM SSH daemon to start...${NC}"
-    sleep 15
-
-    gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="mkdir -p /home/frank/nexus/shared"
-    gcloud compute scp "$CREDS_PATH" $INSTANCE_NAME:/home/frank/nexus/shared/credentials.json --zone=$ZONE
+    gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --quiet --command="mkdir -p /home/frank/nexus/shared"
+    gcloud compute scp "$CREDS_PATH" $INSTANCE_NAME:/home/frank/nexus/shared/credentials.json --zone=$ZONE --quiet
 fi
 
 echo -e "\n${CYAN}Apps Script Initialization${NC}"
@@ -218,5 +215,7 @@ echo -e "${GREEN}====================================================${NC}"
 echo -e "Your server is ready."
 echo -e "Next steps (See INSTRUCTIONS.md):"
 echo -e "1. Run scripts/deploy.sh to push the code and start the backend."
+echo -e "2. Run scripts/auth_tunnel.sh to authenticate the server."
+echo ""echo -e "1. Run scripts/deploy.sh to push the code and start the backend."
 echo -e "2. Run scripts/auth_tunnel.sh to authenticate the server."
 echo ""

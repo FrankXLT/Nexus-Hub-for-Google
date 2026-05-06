@@ -179,6 +179,12 @@ graph TD
 - Implemented an idempotency check in the credentials transfer logic to query the VM for an existing `credentials.json` via SSH, skipping the upload process if found to streamline re-provisioning.
 - Bulletproofed the `scripts/auth_tunnel.ps1` and `.sh` scripts by prepending a remote directory check (`if [ ! -d /home/frank/nexus/current/backend ]; then exit 1; fi`). If the backend directory is missing, the script halts safely and prompts the user to run the deploy script first.
 
+## Provisioning Script Race Condition & Interactivity Fixes
+
+- Fixed a race condition in `scripts/provision.ps1` and `scripts/provision.sh` where the script attempted to establish an SSH connection for the credentials check immediately after the VM creation command, before the VM's SSH daemon had initialized. Inserted a mandatory 30-second wait period (`Start-Sleep -Seconds 30` / `sleep 30`) immediately after VM creation.
+- Removed redundant sleep commands from the credentials upload block.
+- Suppressed interactive host-key prompts that were breaking automation on Windows (`plink.exe` hang) by appending the `--quiet` flag to all `gcloud compute ssh` and `gcloud compute scp` commands used during directory creation, credentials verification, and SCP transfers.
+
 - Updated `scripts/provision.ps1` and `scripts/provision.sh` to prompt the user for an **Environment Label**.
 - VM instance names are now dynamically generated using the pattern `nexus-vm-[label]`.
 - Enforced a naming convention for the Apps Script project: `Nexus for Google - [UPPERCASE_ENV_LABEL]`.
