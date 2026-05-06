@@ -163,6 +163,15 @@ graph TD
 - Updated `backend/diagnostics.py` to fetch `drive_diagnostics_id` from the SQLite `Config_System` table, ensuring diagnostic logs target `Nexus/System/Diagnostics` directly instead of searching for `Nexus Diagnostics`.
 - Removed initialization of the obsolete `drive_permanent_archive_id` in `backend/db_init.py`.
 
+## Automated Credentials & Auth Tunneling
+
+- Updated the metadata startup script in `scripts/provision.ps1` and `scripts/provision.sh` to correctly map to the new `/home/frank/nexus` path structure instead of the legacy `/opt/nexus` directory.
+- Refactored the metadata startup script to only handle core package dependencies, stripping out the legacy `git clone` and Python virtual environment initialization, as these are now natively handled by the deploy scripts.
+- Automated the SCP credentials transfer in the provision scripts by prompting the user for the local JSON file path, initiating a secure 15-second VM spin-up wait loop, and performing a zero-touch `gcloud compute scp` operation to the remote `shared/` directory.
+- Created `scripts/auth_tunnel.ps1` and `scripts/auth_tunnel.sh` to abstract the complex SSH port-forwarding requirements for Google OAuth. These scripts automatically connect to the VM via `.nexus_env`, bind port 8080 to `localhost`, and silently invoke the backend `auth.py` script.
+- Updated `deploy.ps1` and `deploy.sh` to automatically symlink `credentials.json` and `token.json` from the `shared/` directory into the active backend release folder.
+- Rewrote "Phase 2: Securely Authenticating Your Server" in `INSTRUCTIONS.md` to remove manual `scp` and `ssh` tunneling steps, instructing users to instead utilize the automated prompt in the provisioner and the new one-click `auth_tunnel` script.
+
 - Updated `scripts/provision.ps1` and `scripts/provision.sh` to prompt the user for an **Environment Label**.
 - VM instance names are now dynamically generated using the pattern `nexus-vm-[label]`.
 - Enforced a naming convention for the Apps Script project: `Nexus for Google - [UPPERCASE_ENV_LABEL]`.

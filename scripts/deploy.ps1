@@ -114,6 +114,8 @@ $sshCommand = @"
     echo -e '\n[VM] 5. Setting up Symlinks...'
     ln -s /home/frank/nexus/shared/data/nexus.db \$FULL_RELEASE_DIR/backend/nexus.db
     ln -s /home/frank/nexus/shared/.env \$FULL_RELEASE_DIR/backend/.env
+    ln -s /home/frank/nexus/shared/credentials.json \$FULL_RELEASE_DIR/backend/credentials.json
+    ln -s /home/frank/nexus/shared/token.json \$FULL_RELEASE_DIR/backend/token.json
     
     echo -e '\n[VM] 6. Running SQLite3 database migrations...'
     python3 db_init.py

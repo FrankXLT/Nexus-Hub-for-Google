@@ -119,16 +119,10 @@ echo ">>> Starting Nexus Bootstrap..."
 apt-get update
 apt-get install -y python3 python3-pip python3-venv sqlite3 git curl
 
-echo ">>> Creating /opt/nexus directory..."
-mkdir -p /opt/nexus
-chmod 777 /opt/nexus
-cd /opt/nexus
-
-echo ">>> Cloning Nexus repository from GitHub..."
-git clone https://github.com/FrankXLT/Nexus-for-Google.git . || echo "Directory not empty, skipping clone."
-
-echo ">>> Initializing Python Virtual Environment..."
-python3 -m venv venv
+echo ">>> Creating /home/frank/nexus directory..."
+mkdir -p /home/frank/nexus/shared/data
+mkdir -p /home/frank/nexus/shared/backups
+chmod -R 777 /home/frank/nexus
 
 echo ">>> Configuring systemd daemon for FastAPI..."
 cat > /etc/systemd/system/nexus.service <<EOF
@@ -177,6 +171,18 @@ if ($LASTEXITCODE -ne 0) {
 
 # Clean up the temporary file
 Remove-Item -Path $tempScriptPath -Force -ErrorAction SilentlyContinue
+
+$CREDS_PATH = Read-Host "Please enter the full local path to your downloaded credentials.json file"
+if (-not (Test-Path $CREDS_PATH)) {
+    Write-Host "Error: credentials.json not found at $CREDS_PATH" -ForegroundColor Red
+    exit
+}
+
+Write-Host "Waiting for VM SSH daemon to start..." -ForegroundColor Cyan
+Start-Sleep -Seconds 15
+
+gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="mkdir -p /home/frank/nexus/shared"
+gcloud compute scp $CREDS_PATH "$($INSTANCE_NAME):/home/frank/nexus/shared/credentials.json" --zone=$ZONE
 
 }
 
