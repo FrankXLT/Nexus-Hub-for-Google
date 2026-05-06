@@ -51,7 +51,7 @@ git pull origin $SELECTED_BRANCH
 
 $doBackup = Read-Host "Backup remote SQLite database? (Y/n)"
 if ($doBackup -notmatch "^[Nn]$") {
-    $BACKUP_CMD = "mkdir -p /home/frank/nexus/shared/backups && cp /home/frank/nexus/shared/data/nexus.db /home/frank/nexus/shared/backups/nexus_`$(date +%Y%m%d_%H%M%S).db || echo 'No DB to backup yet.'"
+    $BACKUP_CMD = "mkdir -p `$HOME/nexus/shared/backups && cp `$HOME/nexus/shared/data/nexus.db `$HOME/nexus/shared/backups/nexus_`$(date +%Y%m%d_%H%M%S).db || echo 'No DB to backup yet.'"
     gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command=$BACKUP_CMD
 }
 
@@ -65,7 +65,7 @@ Write-Host "--> Apps Script UI synced successfully!" -ForegroundColor Green
 
 Write-Host "`n[2/2] Deploying Backend to Google Cloud VM..." -ForegroundColor Yellow
 
-$envExists = gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="if [ -f /home/frank/nexus/shared/.env ]; then echo 'YES'; else echo 'NO'; fi"
+$envExists = gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="if [ -f `$HOME/nexus/shared/.env ]; then echo 'YES'; else echo 'NO'; fi"
 $envExists = $envExists -replace "`r", ""
 $envExists = $envExists -replace "`n", ""
 
@@ -75,23 +75,24 @@ if ($envExists -eq "NO") {
     $NEXUS_API_KEY = Read-Host "NEXUS_API_KEY (Your Gemini API Key)"
     $NEXUS_WEBHOOK_URL = Read-Host "NEXUS_WEBHOOK_URL (The permanent /exec URL for Apps Script)"
 
-    $envScript = "mkdir -p /home/frank/nexus/shared && echo 'NEXUS_HMAC_SECRET=$NEXUS_HMAC_SECRET' > /home/frank/nexus/shared/.env && echo 'NEXUS_API_KEY=$NEXUS_API_KEY' >> /home/frank/nexus/shared/.env && echo 'NEXUS_WEBHOOK_URL=$NEXUS_WEBHOOK_URL' >> /home/frank/nexus/shared/.env && echo 'shared/.env file generated successfully.'"
+    $envScript = "mkdir -p `$HOME/nexus/shared && echo 'NEXUS_HMAC_SECRET=$NEXUS_HMAC_SECRET' > `$HOME/nexus/shared/.env && echo 'NEXUS_API_KEY=$NEXUS_API_KEY' >> `$HOME/nexus/shared/.env && echo 'NEXUS_WEBHOOK_URL=$NEXUS_WEBHOOK_URL' >> `$HOME/nexus/shared/.env && echo 'shared/.env file generated successfully.'"
     gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command=$envScript
 } else {
-    $NEXUS_HMAC_SECRET = gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="grep '^NEXUS_HMAC_SECRET=' /home/frank/nexus/shared/.env | cut -d'=' -f2"
+    $NEXUS_HMAC_SECRET = gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="grep '^NEXUS_HMAC_SECRET=' `$HOME/nexus/shared/.env | cut -d'=' -f2"
     $NEXUS_HMAC_SECRET = $NEXUS_HMAC_SECRET -replace "`r", ""
     $NEXUS_HMAC_SECRET = $NEXUS_HMAC_SECRET -replace "`n", ""
 }
 
 $sshCommand = @"
     set -e
+    NEXUS_ROOT="`$HOME/nexus"
     RELEASE_DIR=releases/`$(date +%Y%m%d_%H%M%S)
-    FULL_RELEASE_DIR="/home/frank/nexus/`$RELEASE_DIR"
+    FULL_RELEASE_DIR="`$NEXUS_ROOT/`$RELEASE_DIR"
     
     echo -e '\n[VM] 1. Preparing directories...'
-    mkdir -p /home/frank/nexus/shared/data
-    mkdir -p /home/frank/nexus/shared/backups
-    mkdir -p /home/frank/nexus/releases
+    mkdir -p `$NEXUS_ROOT/shared/data
+    mkdir -p `$NEXUS_ROOT/shared/backups
+    mkdir -p `$NEXUS_ROOT/releases
     
     echo -e '\n[VM] 2. Cloning code into new release directory...'
     git clone --branch $SELECTED_BRANCH https://github.com/FrankXLT/Nexus-for-Google.git `$FULL_RELEASE_DIR
@@ -102,19 +103,19 @@ $sshCommand = @"
     source venv/bin/activate
     
     echo -e '\n[VM] 4. Installing dependencies via pip...'
-    pip install -r requirements.txt
+    pip install -r requirements.txt --progress-bar off --quiet
     
     echo -e '\n[VM] 5. Setting up Symlinks...'
-    ln -s /home/frank/nexus/shared/data/nexus.db `$FULL_RELEASE_DIR/backend/nexus.db
-    ln -s /home/frank/nexus/shared/.env `$FULL_RELEASE_DIR/backend/.env
-    ln -s /home/frank/nexus/shared/credentials.json `$FULL_RELEASE_DIR/backend/credentials.json
-    ln -s /home/frank/nexus/shared/token.json `$FULL_RELEASE_DIR/backend/token.json
+    ln -s `$NEXUS_ROOT/shared/data/nexus.db `$FULL_RELEASE_DIR/backend/nexus.db
+    ln -s `$NEXUS_ROOT/shared/.env `$FULL_RELEASE_DIR/backend/.env
+    ln -s `$NEXUS_ROOT/shared/credentials.json `$FULL_RELEASE_DIR/backend/credentials.json
+    ln -s `$NEXUS_ROOT/shared/token.json `$FULL_RELEASE_DIR/backend/token.json
     
     echo -e '\n[VM] 6. Running SQLite3 database migrations...'
     python3 db_init.py
     
     echo -e '\n[VM] 7. Updating main symlink...'
-    ln -sfn `$FULL_RELEASE_DIR /home/frank/nexus/current
+    ln -sfn `$FULL_RELEASE_DIR `$NEXUS_ROOT/current
     
     echo -e '\n[VM] 8. Restarting the FastAPI systemd daemon...'
     sudo systemctl daemon-reload
@@ -141,5 +142,6 @@ Read-Host "Press Enter to open the Editor..."
 $claspJson = Get-Content .clasp.json | ConvertFrom-Json
 $scriptId = $claspJson.scriptId
 $editorUrl = "https://script.google.com/d/$scriptId/edit"
-Write-Host "`nIf the browser does not open automatically, please visit: $editorUrl" -ForegroundColor Cyan
+Write-Host "`nIf the browser does not open automatically, please visit: " -NoNewline -ForegroundColor Cyan
+Write-Host $editorUrl -BackgroundColor White -ForegroundColor Black
 Start-Process $editorUrl

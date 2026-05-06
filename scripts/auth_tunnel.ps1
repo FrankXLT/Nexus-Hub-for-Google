@@ -14,7 +14,7 @@ $TARGET_VM = (Get-Content .nexus_env | Where-Object { $_ -match "^TARGET_VM=" })
 $TARGET_ZONE = (Get-Content .nexus_env | Where-Object { $_ -match "^TARGET_ZONE=" }) -replace "^TARGET_ZONE=",""
 
 Write-Host "Checking for backend code on VM..."
-$null = gcloud compute ssh $TARGET_VM --zone=$TARGET_ZONE --command="if [ ! -d /home/frank/nexus/current/backend ]; then exit 1; fi"
+$null = gcloud compute ssh $TARGET_VM --zone=$TARGET_ZONE --command="if [ ! -d `$HOME/nexus/current/backend ]; then exit 1; fi"
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Error: Backend code not found on VM. You must run the deploy script before authenticating." -ForegroundColor Red
     exit
@@ -22,4 +22,12 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host "`nAn SSH tunnel is opening. When prompted, click the localhost link to authorize the application." -ForegroundColor Yellow
 
-gcloud compute ssh $TARGET_VM --zone=$TARGET_ZONE --ssh-flag="-L 8080:localhost:8080" --command="cd /home/frank/nexus/current/backend && source venv/bin/activate && pip install google-auth-oauthlib google-api-python-client && python3 auth.py"
+$sshCmd = @"
+sudo fuser -k 8080/tcp || true
+cd `$HOME/nexus/current/backend
+source venv/bin/activate
+pip install google-auth-oauthlib google-api-python-client --progress-bar off --quiet
+python3 auth.py
+"@
+
+gcloud compute ssh $TARGET_VM --zone=$TARGET_ZONE --ssh-flag="-L 8080:localhost:8080" --command="$sshCmd"

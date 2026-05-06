@@ -9,7 +9,8 @@ Write-Host "enable the necessary APIs, and build your backend server.`n"
 
 Write-Host "Prerequisite: Google Cloud CLI" -ForegroundColor Cyan
 Write-Host "Please ensure you have installed the Google Cloud CLI (gcloud)." -ForegroundColor Yellow
-Write-Host "Download from: https://cloud.google.com/sdk/docs/install" -ForegroundColor Yellow
+Write-Host "Download from: " -NoNewline -ForegroundColor Yellow
+Write-Host "https://cloud.google.com/sdk/docs/install" -BackgroundColor White -ForegroundColor Black
 Read-Host "Press [Enter] when you have installed gcloud and run 'gcloud auth login'..."
 
 # Verify gcloud
@@ -19,7 +20,8 @@ if (-not (Get-Command "gcloud" -ErrorAction SilentlyContinue)) {
 }
 
 Write-Host "`nPrerequisite: Google Cloud Project & Billing" -ForegroundColor Cyan
-Write-Host "1. Go to https://console.cloud.google.com/" -ForegroundColor Yellow
+Write-Host "1. Go to " -NoNewline -ForegroundColor Yellow
+Write-Host "https://console.cloud.google.com/" -BackgroundColor White -ForegroundColor Black
 Write-Host "2. Create a new project (e.g., 'Nexus')." -ForegroundColor Yellow
 Write-Host "3. Go to the Billing menu and link a credit card." -ForegroundColor Yellow
 Read-Host "Press [Enter] when your project is created and billing is enabled..."
@@ -94,19 +96,21 @@ if (![string]::IsNullOrWhiteSpace($existingRule) -and $existingRule -match $rule
 
 Write-Host "`n[3/5] Manual Step: OAuth Configuration" -ForegroundColor Cyan
 Write-Host "Instructions:" -ForegroundColor Yellow
-Write-Host "1. Go to: https://console.cloud.google.com/apis/credentials/consent?project=$PROJECT_ID"
-Write-Host "2. Select 'Internal' or 'External' and click Create."
-Write-Host "3. Fill in the required app names and emails."
-Write-Host "4. Skip adding scopes here, just save and continue.`n"
+Write-Host "1. Go to: " -NoNewline -ForegroundColor Yellow
+Write-Host "https://console.cloud.google.com/apis/credentials/consent?project=$PROJECT_ID" -BackgroundColor White -ForegroundColor Black
+Write-Host "2. Select 'Internal' or 'External' and click Create." -ForegroundColor Yellow
+Write-Host "3. Fill in the required app names and emails." -ForegroundColor Yellow
+Write-Host "4. Skip adding scopes here, just save and continue.`n" -ForegroundColor Yellow
 Read-Host "Press [Enter] when you have configured the Consent Screen..."
 
 Write-Host "`n[4/5] Manual Step: Generating Credentials" -ForegroundColor Cyan
 Write-Host "Instructions:" -ForegroundColor Yellow
-Write-Host "1. Go to: https://console.cloud.google.com/apis/credentials?project=$PROJECT_ID"
-Write-Host "2. Click 'CREATE CREDENTIALS' > 'OAuth client ID'."
-Write-Host "3. Select 'Desktop app' for the Application type."
-Write-Host "4. Click Create, then DOWNLOAD the JSON file."
-Write-Host "5. Rename the downloaded file EXACTLY to: credentials.json`n"
+Write-Host "1. Go to: " -NoNewline -ForegroundColor Yellow
+Write-Host "https://console.cloud.google.com/apis/credentials?project=$PROJECT_ID" -BackgroundColor White -ForegroundColor Black
+Write-Host "2. Click 'CREATE CREDENTIALS' > 'OAuth client ID'." -ForegroundColor Yellow
+Write-Host "3. Select 'Desktop app' for the Application type." -ForegroundColor Yellow
+Write-Host "4. Click Create, then DOWNLOAD the JSON file." -ForegroundColor Yellow
+Write-Host "5. Rename the downloaded file EXACTLY to: credentials.json`n" -ForegroundColor Yellow
 Read-Host "Press [Enter] when you have downloaded 'credentials.json' to your local machine..."
 
 Write-Host "`n[5/5] Provisioning the Virtual Machine (VM)..." -ForegroundColor Cyan
@@ -118,32 +122,6 @@ $startupScript = @"
 echo ">>> Starting Nexus Bootstrap..."
 apt-get update
 apt-get install -y python3 python3-pip python3-venv sqlite3 git curl
-
-echo ">>> Creating /home/frank/nexus directory..."
-mkdir -p /home/frank/nexus/shared/data
-mkdir -p /home/frank/nexus/shared/backups
-chmod -R 777 /home/frank/nexus
-
-echo ">>> Configuring systemd daemon for FastAPI..."
-cat > /etc/systemd/system/nexus.service <<EOF
-[Unit]
-Description=Nexus FastAPI Backend
-After=network.target
-
-[Service]
-User=root
-WorkingDirectory=/home/frank/nexus/current/backend
-Environment=PATH=/home/frank/nexus/current/backend/venv/bin
-ExecStart=/home/frank/nexus/current/backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-systemctl daemon-reload
-systemctl enable nexus.service
-echo ">>> Bootstrap complete!"
 "@
 
 # Write to a temporary file to bypass PowerShell string parsing issues
@@ -163,7 +141,7 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "`n====================================================" -ForegroundColor Red
     Write-Host "          Error: VM Provisioning Failed!            " -ForegroundColor Red
     Write-Host "====================================================" -ForegroundColor Red
-    Write-Host "Please check the gcloud error output above."
+    Write-Host "Please check the gcloud error output above." -ForegroundColor White
     
     # Keep the temp file for debugging
     exit
@@ -172,13 +150,43 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "Waiting 30 seconds for the VM's SSH daemon to initialize..." -ForegroundColor Cyan
 Start-Sleep -Seconds 30
 
+$postInitScript = @"
+NEXUS_ROOT="`$HOME/nexus"
+echo ">>> Creating `$NEXUS_ROOT directory..."
+mkdir -p `$NEXUS_ROOT/shared/data
+mkdir -p `$NEXUS_ROOT/shared/backups
+chmod -R 777 `$NEXUS_ROOT
+
+echo ">>> Configuring systemd daemon for FastAPI..."
+bash -c "cat > /tmp/nexus.service <<EOF
+[Unit]
+Description=Nexus FastAPI Backend
+After=network.target
+
+[Service]
+User=`$USER
+WorkingDirectory=`$NEXUS_ROOT/current/backend
+Environment=PATH=`$NEXUS_ROOT/current/backend/venv/bin
+ExecStart=`$NEXUS_ROOT/current/backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF"
+sudo mv /tmp/nexus.service /etc/systemd/system/nexus.service
+sudo systemctl daemon-reload
+sudo systemctl enable nexus.service
+echo ">>> Bootstrap complete!"
+"@
+gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="$postInitScript"
+
 # Clean up the temporary file
 Remove-Item -Path $tempScriptPath -Force -ErrorAction SilentlyContinue
 
 }
 
 Write-Host "`n[6/6] Uploading Credentials..." -ForegroundColor Cyan
-$CREDS_EXISTS = gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --quiet --command="if [ -f /home/frank/nexus/shared/credentials.json ]; then echo 'YES'; else echo 'NO'; fi"
+$CREDS_EXISTS = gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --quiet --command="if [ -f `$HOME/nexus/shared/credentials.json ]; then echo 'YES'; else echo 'NO'; fi"
 $CREDS_EXISTS = $CREDS_EXISTS -replace "`r", ""
 $CREDS_EXISTS = $CREDS_EXISTS -replace "`n", ""
 
@@ -191,8 +199,8 @@ if ($CREDS_EXISTS -eq "YES") {
         exit
     }
 
-    gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --quiet --command="mkdir -p /home/frank/nexus/shared"
-    gcloud compute scp $CREDS_PATH "$($INSTANCE_NAME):/home/frank/nexus/shared/credentials.json" --zone=$ZONE --quiet
+    gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --quiet --command="mkdir -p `$HOME/nexus/shared"
+    gcloud compute scp $CREDS_PATH "$($INSTANCE_NAME):~/nexus/shared/credentials.json" --zone=$ZONE --quiet
 }
 
 Write-Host "`nApps Script Initialization" -ForegroundColor Cyan

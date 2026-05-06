@@ -112,21 +112,21 @@ fi
 echo -e "\n${CYAN}[3/5] Manual Step: OAuth Configuration${NC}"
 echo -e "We need to set up the 'OAuth Consent Screen' so you can securely log into your own app."
 echo -e "${YELLOW}Instructions:${NC}"
-echo -e "1. Go to: https://console.cloud.google.com/apis/credentials/consent?project=$PROJECT_ID"
-echo -e "2. Select 'Internal' (if using Google Workspace) or 'External' (if personal Gmail) and click Create."
-echo -e "3. Fill in the required app names and emails."
-echo -e "4. Skip adding scopes here, just save and continue."
+echo -e "${YELLOW}1. Go to: \e[7mhttps://console.cloud.google.com/apis/credentials/consent?project=$PROJECT_ID\e[27m${NC}"
+echo -e "${YELLOW}2. Select 'Internal' (if using Google Workspace) or 'External' (if personal Gmail) and click Create.${NC}"
+echo -e "${YELLOW}3. Fill in the required app names and emails.${NC}"
+echo -e "${YELLOW}4. Skip adding scopes here, just save and continue.${NC}"
 echo ""
 read -p "Press [Enter] when you have configured the Consent Screen..."
 
 echo -e "\n${CYAN}[4/5] Manual Step: Generating Credentials${NC}"
 echo -e "Now we need to create the exact 'key' (Client ID) that allows the Python server to authenticate."
 echo -e "${YELLOW}Instructions:${NC}"
-echo -e "1. Go to: https://console.cloud.google.com/apis/credentials?project=$PROJECT_ID"
-echo -e "2. Click 'CREATE CREDENTIALS' > 'OAuth client ID'."
-echo -e "3. Select 'Desktop app' for the Application type."
-echo -e "4. Click Create, then DOWNLOAD the JSON file."
-echo -e "5. Rename the downloaded file EXACTLY to: credentials.json"
+echo -e "${YELLOW}1. Go to: \e[7mhttps://console.cloud.google.com/apis/credentials?project=$PROJECT_ID\e[27m${NC}"
+echo -e "${YELLOW}2. Click 'CREATE CREDENTIALS' > 'OAuth client ID'.${NC}"
+echo -e "${YELLOW}3. Select 'Desktop app' for the Application type.${NC}"
+echo -e "${YELLOW}4. Click Create, then DOWNLOAD the JSON file.${NC}"
+echo -e "${YELLOW}5. Rename the downloaded file EXACTLY to: credentials.json${NC}"
 echo ""
 read -p "Press [Enter] when you have downloaded 'credentials.json' to your local machine..."
 
@@ -146,38 +146,44 @@ gcloud compute instances create $INSTANCE_NAME \
 echo ">>> Starting Nexus Bootstrap..."
 apt-get update
 apt-get install -y python3 python3-pip python3-venv sqlite3 git curl
+'
 
-echo ">>> Creating /home/frank/nexus directory..."
-mkdir -p /home/frank/nexus/shared/data
-mkdir -p /home/frank/nexus/shared/backups
-chmod -R 777 /home/frank/nexus
+echo -e "${CYAN}Waiting 30 seconds for the VM's SSH daemon to initialize...${NC}"
+sleep 30
 
-echo ">>> Configuring systemd daemon for FastAPI..."
-cat > /etc/systemd/system/nexus.service <<EOF
+gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="
+NEXUS_ROOT=\"\$HOME/nexus\"
+echo '>>> Creating '\$NEXUS_ROOT' directory...'
+mkdir -p \$NEXUS_ROOT/shared/data
+mkdir -p \$NEXUS_ROOT/shared/backups
+chmod -R 777 \$NEXUS_ROOT
+
+echo '>>> Configuring systemd daemon for FastAPI...'
+bash -c \"cat > /tmp/nexus.service <<EOF
 [Unit]
 Description=Nexus FastAPI Backend
 After=network.target
 
 [Service]
-User=root
-WorkingDirectory=/home/frank/nexus/current/backend
-Environment=PATH=/home/frank/nexus/current/backend/venv/bin
-ExecStart=/home/frank/nexus/current/backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+User=\$USER
+WorkingDirectory=\$NEXUS_ROOT/current/backend
+Environment=PATH=\$NEXUS_ROOT/current/backend/venv/bin
+ExecStart=\$NEXUS_ROOT/current/backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
 Restart=always
 
 [Install]
 WantedBy=multi-user.target
-EOF
-
-systemctl daemon-reload
-systemctl enable nexus.service
-echo ">>> Bootstrap complete!"
-'
+EOF\"
+sudo mv /tmp/nexus.service /etc/systemd/system/nexus.service
+sudo systemctl daemon-reload
+sudo systemctl enable nexus.service
+echo '>>> Bootstrap complete!'
+"
 
 fi
 
 echo -e "\n${CYAN}[6/6] Uploading Credentials...${NC}"
-CREDS_EXISTS=$(gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --quiet --command="if [ -f /home/frank/nexus/shared/credentials.json ]; then echo 'YES'; else echo 'NO'; fi" 2>/dev/null | tr -d '\r')
+CREDS_EXISTS=$(gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --quiet --command="if [ -f \$HOME/nexus/shared/credentials.json ]; then echo 'YES'; else echo 'NO'; fi" 2>/dev/null | tr -d '\r')
 
 if [ "$CREDS_EXISTS" = "YES" ]; then
     echo -e "${GREEN}Credentials already found on VM, skipping upload.${NC}"
@@ -188,8 +194,8 @@ else
         exit 1
     fi
 
-    gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --quiet --command="mkdir -p /home/frank/nexus/shared"
-    gcloud compute scp "$CREDS_PATH" $INSTANCE_NAME:/home/frank/nexus/shared/credentials.json --zone=$ZONE --quiet
+    gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --quiet --command="mkdir -p \$HOME/nexus/shared"
+    gcloud compute scp "$CREDS_PATH" $INSTANCE_NAME:~/nexus/shared/credentials.json --zone=$ZONE --quiet
 fi
 
 echo -e "\n${CYAN}Apps Script Initialization${NC}"
@@ -215,7 +221,5 @@ echo -e "${GREEN}====================================================${NC}"
 echo -e "Your server is ready."
 echo -e "Next steps (See INSTRUCTIONS.md):"
 echo -e "1. Run scripts/deploy.sh to push the code and start the backend."
-echo -e "2. Run scripts/auth_tunnel.sh to authenticate the server."
-echo ""echo -e "1. Run scripts/deploy.sh to push the code and start the backend."
 echo -e "2. Run scripts/auth_tunnel.sh to authenticate the server."
 echo ""

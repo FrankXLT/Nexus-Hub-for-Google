@@ -215,3 +215,11 @@ graph TD
 - Fixed an issue in `scripts/deploy.ps1` where PowerShell split the `$sshCommand` multi-line string at the space inside the `$(date...)` bash command before passing it to gcloud.
 - Wrapped `$sshCommand` in double quotes in the `gcloud compute ssh` execution command to force PowerShell to pass it as a single argument.
 - Removed nested double quotes from the `RELEASE_DIR` assignment within the here-string to prevent Windows `cmd.exe` escaping collisions.
+
+## Portability, Reliability, and UX Updates
+
+- Removed hardcoded `/home/frank` paths across `provision.ps1`, `provision.sh`, `deploy.ps1`, `deploy.sh`, `auth_tunnel.ps1`, and `auth_tunnel.sh` in favor of dynamic `$HOME` resolution and a `NEXUS_ROOT` variable.
+- Refactored VM initialization in the provision scripts by moving the directory creation and systemd service generation (which previously wrote files as root with `/root` variables) into a delayed SSH block to ensure they execute as the logged-in gcloud user.
+- Fixed Address already in use error by injecting `sudo fuser -k 8080/tcp || true` into the `auth_tunnel` scripts before launching the Python authentication server.
+- Prevented garbage character output on Windows by modifying the `pip install` commands in `deploy` and `auth_tunnel` to use `--progress-bar off --quiet`.
+- Unified CLI formatting to match the project taxonomy: applied distinct colors for Titles, Prompts, Success, Warnings, and Errors, and implemented reverse-video (white background/black text or `\e[7m`) highlighting for URLs across all deployment scripts.
