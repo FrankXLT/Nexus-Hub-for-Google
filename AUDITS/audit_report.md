@@ -202,3 +202,10 @@ graph TD
 - Fixed an issue in `scripts/deploy.ps1` and `scripts/deploy.sh` where `git branch -r` would return the symbolic reference `origin/HEAD -> origin/...`. This would cause the `git checkout` command to fail with an invalid pathspec error if selected.
 - Injected `Where-Object { $_ -notmatch "HEAD" }` filter into `deploy.ps1`.
 - Injected `grep -v "HEAD"` filter into `deploy.sh`.
+
+## Apps Script Open Error Fix
+
+- Removed `clasp open` from `scripts/deploy.ps1` and `scripts/deploy.sh` due to a Commander.js parsing error on Windows.
+- Scripts now parse `.clasp.json` to extract `scriptId` and construct the Apps Script Editor URL manually.
+- Implemented native browser launch commands (`Start-Process`, `open`, `start`, `xdg-open`) to reliably open the URL cross-platform.
+- The editor URL is also printed cleanly to the console as a fallback.

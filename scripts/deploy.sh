@@ -145,7 +145,6 @@ gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="
 VM_IP=$(gcloud compute instances describe $INSTANCE_NAME --zone=$ZONE --format="get(networkInterfaces[0].accessConfigs[0].natIP)" 2>/dev/null | tr -d '\r')
 NEXUS_VM_URL="http://${VM_IP}:8000"
 
-clear
 echo -e "\n${RED}====================================================${NC}"
 echo -e "${RED}                 ACTION REQUIRED                    ${NC}"
 echo -e "${RED}====================================================${NC}"
@@ -154,4 +153,15 @@ echo -e "NEXUS_VM_URL:      ${YELLOW}$NEXUS_VM_URL${NC}"
 echo -e "\nPlease copy the values above. In a moment, your browser will open the Apps Script Editor. You MUST immediately go to: Project Settings (Gear Icon) -> Script Properties -> Add Script Property. Add NEXUS_HMAC_SECRET and NEXUS_VM_URL."
 echo ""
 read -p "Press Enter to open the Editor..."
-clasp open
+SCRIPT_ID=$(grep -o '"scriptId":"[^"]*"' .clasp.json | cut -d'"' -f4)
+EDITOR_URL="https://script.google.com/d/$SCRIPT_ID/edit"
+
+echo -e "\nIf the browser does not open automatically, please visit: ${CYAN}$EDITOR_URL${NC}"
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    open "$EDITOR_URL"
+elif [[ "$OSTYPE" == "msys"* || "$OSTYPE" == "cygwin"* ]]; then
+    start "$EDITOR_URL"
+else
+    xdg-open "$EDITOR_URL" &> /dev/null || true
+fi

@@ -130,7 +130,6 @@ $vmIp = $vmIp -replace "`r", ""
 $vmIp = $vmIp -replace "`n", ""
 $NEXUS_VM_URL = "http://${vmIp}:8000"
 
-Clear-Host
 Write-Host "====================================================" -ForegroundColor Red
 Write-Host "                 ACTION REQUIRED                    " -ForegroundColor Red
 Write-Host "====================================================" -ForegroundColor Red
@@ -139,4 +138,8 @@ Write-Host "NEXUS_VM_URL:      " -NoNewline; Write-Host $NEXUS_VM_URL -Foregroun
 Write-Host "`nPlease copy the values above. In a moment, your browser will open the Apps Script Editor. You MUST immediately go to: Project Settings (Gear Icon) -> Script Properties -> Add Script Property. Add NEXUS_HMAC_SECRET and NEXUS_VM_URL."
 
 Read-Host "Press Enter to open the Editor..."
-clasp open
+$claspJson = Get-Content .clasp.json | ConvertFrom-Json
+$scriptId = $claspJson.scriptId
+$editorUrl = "https://script.google.com/d/$scriptId/edit"
+Write-Host "`nIf the browser does not open automatically, please visit: $editorUrl" -ForegroundColor Cyan
+Start-Process $editorUrl
