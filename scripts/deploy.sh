@@ -47,7 +47,7 @@ ZONE=$TARGET_ZONE
 
 echo "Fetching git branches..."
 git fetch origin
-branches=($(git branch -r | grep "origin/" | sed 's/.*origin\///'))
+branches=($(git branch -r | grep "origin/" | grep -v "HEAD" | sed 's/.*origin\///'))
 for i in "${!branches[@]}"; do
     echo "[$i] ${branches[$i]}"
 done

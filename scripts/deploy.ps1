@@ -33,7 +33,7 @@ $ZONE = $TARGET_ZONE
 
 Write-Host "Fetching git branches..."
 git fetch origin
-$branches = git branch -r | Select-String "origin/" | ForEach-Object { $_.ToString().Trim() -replace "origin/","" }
+$branches = git branch -r | Select-String "origin/" | Where-Object { $_ -notmatch "HEAD" } | ForEach-Object { $_.ToString().Trim() -replace "origin/","" }
 $bList = @($branches)
 for ($i=0; $i -lt $bList.Count; $i++) {
     Write-Host "[$i] $($bList[$i])"

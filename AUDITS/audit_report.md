@@ -196,3 +196,9 @@ graph TD
 - Implemented environment tracking by generating a hidden `.nexus_env` file containing the `TARGET_VM` at the end of the provision scripts. Added `.nexus_env` to `.gitignore`.
 - Updated systemd `nexus.service` generation in provision scripts to set `WorkingDirectory=/home/frank/nexus/current/backend` and `ExecStart=/home/frank/nexus/current/backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000`.
 - Overhauled the "Setup and Installation" section in `INSTRUCTIONS.md` to explain the new Multi-Environment workflow, detailing the "Environment Label" and the use of the `.nexus_env` file.
+
+## Deployment Script Branch HEAD Fix
+
+- Fixed an issue in `scripts/deploy.ps1` and `scripts/deploy.sh` where `git branch -r` would return the symbolic reference `origin/HEAD -> origin/...`. This would cause the `git checkout` command to fail with an invalid pathspec error if selected.
+- Injected `Where-Object { $_ -notmatch "HEAD" }` filter into `deploy.ps1`.
+- Injected `grep -v "HEAD"` filter into `deploy.sh`.
