@@ -77,7 +77,7 @@ gcloud services enable `
 Write-Host "APIs successfully enabled!" -ForegroundColor Green
 
 Write-Host "`n[2/5] Configuring Network Security..." -ForegroundColor Cyan
-$ruleName = "nexus-hub-allow-8000"
+$ruleName = "nexus-allow-8000"
 $existingRule = gcloud compute firewall-rules list --filter="name=$ruleName" --format="value(name)" --project=$PROJECT_ID
 
 if (![string]::IsNullOrWhiteSpace($existingRule) -and $existingRule -match $ruleName) {
