@@ -37,12 +37,25 @@ Write-Host "2. Create a new project (e.g., 'Nexus')." -ForegroundColor Yellow
 Write-Host "3. Go to the Billing menu and link a credit card." -ForegroundColor Yellow
 Read-Host "Press [Enter] when your project is created and billing is enabled..."
 
-$PROJECT_ID = Read-Host "Please enter your Google Cloud Project ID"
-if ([string]::IsNullOrWhiteSpace($PROJECT_ID)) {
-    Write-Host "Error: No Google Cloud Project ID provided." -ForegroundColor Red
+Write-Host "`nFetching your Google Cloud Projects..." -ForegroundColor Cyan
+$projects = gcloud projects list --format="value(projectId,name)"
+$projectList = @($projects)
+
+if ($projectList.Count -eq 0) {
+    Write-Host "Error: No Google Cloud projects found. Please create one in the console first." -ForegroundColor Red
     exit
 }
-gcloud config set project $PROJECT_ID
+
+for ($i=0; $i -lt $projectList.Count; $i++) {
+    Write-Host "[$i] $($projectList[$i])"
+}
+
+$projIdx = Read-Host "Select Project number"
+$SELECTED_PROJECT = $projectList[[int]$projIdx]
+$PROJECT_ID = ($SELECTED_PROJECT -split "\s+")[0]
+
+Write-Host "Targeting Project: $PROJECT_ID" -ForegroundColor Green
+gcloud config set project $PROJECT_ID --quiet
 
 $ENV_OPTION = Read-Host "Do you want to (1) Create a NEW Nexus Environment or (2) Configure an EXISTING one? (1/2)"
 

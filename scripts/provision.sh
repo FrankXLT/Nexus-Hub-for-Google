@@ -48,12 +48,24 @@ echo -e "${YELLOW}2. Create a new project (e.g., 'Nexus').${NC}"
 echo -e "${YELLOW}3. Go to the Billing menu and link a credit card.${NC}"
 read -p "Press [Enter] when your project is created and billing is enabled..."
 
-read -p "Please enter your Google Cloud Project ID: " PROJECT_ID
-if [ -z "$PROJECT_ID" ]; then
-    echo -e "${RED}Error: No Google Cloud Project ID provided.${NC}"
+echo -e "\n${CYAN}Fetching your Google Cloud Projects...${NC}"
+IFS=$'\n' read -r -d '' -a projects < <( gcloud projects list --format="value(projectId,name)" && printf '\0' )
+
+if [ ${#projects[@]} -eq 0 ]; then
+    echo -e "${RED}Error: No Google Cloud projects found. Please create one in the console first.${NC}"
     exit 1
 fi
-gcloud config set project "$PROJECT_ID"
+
+for i in "${!projects[@]}"; do
+    echo "[$i] ${projects[$i]}"
+done
+
+read -p "Select Project number: " projIdx
+SELECTED_PROJECT="${projects[$projIdx]}"
+PROJECT_ID=$(echo "$SELECTED_PROJECT" | awk '{print $1}')
+
+echo -e "${GREEN}Targeting Project: $PROJECT_ID${NC}"
+gcloud config set project $PROJECT_ID --quiet
 
 echo -e "Do you want to:"
 echo -e "1) Create a NEW Nexus Environment"

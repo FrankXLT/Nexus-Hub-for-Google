@@ -257,3 +257,9 @@ graph TD
 - The dashboard successfully queries the backend `openapi.json` for API readiness, checks `systemctl` for the `nexus.service` daemon status, analyzes the SQLite database sizing, catalogs active backups, and surfaces any orphaned/offline deployments left behind by the symlink architecture.
 - Ensured consistent and intelligent color-coding (`[PASS]` in Green, `[FAIL]` in Red) is evaluated and printed dynamically in both PowerShell and Bash.
 - Updated `INSTRUCTIONS.md` with a new Phase 6 to guide users on running the Health Dashboard.
+
+## Interactive Project Selection Menu
+
+- Upgraded `provision.ps1` and `provision.sh` to dynamically fetch the user's available Google Cloud projects (`gcloud projects list`) instead of forcing manual text entry.
+- Presented the fetched projects in an interactive, numbered selection menu, matching the UX style of the VM selector.
+- Completely removed the old `read -p` and `Read-Host` prompts for manual Project ID entry.
