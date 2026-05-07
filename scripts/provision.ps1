@@ -203,14 +203,20 @@ if ($CREDS_EXISTS -eq "YES") {
 
 Write-Host "`nApps Script Initialization" -ForegroundColor Cyan
 $UPPER_ENV = $ENV_LABEL.ToUpper()
-Write-Host "Please name your Apps Script project: 'Nexus for Google - [$UPPER_ENV]'" -ForegroundColor Cyan
-Write-Host "Please open the Google Apps Script Editor for your project." -ForegroundColor Yellow
-Write-Host "Click the Gear Icon (Project Settings) on the left sidebar." -ForegroundColor Yellow
-Write-Host "Under 'IDs', copy the Script ID." -ForegroundColor Yellow
-$SCRIPT_ID = Read-Host "Please paste your Script ID here"
+$PROJECT_TITLE = "Nexus for Google - [$UPPER_ENV]"
 
-$claspJsonContent = "{`"scriptId`":`"$SCRIPT_ID`",`"rootDir`":`"frontend/`"}"
-Set-Content -Path ".clasp.json" -Value $claspJsonContent -Encoding Ascii
+$linkExisting = Read-Host "Do you have an EXISTING Apps Script project to link? (y/N)"
+if ($linkExisting -match "^[yY]") {
+    $SCRIPT_ID = Read-Host "Please paste your existing Script ID here"
+    $claspJsonContent = "{`"scriptId`":`"$SCRIPT_ID`",`"rootDir`":`"frontend/`"}"
+    Set-Content -Path ".clasp.json" -Value $claspJsonContent -Encoding Ascii
+} else {
+    Write-Host "Commanding Google to create a new Apps Script Web App: '$PROJECT_TITLE'..." -ForegroundColor Yellow
+    # clasp create will automatically generate the .clasp.json file
+    clasp create --type webapp --title $PROJECT_TITLE --rootDir "frontend/"
+}
+
+Write-Host "Linking Apps Script to Google Cloud Project for Cloud Logging..." -ForegroundColor Yellow
 clasp setting projectId $PROJECT_ID
 Write-Host "Apps Script linked to GCP Project for Cloud Logging." -ForegroundColor Green
 Set-Content -Path ".nexus_env" -Value "TARGET_VM=$INSTANCE_NAME`nTARGET_ZONE=$ZONE" -Encoding Ascii

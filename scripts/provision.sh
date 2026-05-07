@@ -199,15 +199,20 @@ fi
 
 echo -e "\n${CYAN}Apps Script Initialization${NC}"
 UPPER_ENV=$(echo "$ENV_LABEL" | tr '[:lower:]' '[:upper:]')
-echo -e "${CYAN}Please name your Apps Script project: 'Nexus for Google - [$UPPER_ENV]'${NC}"
-echo -e "${YELLOW}Please open the Google Apps Script Editor for your project.${NC}"
-echo -e "${YELLOW}Click the Gear Icon (Project Settings) on the left sidebar.${NC}"
-echo -e "${YELLOW}Under 'IDs', copy the Script ID.${NC}"
-read -p "Please paste your Script ID here: " SCRIPT_ID
+PROJECT_TITLE="Nexus for Google - [$UPPER_ENV]"
 
-cat > .clasp.json <<EOF
+read -p "Do you have an EXISTING Apps Script project to link? (y/N): " linkExisting
+if [[ "$linkExisting" =~ ^[Yy]$ ]]; then
+    read -p "Please paste your existing Script ID here: " SCRIPT_ID
+    cat > .clasp.json <<EOF
 {"scriptId":"$SCRIPT_ID","rootDir":"frontend/"}
 EOF
+else
+    echo -e "${YELLOW}Commanding Google to create a new Apps Script Web App: '$PROJECT_TITLE'...${NC}"
+    clasp create --type webapp --title "$PROJECT_TITLE" --rootDir "frontend/"
+fi
+
+echo -e "${YELLOW}Linking Apps Script to Google Cloud Project for Cloud Logging...${NC}"
 clasp setting projectId $PROJECT_ID
 echo -e "${GREEN}Apps Script linked to GCP Project for Cloud Logging.${NC}"
 cat > .nexus_env <<EOF

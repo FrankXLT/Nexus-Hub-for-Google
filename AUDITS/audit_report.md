@@ -263,3 +263,10 @@ graph TD
 - Upgraded `provision.ps1` and `provision.sh` to dynamically fetch the user's available Google Cloud projects (`gcloud projects list`) instead of forcing manual text entry.
 - Presented the fetched projects in an interactive, numbered selection menu, matching the UX style of the VM selector.
 - Completely removed the old `read -p` and `Read-Host` prompts for manual Project ID entry.
+
+## Automated Clasp Creation
+
+- Eliminated the manual Apps Script project creation requirement from the provisioning flow.
+- Upgraded `provision.ps1` and `provision.sh` to prompt the user: "Do you have an EXISTING Apps Script project to link? (y/N)".
+- If no, the script automatically executes `clasp create --type webapp --title "$PROJECT_TITLE" --rootDir "frontend/"`, dynamically generating the web app securely in the cloud and automatically linking the `.clasp.json` configuration without any user browser interaction.
+- Retained the ability for advanced users to manually input an existing Script ID to bypass the auto-creation sequence.
