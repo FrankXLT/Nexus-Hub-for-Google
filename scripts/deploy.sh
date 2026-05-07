@@ -66,7 +66,7 @@ git pull origin $SELECTED_BRANCH
 
 read -p "Backup remote SQLite database? (Y/n): " doBackup
 if [[ ! "$doBackup" =~ ^[Nn]$ ]]; then
-    gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="mkdir -p \$HOME/nexus/shared/backups && cp \$HOME/nexus/shared/data/nexus.db \$HOME/nexus/shared/backups/nexus_\$(date +%Y%m%d_%H%M%S).db || echo 'No DB to backup yet.'"
+    gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --strict-host-key-checking=no --command="mkdir -p \$HOME/nexus/shared/backups && cp \$HOME/nexus/shared/data/nexus.db \$HOME/nexus/shared/backups/nexus_\$(date +%Y%m%d_%H%M%S).db || echo 'No DB to backup yet.'"
 fi
 
 echo -e "\n${YELLOW}[1/2] Syncing Serverless Frontend (Google Apps Script)...${NC}"
@@ -82,7 +82,7 @@ fi
 echo -e "\n${YELLOW}[2/2] Deploying Backend to Google Cloud VM...${NC}"
 echo -e "Connecting securely via SSH to pull updates, sync dependencies, and restart the daemon."
 
-ENV_EXISTS=$(gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="if [ -f \$HOME/nexus/shared/.env ]; then echo 'YES'; else echo 'NO'; fi" 2>/dev/null | tr -d '\r')
+ENV_EXISTS=$(gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --strict-host-key-checking=no --command="if [ -f \$HOME/nexus/shared/.env ]; then echo 'YES'; else echo 'NO'; fi" 2>/dev/null | tr -d '\r')
 
 if [ "$ENV_EXISTS" = "NO" ]; then
     echo -e "\n${RED}*** ACTION REQUIRED: shared/.env FILE MISSING ***${NC}"
@@ -91,7 +91,7 @@ if [ "$ENV_EXISTS" = "NO" ]; then
     read -p "NEXUS_API_KEY (Your Gemini API Key): " NEXUS_API_KEY
     read -p "NEXUS_WEBHOOK_URL (The permanent /exec URL for Apps Script): " NEXUS_WEBHOOK_URL
 
-    gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="
+    gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --strict-host-key-checking=no --command="
         mkdir -p \$HOME/nexus/shared
         echo \"NEXUS_HMAC_SECRET=\$NEXUS_HMAC_SECRET\" > \$HOME/nexus/shared/.env
         echo \"NEXUS_API_KEY=\$NEXUS_API_KEY\" >> \$HOME/nexus/shared/.env
@@ -99,10 +99,10 @@ if [ "$ENV_EXISTS" = "NO" ]; then
         echo 'shared/.env file generated successfully.'
     "
 else
-    NEXUS_HMAC_SECRET=$(gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="grep '^NEXUS_HMAC_SECRET=' \$HOME/nexus/shared/.env | cut -d'=' -f2" 2>/dev/null | tr -d '\r')
+    NEXUS_HMAC_SECRET=$(gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --strict-host-key-checking=no --command="grep '^NEXUS_HMAC_SECRET=' \$HOME/nexus/shared/.env | cut -d'=' -f2" 2>/dev/null | tr -d '\r')
 fi
 
-gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="
+gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --strict-host-key-checking=no --command="
     set -e
     NEXUS_ROOT=\"\$HOME/nexus\"
     RELEASE_DIR=\"releases/\$(date +%Y%m%d_%H%M%S)\"

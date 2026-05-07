@@ -31,4 +31,4 @@ TARGET_VM=$(echo "$SELECTED_VM" | awk '{print $1}')
 TARGET_ZONE=$(echo "$SELECTED_VM" | awk '{print $2}')
 
 echo -e "\n${GREEN}Connecting to $TARGET_VM in $TARGET_ZONE...${NC}"
-gcloud compute ssh $TARGET_VM --zone=$TARGET_ZONE
+gcloud compute ssh $TARGET_VM --zone=$TARGET_ZONE --strict-host-key-checking=no

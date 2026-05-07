@@ -23,4 +23,4 @@ $TARGET_VM = $parts[0]
 $TARGET_ZONE = $parts[1]
 
 Write-Host "`nConnecting to $TARGET_VM in $TARGET_ZONE..." -ForegroundColor Green
-gcloud compute ssh $TARGET_VM --zone=$TARGET_ZONE
+gcloud compute ssh $TARGET_VM --zone=$TARGET_ZONE --strict-host-key-checking=no

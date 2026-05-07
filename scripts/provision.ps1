@@ -150,35 +150,9 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "Waiting 30 seconds for the VM's SSH daemon to initialize..." -ForegroundColor Cyan
 Start-Sleep -Seconds 30
 
-$postInitScript = @"
-NEXUS_ROOT="`$HOME/nexus"
-echo ">>> Creating `$NEXUS_ROOT directory..."
-mkdir -p `$NEXUS_ROOT/shared/data
-mkdir -p `$NEXUS_ROOT/shared/backups
-chmod -R 777 `$NEXUS_ROOT
-
-echo ">>> Configuring systemd daemon for FastAPI..."
-bash -c "cat > /tmp/nexus.service <<EOF
-[Unit]
-Description=Nexus FastAPI Backend
-After=network.target
-
-[Service]
-User=`$USER
-WorkingDirectory=`$NEXUS_ROOT/current/backend
-Environment=PATH=`$NEXUS_ROOT/current/backend/venv/bin
-ExecStart=`$NEXUS_ROOT/current/backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-EOF"
-sudo mv /tmp/nexus.service /etc/systemd/system/nexus.service
-sudo systemctl daemon-reload
-sudo systemctl enable nexus.service
-echo ">>> Bootstrap complete!"
-"@
-gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="$postInitScript"
+$serviceContent = "[Unit]\nDescription=Nexus FastAPI Backend\nAfter=network.target\n\n[Service]\nUser=`$USER\nWorkingDirectory=`$HOME/nexus/current/backend\nEnvironment=PATH=`$HOME/nexus/current/backend/venv/bin\nExecStart=`$HOME/nexus/current/backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000\nRestart=always\n\n[Install]\nWantedBy=multi-user.target"
+$bootstrapCmd = "mkdir -p `$HOME/nexus/shared/data `$HOME/nexus/shared/backups && chmod -R 777 `$HOME/nexus/shared && echo -e '$serviceContent' > /tmp/nexus.service && sudo mv /tmp/nexus.service /etc/systemd/system/nexus.service && sudo systemctl daemon-reload && sudo systemctl enable nexus.service"
+gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="$bootstrapCmd" --quiet --strict-host-key-checking=no
 
 # Clean up the temporary file
 Remove-Item -Path $tempScriptPath -Force -ErrorAction SilentlyContinue
@@ -186,7 +160,7 @@ Remove-Item -Path $tempScriptPath -Force -ErrorAction SilentlyContinue
 }
 
 Write-Host "`n[6/6] Uploading Credentials..." -ForegroundColor Cyan
-$CREDS_EXISTS = gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --quiet --command="if [ -f `$HOME/nexus/shared/credentials.json ]; then echo 'YES'; else echo 'NO'; fi"
+$CREDS_EXISTS = gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --quiet --strict-host-key-checking=no --command="if [ -f `$HOME/nexus/shared/credentials.json ]; then echo 'YES'; else echo 'NO'; fi"
 $CREDS_EXISTS = $CREDS_EXISTS -replace "`r", ""
 $CREDS_EXISTS = $CREDS_EXISTS -replace "`n", ""
 
@@ -199,8 +173,8 @@ if ($CREDS_EXISTS -eq "YES") {
         exit
     }
 
-    gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --quiet --command="mkdir -p `$HOME/nexus/shared"
-    gcloud compute scp $CREDS_PATH "$($INSTANCE_NAME):~/nexus/shared/credentials.json" --zone=$ZONE --quiet
+    gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --quiet --strict-host-key-checking=no --command="mkdir -p `$HOME/nexus/shared"
+    gcloud compute scp $CREDS_PATH "$($INSTANCE_NAME):~/nexus/shared/credentials.json" --zone=$ZONE --quiet --strict-host-key-checking=no
 }
 
 Write-Host "`nApps Script Initialization" -ForegroundColor Cyan

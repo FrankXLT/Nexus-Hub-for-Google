@@ -234,3 +234,8 @@ graph TD
 - Cleaned up the `auth_tunnel` execution by redirecting the `sudo fuser` output to `/dev/null` to prevent messy process IDs from printing to the terminal.
 - Added the `-u` (unbuffered) flag to the `python3 auth.py` execution to prevent Python from buffering its standard output over the SSH pipe, ensuring immediate terminal feedback.
 - Updated the CLI instructions in both `auth_tunnel.ps1` and `auth_tunnel.sh` to match the project's polished UI taxonomy, applying Reverse Video formatting to the `http://localhost:8080` URL for better visibility.
+
+## Deployment Automation Stability Fixes
+
+- Fixed a failure in the `provision` scripts caused by PowerShell splitting the `<<EOF` heredoc for `nexus.service` into invalid gcloud arguments. Flattened the bootstrap execution into a single line string using `echo -e` and manually escaped backticks (`\n`) for the service file contents.
+- Bulletproofed SSH automation against Windows `plink.exe` interactive caching prompts. Added the `--strict-host-key-checking=no` flag to all `gcloud compute ssh` and `gcloud compute scp` commands across all `provision`, `deploy`, `auth_tunnel`, and `connect` scripts, ensuring zero-touch headless execution without terminal hanging.

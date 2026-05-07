@@ -151,34 +151,9 @@ apt-get install -y python3 python3-pip python3-venv sqlite3 git curl
 echo -e "${CYAN}Waiting 30 seconds for the VM's SSH daemon to initialize...${NC}"
 sleep 30
 
-gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="
-NEXUS_ROOT=\"\$HOME/nexus\"
-echo '>>> Creating '\$NEXUS_ROOT' directory...'
-mkdir -p \$NEXUS_ROOT/shared/data
-mkdir -p \$NEXUS_ROOT/shared/backups
-chmod -R 777 \$NEXUS_ROOT
-
-echo '>>> Configuring systemd daemon for FastAPI...'
-bash -c \"cat > /tmp/nexus.service <<EOF
-[Unit]
-Description=Nexus FastAPI Backend
-After=network.target
-
-[Service]
-User=\$USER
-WorkingDirectory=\$NEXUS_ROOT/current/backend
-Environment=PATH=\$NEXUS_ROOT/current/backend/venv/bin
-ExecStart=\$NEXUS_ROOT/current/backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-EOF\"
-sudo mv /tmp/nexus.service /etc/systemd/system/nexus.service
-sudo systemctl daemon-reload
-sudo systemctl enable nexus.service
-echo '>>> Bootstrap complete!'
-"
+SERVICE_CONTENT="[Unit]\nDescription=Nexus FastAPI Backend\nAfter=network.target\n\n[Service]\nUser=\$USER\nWorkingDirectory=\$HOME/nexus/current/backend\nEnvironment=PATH=\$HOME/nexus/current/backend/venv/bin\nExecStart=\$HOME/nexus/current/backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000\nRestart=always\n\n[Install]\nWantedBy=multi-user.target"
+BOOTSTRAP_CMD="mkdir -p \$HOME/nexus/shared/data \$HOME/nexus/shared/backups && chmod -R 777 \$HOME/nexus/shared && echo -e '$SERVICE_CONTENT' > /tmp/nexus.service && sudo mv /tmp/nexus.service /etc/systemd/system/nexus.service && sudo systemctl daemon-reload && sudo systemctl enable nexus.service"
+gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="$BOOTSTRAP_CMD" --quiet --strict-host-key-checking=no
 
 fi
 
@@ -220,6 +195,9 @@ echo -e "${GREEN}             Provisioning Complete!                 ${NC}"
 echo -e "${GREEN}====================================================${NC}"
 echo -e "Your server is ready."
 echo -e "Next steps (See INSTRUCTIONS.md):"
+echo -e "1. Run scripts/deploy.sh to push the code and start the backend."
+echo -e "2. Run scripts/auth_tunnel.sh to authenticate the server."
+echo ""TIONS.md):"
 echo -e "1. Run scripts/deploy.sh to push the code and start the backend."
 echo -e "2. Run scripts/auth_tunnel.sh to authenticate the server."
 echo ""

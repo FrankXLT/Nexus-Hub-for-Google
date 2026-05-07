@@ -52,7 +52,7 @@ git pull origin $SELECTED_BRANCH
 $doBackup = Read-Host "Backup remote SQLite database? (Y/n)"
 if ($doBackup -notmatch "^[Nn]$") {
     $BACKUP_CMD = "mkdir -p `$HOME/nexus/shared/backups && cp `$HOME/nexus/shared/data/nexus.db `$HOME/nexus/shared/backups/nexus_`$(date +%Y%m%d_%H%M%S).db || echo 'No DB to backup yet.'"
-    gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command=$BACKUP_CMD
+    gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --strict-host-key-checking=no --command=$BACKUP_CMD
 }
 
 Write-Host "`n[1/2] Syncing Serverless Frontend (Google Apps Script)..." -ForegroundColor Yellow
@@ -65,7 +65,7 @@ Write-Host "--> Apps Script UI synced successfully!" -ForegroundColor Green
 
 Write-Host "`n[2/2] Deploying Backend to Google Cloud VM..." -ForegroundColor Yellow
 
-$envExists = gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="if [ -f `$HOME/nexus/shared/.env ]; then echo 'YES'; else echo 'NO'; fi"
+$envExists = gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --strict-host-key-checking=no --command="if [ -f `$HOME/nexus/shared/.env ]; then echo 'YES'; else echo 'NO'; fi"
 $envExists = $envExists -replace "`r", ""
 $envExists = $envExists -replace "`n", ""
 
@@ -76,9 +76,9 @@ if ($envExists -eq "NO") {
     $NEXUS_WEBHOOK_URL = Read-Host "NEXUS_WEBHOOK_URL (The permanent /exec URL for Apps Script)"
 
     $envScript = "mkdir -p `$HOME/nexus/shared && echo 'NEXUS_HMAC_SECRET=$NEXUS_HMAC_SECRET' > `$HOME/nexus/shared/.env && echo 'NEXUS_API_KEY=$NEXUS_API_KEY' >> `$HOME/nexus/shared/.env && echo 'NEXUS_WEBHOOK_URL=$NEXUS_WEBHOOK_URL' >> `$HOME/nexus/shared/.env && echo 'shared/.env file generated successfully.'"
-    gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command=$envScript
+    gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --strict-host-key-checking=no --command=$envScript
 } else {
-    $NEXUS_HMAC_SECRET = gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="grep '^NEXUS_HMAC_SECRET=' `$HOME/nexus/shared/.env | cut -d'=' -f2"
+    $NEXUS_HMAC_SECRET = gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --strict-host-key-checking=no --command="grep '^NEXUS_HMAC_SECRET=' `$HOME/nexus/shared/.env | cut -d'=' -f2"
     $NEXUS_HMAC_SECRET = $NEXUS_HMAC_SECRET -replace "`r", ""
     $NEXUS_HMAC_SECRET = $NEXUS_HMAC_SECRET -replace "`n", ""
 }
@@ -124,7 +124,7 @@ $sshCommand = @"
     echo -e '\n[VM] Deployment sequence completed securely.'
 "@
 $sshCommand = $sshCommand -replace "`r", ""
-gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="$sshCommand"
+gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --strict-host-key-checking=no --command="$sshCommand"
 
 $vmIp = gcloud compute instances describe $INSTANCE_NAME --zone=$ZONE --format="get(networkInterfaces[0].accessConfigs[0].natIP)"
 $vmIp = $vmIp -replace "`r", ""
