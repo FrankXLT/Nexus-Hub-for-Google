@@ -20,15 +20,27 @@ echo -e "enable the necessary APIs, and build your backend server."
 echo ""
 
 echo -e "${CYAN}Prerequisite: Google Cloud CLI${NC}"
-echo -e "${YELLOW}Please ensure you have installed the Google Cloud CLI (gcloud).${NC}"
-echo -e "${YELLOW}Download from: https://cloud.google.com/sdk/docs/install${NC}"
-read -p "Press [Enter] when you have installed gcloud and run 'gcloud auth login'..."
-
-# Verify gcloud is installed and authenticated
 if ! command -v gcloud &> /dev/null; then
     echo -e "${RED}Error: Google Cloud CLI (gcloud) is not installed.${NC}"
+    echo -e "${YELLOW}Please download from: https://cloud.google.com/sdk/docs/install${NC}"
     exit 1
 fi
+
+echo -e "Checking authentication status..."
+ACTIVE_ACCOUNT=$(gcloud auth list --filter=status:ACTIVE --format="value(account)")
+
+if [ -z "$ACTIVE_ACCOUNT" ]; then
+    echo -e "${YELLOW}No active Google Cloud account found.${NC}"
+    read -p "Would you like to log in now? (Y/n): " doLogin
+    if [[ "$doLogin" != [nN]* ]]; then
+        gcloud auth login
+        ACTIVE_ACCOUNT=$(gcloud auth list --filter=status:ACTIVE --format="value(account)")
+    else
+        echo -e "${RED}Authentication required to continue. Exiting.${NC}"
+        exit 1
+    fi
+fi
+echo -e "${GREEN}Authenticated as: $ACTIVE_ACCOUNT${NC}"
 
 echo -e "\n${CYAN}Prerequisite: Google Cloud Project & Billing${NC}"
 echo -e "${YELLOW}1. Go to https://console.cloud.google.com/${NC}"
@@ -184,6 +196,8 @@ read -p "Please paste your Script ID here: " SCRIPT_ID
 cat > .clasp.json <<EOF
 {"scriptId":"$SCRIPT_ID","rootDir":"frontend/"}
 EOF
+clasp setting projectId $PROJECT_ID
+echo -e "${GREEN}Apps Script linked to GCP Project for Cloud Logging.${NC}"
 cat > .nexus_env <<EOF
 TARGET_VM=$INSTANCE_NAME
 TARGET_ZONE=$ZONE

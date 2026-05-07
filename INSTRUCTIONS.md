@@ -173,6 +173,16 @@ Now that your Walled Garden is built and secured, it's time to access the Nexus 
 
 **Congratulations! You have successfully built and secured a multi-tier cloud application. Welcome to Nexus for Google.**
 
+## Phase 6: Monitoring Fleet Health
+
+Nexus includes an automated diagnostic dashboard to give you a single-pane-of-glass view over your entire infrastructure, database backups, and orphaned releases.
+
+1. From your local project directory, run the health check script based on your operating system:
+   - **Windows:** `.\scripts\health_check.ps1`
+   - **Mac/Linux:** `./scripts\health_check.sh`
+2. The script will ping the Apps Script frontend, dynamically discover all Google Cloud VMs linked to your project, execute health checks against their internal APIs, and tunnel over SSH to map their internal state.
+3. Review the terminal output for `[FAIL]` indicators.
+
 ---
 
 ## Critical Troubleshooting (Lessons Learned)

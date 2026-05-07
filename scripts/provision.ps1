@@ -8,16 +8,27 @@ Write-Host "This script will automatically configure your Google Cloud project,"
 Write-Host "enable the necessary APIs, and build your backend server.`n"
 
 Write-Host "Prerequisite: Google Cloud CLI" -ForegroundColor Cyan
-Write-Host "Please ensure you have installed the Google Cloud CLI (gcloud)." -ForegroundColor Yellow
-Write-Host "Download from: " -NoNewline -ForegroundColor Yellow
-Write-Host "https://cloud.google.com/sdk/docs/install" -BackgroundColor White -ForegroundColor Black
-Read-Host "Press [Enter] when you have installed gcloud and run 'gcloud auth login'..."
-
-# Verify gcloud
 if (-not (Get-Command "gcloud" -ErrorAction SilentlyContinue)) {
     Write-Host "Error: Google Cloud CLI (gcloud) is not installed." -ForegroundColor Red
+    Write-Host "Please download from: https://cloud.google.com/sdk/docs/install" -ForegroundColor Yellow
     exit
 }
+
+Write-Host "Checking authentication status..."
+$ACTIVE_ACCOUNT = gcloud auth list --filter=status:ACTIVE --format="value(account)"
+
+if ([string]::IsNullOrWhiteSpace($ACTIVE_ACCOUNT)) {
+    Write-Host "No active Google Cloud account found." -ForegroundColor Yellow
+    $doLogin = Read-Host "Would you like to log in now? (Y/n)"
+    if ($doLogin -notmatch "^[nN]") {
+        gcloud auth login
+        $ACTIVE_ACCOUNT = gcloud auth list --filter=status:ACTIVE --format="value(account)"
+    } else {
+        Write-Host "Authentication required to continue. Exiting." -ForegroundColor Red
+        exit
+    }
+}
+Write-Host "Authenticated as: $ACTIVE_ACCOUNT" -ForegroundColor Green
 
 Write-Host "`nPrerequisite: Google Cloud Project & Billing" -ForegroundColor Cyan
 Write-Host "1. Go to " -NoNewline -ForegroundColor Yellow
@@ -187,6 +198,8 @@ $SCRIPT_ID = Read-Host "Please paste your Script ID here"
 
 $claspJsonContent = "{`"scriptId`":`"$SCRIPT_ID`",`"rootDir`":`"frontend/`"}"
 Set-Content -Path ".clasp.json" -Value $claspJsonContent -Encoding Ascii
+clasp setting projectId $PROJECT_ID
+Write-Host "Apps Script linked to GCP Project for Cloud Logging." -ForegroundColor Green
 Set-Content -Path ".nexus_env" -Value "TARGET_VM=$INSTANCE_NAME`nTARGET_ZONE=$ZONE" -Encoding Ascii
 Write-Host "Success! Local clasp is now securely linked to your Google account and restricted to the frontend/ directory." -ForegroundColor Green
 

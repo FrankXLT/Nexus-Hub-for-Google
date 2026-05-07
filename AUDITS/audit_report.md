@@ -239,3 +239,21 @@ graph TD
 
 - Fixed a failure in the `provision` scripts caused by PowerShell splitting the `<<EOF` heredoc for `nexus.service` into invalid gcloud arguments. Flattened the bootstrap execution into a single line string using `echo -e` and manually escaped backticks (`\n`) for the service file contents.
 - Bulletproofed SSH automation against Windows `plink.exe` interactive caching prompts. Added the `--strict-host-key-checking=no` flag to all `gcloud compute ssh` and `gcloud compute scp` commands across all `provision`, `deploy`, `auth_tunnel`, and `connect` scripts, ensuring zero-touch headless execution without terminal hanging.
+- Replaced the manual pause check in `provision.ps1` and `provision.sh` ("Press [Enter] when you have installed gcloud...") with an intelligent script-level check. The scripts now verify `gcloud auth list --filter=status:ACTIVE` and interactively prompt the user to trigger `gcloud auth login` if no active session is found, preventing downstream failure while improving the provisioning UX.
+
+## Clasp CI/CD & Deployment URL Parsing
+
+- Enhanced the `provision` scripts to intelligently verify `clasp` installation and authentication. If `~/.clasprc.json` is missing, the script now automatically triggers `clasp login`.
+- Implemented automatic Google Cloud Logging mapping in `provision` scripts by executing `clasp setting projectId $PROJECT_ID` immediately after generating `.clasp.json`.
+- Upgraded the `deploy` scripts to execute an automated versioned deployment (`clasp deploy -d "Nexus Auto-Deploy..."`) after pushing code.
+- Added advanced regex parsing in both `deploy.ps1` and `deploy.sh` to extract the generated Deployment ID from the CLI output and dynamically construct the live `NEXUS_WEB_APP_URL`.
+- Formatted the live `NEXUS_WEB_APP_URL` in reverse video and updated the Action Required prompt to ensure developers map it to their Script Properties.
+
+## Global Health Dashboard Creation
+
+- Created `scripts/health_check.ps1` and `scripts/health_check.sh` to serve as a comprehensive diagnostic dashboard for the entire Nexus fleet.
+- Implemented dynamic infrastructure discovery using `gcloud compute instances list` to iterate over all active Nexus VMs across any zone.
+- Built a native remote extraction payload that executes via SSH to map the internal state of each VM, explicitly avoiding cross-platform terminal parsing issues by executing local Bash logic directly on the server.
+- The dashboard successfully queries the backend `openapi.json` for API readiness, checks `systemctl` for the `nexus.service` daemon status, analyzes the SQLite database sizing, catalogs active backups, and surfaces any orphaned/offline deployments left behind by the symlink architecture.
+- Ensured consistent and intelligent color-coding (`[PASS]` in Green, `[FAIL]` in Red) is evaluated and printed dynamically in both PowerShell and Bash.
+- Updated `INSTRUCTIONS.md` with a new Phase 6 to guide users on running the Health Dashboard.

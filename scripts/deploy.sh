@@ -146,12 +146,19 @@ gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --strict-host-key-checking=no --c
 VM_IP=$(gcloud compute instances describe $INSTANCE_NAME --zone=$ZONE --format="get(networkInterfaces[0].accessConfigs[0].natIP)" 2>/dev/null | tr -d '\r')
 NEXUS_VM_URL="http://${VM_IP}:8000"
 
+echo -e "\n${CYAN}Pushing frontend code to Apps Script...${NC}"
+clasp push -f
+DEPLOY_OUT=$(clasp deploy -d "Nexus Auto-Deploy $(date +'%Y-%m-%d %H:%M')")
+DEPLOY_ID=$(echo "$DEPLOY_OUT" | grep -oP -- '-\s\K[A-Za-z0-9_-]+(?=\s@)')
+NEXUS_WEB_APP_URL="https://script.google.com/macros/s/$DEPLOY_ID/exec"
+
 echo -e "\n${RED}====================================================${NC}"
 echo -e "${RED}                 ACTION REQUIRED                    ${NC}"
 echo -e "${RED}====================================================${NC}"
 echo -e "NEXUS_HMAC_SECRET: ${YELLOW}$NEXUS_HMAC_SECRET${NC}"
 echo -e "NEXUS_VM_URL:      ${YELLOW}$NEXUS_VM_URL${NC}"
-echo -e "\nPlease copy the values above. In a moment, your browser will open the Apps Script Editor. You MUST immediately go to: Project Settings (Gear Icon) -> Script Properties -> Add Script Property. Add NEXUS_HMAC_SECRET and NEXUS_VM_URL."
+echo -e "NEXUS_WEB_APP_URL: \e[7m$NEXUS_WEB_APP_URL\e[27m"
+echo -e "\nPlease copy the variables above. In a moment, your browser will open the Apps Script Editor. You MUST immediately go to: Project Settings (Gear Icon) -> Script Properties -> Add Script Property. Add NEXUS_HMAC_SECRET, NEXUS_VM_URL, and NEXUS_WEB_APP_URL."
 echo ""
 read -p "Press Enter to open the Editor..."
 SCRIPT_ID=$(grep -o '"scriptId":"[^"]*"' .clasp.json | cut -d'"' -f4)
