@@ -52,6 +52,11 @@ We need to tell Google Cloud to allow your new server to talk to your personal G
 
 We have engineered an Infrastructure as Code (IaC) deployment script that handles all the heavy lifting via an interactive prompt. 
 
+> **Windows Users:** If you receive an `UnauthorizedAccess` error when running scripts, you must update your PowerShell execution policy. Open PowerShell and run:
+> ```powershell
+> Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+> ```
+
 Run `./scripts/provision.ps1` (or `.sh`) and follow the interactive terminal prompts to provision your Google Cloud environment, OAuth consent screen, and API keys.
 
 **Multi-Environment Workflow:**

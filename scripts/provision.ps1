@@ -15,8 +15,6 @@ if (-not (Get-Command "gcloud" -ErrorAction SilentlyContinue)) {
     exit
 }
 
-gcloud config set ssh/use_openssh true --quiet
-
 Write-Host "Checking authentication status..."
 $ACTIVE_ACCOUNT = gcloud auth list --filter=status:ACTIVE --format="value(account)"
 

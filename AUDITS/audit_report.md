@@ -308,3 +308,10 @@ graph TD
 - Permanently enforced OpenSSH in `provision.ps1` and `provision.sh` (`gcloud config set ssh/use_openssh true --quiet`) to prevent PuTTY/Plink prompts.
 - Simplified the bootstrap command in `provision.ps1` and `provision.sh` by removing `$serviceContent` and `SERVICE_CONTENT` entirely to avoid parsing crashes.
 - Shifted systemd service enablement to `deploy.ps1` and `deploy.sh` (`sudo systemctl enable nexus.service`).
+
+## Windows PowerShell Execution Policy Documentation
+- Updated `INSTRUCTIONS.md` to include a clear directive for Windows users to run `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser` if they encounter `UnauthorizedAccess` errors before executing the provisioning script.
+
+## Reverting Invalid Gcloud SSH Config
+- Removed the `gcloud config set ssh/use_openssh true` command from `provision.ps1` and `provision.sh` because the `use_openssh` property is not globally valid across all Google Cloud CLI versions and causes an error (`Section [ssh] has no property [use_openssh]`).
+- Ensured that the OpenSSH environment variables (`$env:CLOUDSDK_COMPUTE_USE_OPENSSH = "1"` for PowerShell and `export CLOUDSDK_COMPUTE_USE_OPENSSH=1` for Bash) are explicitly declared at the very top of both scripts to reliably enforce OpenSSH usage and bypass Plink.
