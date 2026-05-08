@@ -194,7 +194,7 @@ else
     fi
 
     gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --quiet --command="mkdir -p \$HOME/nexus/shared"
-    gcloud compute scp "$CREDS_PATH" $INSTANCE_NAME:~/nexus/shared/credentials.json --zone=$ZONE --quiet
+    gcloud compute scp "$CREDS_PATH" $INSTANCE_NAME:nexus/shared/credentials.json --zone=$ZONE --quiet
 fi
 
 echo -e "\n${CYAN}Apps Script Initialization${NC}"

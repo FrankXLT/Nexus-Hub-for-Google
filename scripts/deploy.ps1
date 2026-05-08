@@ -1,5 +1,6 @@
 # scripts/deploy.ps1
 $ErrorActionPreference = "Stop"
+$env:CLOUDSDK_COMPUTE_USE_OPENSSH = "1"
 
 Write-Host "====================================================" -ForegroundColor Cyan
 Write-Host "       Nexus for Google One-Click Deployment Wizard        " -ForegroundColor Cyan

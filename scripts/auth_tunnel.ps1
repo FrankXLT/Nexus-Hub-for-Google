@@ -1,5 +1,6 @@
 # scripts/auth_tunnel.ps1
 $ErrorActionPreference = "Stop"
+$env:CLOUDSDK_COMPUTE_USE_OPENSSH = "1"
 
 Write-Host "====================================================" -ForegroundColor Cyan
 Write-Host "           Nexus Auth Tunnel Script                 " -ForegroundColor Cyan

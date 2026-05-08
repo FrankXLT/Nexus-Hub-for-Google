@@ -1,5 +1,6 @@
 # scripts/health_check.ps1
 $ErrorActionPreference = "Continue"
+$env:CLOUDSDK_COMPUTE_USE_OPENSSH = "1"
 
 Clear-Host
 Write-Host "====================================================" -ForegroundColor Cyan

@@ -1,5 +1,6 @@
 # scripts/provision.ps1
 $ErrorActionPreference = "Stop"
+$env:CLOUDSDK_COMPUTE_USE_OPENSSH = "1"
 
 Write-Host "====================================================" -ForegroundColor Cyan
 Write-Host "    Welcome to the Nexus for Google Provisioning Wizard    " -ForegroundColor Cyan
@@ -198,7 +199,7 @@ if ($CREDS_EXISTS -eq "YES") {
     }
 
     gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --quiet --strict-host-key-checking=no --command="mkdir -p `$HOME/nexus/shared"
-    gcloud compute scp $CREDS_PATH "$($INSTANCE_NAME):~/nexus/shared/credentials.json" --zone=$ZONE --quiet --strict-host-key-checking=no
+    gcloud compute scp $CREDS_PATH "$($INSTANCE_NAME):nexus/shared/credentials.json" --zone=$ZONE --quiet --strict-host-key-checking=no
 }
 
 Write-Host "`nApps Script Initialization" -ForegroundColor Cyan

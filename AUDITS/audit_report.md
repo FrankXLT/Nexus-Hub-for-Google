@@ -91,15 +91,15 @@ graph TD
 ## Fixes Applied: JS_Actions.html Syntax Error
 
 - Investigated the reported frontend freeze issue.
-- Diagnosed the core issue: A duplicate/orphaned code block inside the \ppActions\ object (lines 1074-1111) was causing a fatal JavaScript syntax error (\Unexpected identifier 'artifact'\). The code block contained unclosed logic for \enderDetailsPane\ that was floating outside of any function scope.
-- Replaced the fragmented single-item view logic with a properly consolidated \enderDetailsPane\ function.
+- Diagnosed the core issue: A duplicate/orphaned code block inside the \ ppActions\ object (lines 1074-1111) was causing a fatal JavaScript syntax error (\Unexpected identifier 'artifact'\). The code block contained unclosed logic for \enderDetailsPane\ that was floating outside of any function scope.
+- Replaced the fragmented single-item view logic with a properly consolidated \enderDetailsPane\ function.
 - Verified that \Code.gs\ successfully implements the \searchArtifacts\ pass-through webhook calling \/api/artifacts/search\ with no modifications needed.
 - Ran runtime syntax validation confirming resolution of the issue.
 
 ## Fixes Applied: UI Container Missing
 
 - Investigated the missing Inbox Cleanup container.
-- Verified that JS_Actions.html syntax is valid and the dangling \const artifact = appState.getArtifact...\ block was successfully removed from outside of the \enderDetailsPane\ function.
+- Verified that JS_Actions.html syntax is valid and the dangling \const artifact = appState.getArtifact...\ block was successfully removed from outside of the \enderDetailsPane\ function.
 - Added the \	ab-inbox-cleanup\ container inside the \<main class="main-content">\ area of Index.html to prevent null reference errors when the sidebar button is clicked.
 
 ## Fixes Applied: JS_Actions.html runtime reference error
@@ -270,3 +270,8 @@ graph TD
 - Upgraded `provision.ps1` and `provision.sh` to prompt the user: "Do you have an EXISTING Apps Script project to link? (y/N)".
 - If no, the script automatically executes `clasp create --type webapp --title "$PROJECT_TITLE" --rootDir "frontend/"`, dynamically generating the web app securely in the cloud and automatically linking the `.clasp.json` configuration without any user browser interaction.
 - Retained the ability for advanced users to manually input an existing Script ID to bypass the auto-creation sequence.
+
+## Windows Compatibility: OpenSSH & SCP Relative Paths Fix
+
+- Injected `$env:CLOUDSDK_COMPUTE_USE_OPENSSH = "1"` into all PowerShell deployment scripts (`provision.ps1`, `deploy.ps1`, `auth_tunnel.ps1`, `connect.ps1`, `health_check.ps1`) to permanently disable PuTTY/Plink. This silences interactive prompts that ignored `--strict-host-key-checking=no` and caused the automation pipeline to hang on Windows hosts.
+- Fixed an issue in `provision.ps1` and `provision.sh` where `pscp` failed to accurately interpret the `~/` home directory alias during file transfers. Changed the remote destination path for the `credentials.json` upload from `$INSTANCE_NAME:~/nexus/shared/credentials.json` to the strict relative path `$INSTANCE_NAME:nexus/shared/credentials.json`.
