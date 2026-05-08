@@ -315,3 +315,6 @@ graph TD
 ## Reverting Invalid Gcloud SSH Config
 - Removed the `gcloud config set ssh/use_openssh true` command from `provision.ps1` and `provision.sh` because the `use_openssh` property is not globally valid across all Google Cloud CLI versions and causes an error (`Section [ssh] has no property [use_openssh]`).
 - Ensured that the OpenSSH environment variables (`$env:CLOUDSDK_COMPUTE_USE_OPENSSH = "1"` for PowerShell and `export CLOUDSDK_COMPUTE_USE_OPENSSH=1` for Bash) are explicitly declared at the very top of both scripts to reliably enforce OpenSSH usage and bypass Plink.
+
+## Escaping the Windows CLI Parser
+- Updated Step 7.5 in `scripts/deploy.ps1` and `scripts/deploy.sh` to use single quotes around the systemd block string text, and dynamically break out of the single quotes around the `$USER` and `$HOME` variables. This cross-platform parser bypass prevents PowerShell from stripping the double quotes during the SSH payload transfer and exposing the spaces to the gcloud argument parser.

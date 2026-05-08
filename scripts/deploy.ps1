@@ -132,7 +132,7 @@ $sshCommand = @"
     ln -sfn `$FULL_RELEASE_DIR `$NEXUS_ROOT/current
     
     echo -e '\n[VM] 7.5. Patching systemd absolute paths...'
-    echo -e "[Unit]\nDescription=Nexus FastAPI Backend\nAfter=network.target\n\n[Service]\nUser=`$USER\nWorkingDirectory=`$HOME/nexus/current/backend\nEnvironment=PATH=`$HOME/nexus/current/backend/venv/bin\nExecStart=`$HOME/nexus/current/backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000\nRestart=always\n\n[Install]\nWantedBy=multi-user.target" | sudo tee /etc/systemd/system/nexus.service > /dev/null
+    echo -e '[Unit]\nDescription=Nexus FastAPI Backend\nAfter=network.target\n\n[Service]\nUser='`$USER'\nWorkingDirectory='`$HOME'/nexus/current/backend\nEnvironment=PATH='`$HOME'/nexus/current/backend/venv/bin\nExecStart='`$HOME'/nexus/current/backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000\nRestart=always\n\n[Install]\nWantedBy=multi-user.target' | sudo tee /etc/systemd/system/nexus.service > /dev/null
     
     echo -e '\n[VM] 8. Restarting the FastAPI systemd daemon...'
     sudo systemctl daemon-reload
