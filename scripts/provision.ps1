@@ -15,6 +15,8 @@ if (-not (Get-Command "gcloud" -ErrorAction SilentlyContinue)) {
     exit
 }
 
+gcloud config set ssh/use_openssh true --quiet
+
 Write-Host "Checking authentication status..."
 $ACTIVE_ACCOUNT = gcloud auth list --filter=status:ACTIVE --format="value(account)"
 
@@ -175,8 +177,7 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "Waiting 30 seconds for the VM's SSH daemon to initialize..." -ForegroundColor Cyan
 Start-Sleep -Seconds 30
 
-$serviceContent = "[Unit]\nDescription=Nexus FastAPI Backend\nAfter=network.target\n\n[Service]\nUser=`$USER\nWorkingDirectory=`$HOME/nexus/current/backend\nEnvironment=PATH=`$HOME/nexus/current/backend/venv/bin\nExecStart=`$HOME/nexus/current/backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000\nRestart=always\n\n[Install]\nWantedBy=multi-user.target"
-$bootstrapCmd = "mkdir -p `$HOME/nexus/shared/data `$HOME/nexus/shared/backups && chmod -R 777 `$HOME/nexus/shared && echo -e `"$serviceContent`" > /tmp/nexus.service && sudo mv /tmp/nexus.service /etc/systemd/system/nexus.service && sudo systemctl daemon-reload && sudo systemctl enable nexus.service"
+$bootstrapCmd = "mkdir -p `$HOME/nexus/shared/data `$HOME/nexus/shared/backups && chmod -R 777 `$HOME/nexus/shared"
 gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="$bootstrapCmd" --quiet --strict-host-key-checking=no
 
 # Clean up the temporary file

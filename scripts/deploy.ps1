@@ -136,6 +136,7 @@ $sshCommand = @"
     
     echo -e '\n[VM] 8. Restarting the FastAPI systemd daemon...'
     sudo systemctl daemon-reload
+    sudo systemctl enable nexus.service
     sudo systemctl restart nexus.service
     
     echo -e '\n[VM] Deployment sequence completed securely.'

@@ -303,3 +303,8 @@ graph TD
 
 - Patched the deployment scripts (`deploy.ps1` and `deploy.sh`) to self-heal the `nexus.service` systemd daemon on every run by overwriting the file with absolute Linux paths instead of literal `$USER` and `$HOME` strings.
 - Fixed string escaping in the provisioning scripts (`provision.ps1` and `provision.sh`) to correctly expand `$USER` and `$HOME` variables when initially creating the systemd service file on the VM.
+
+## Provision and Deploy Script Refactoring
+- Permanently enforced OpenSSH in `provision.ps1` and `provision.sh` (`gcloud config set ssh/use_openssh true --quiet`) to prevent PuTTY/Plink prompts.
+- Simplified the bootstrap command in `provision.ps1` and `provision.sh` by removing `$serviceContent` and `SERVICE_CONTENT` entirely to avoid parsing crashes.
+- Shifted systemd service enablement to `deploy.ps1` and `deploy.sh` (`sudo systemctl enable nexus.service`).
