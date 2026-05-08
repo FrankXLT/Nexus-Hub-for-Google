@@ -154,8 +154,7 @@ Write-Host "                 ACTION REQUIRED                    " -ForegroundCol
 Write-Host "====================================================" -ForegroundColor Red
 Write-Host "NEXUS_HMAC_SECRET: " -NoNewline; Write-Host $NEXUS_HMAC_SECRET -ForegroundColor Yellow
 Write-Host "NEXUS_VM_URL:      " -NoNewline; Write-Host $NEXUS_VM_URL -ForegroundColor Yellow
-Write-Host "NEXUS_WEB_APP_URL: " -NoNewline; Write-Host $NEXUS_WEB_APP_URL -BackgroundColor White -ForegroundColor Black
-Write-Host "`nPlease copy the variables above. In a moment, your browser will open the Apps Script Editor. You MUST immediately go to: Project Settings (Gear Icon) -> Script Properties -> Add Script Property. Add NEXUS_HMAC_SECRET, NEXUS_VM_URL, and NEXUS_WEB_APP_URL."
+Write-Host "`nPlease copy the variables above. In a moment, your browser will open the Apps Script Editor. You MUST immediately go to: Project Settings (Gear Icon) -> Script Properties -> Add Script Property. Add NEXUS_HMAC_SECRET and NEXUS_VM_URL."
 
 Read-Host "Press Enter to open the Editor..."
 $claspJson = Get-Content .clasp.json | ConvertFrom-Json

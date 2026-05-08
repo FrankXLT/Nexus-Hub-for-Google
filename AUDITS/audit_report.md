@@ -318,3 +318,6 @@ graph TD
 
 ## Escaping the Windows CLI Parser
 - Updated Step 7.5 in `scripts/deploy.ps1` and `scripts/deploy.sh` to use single quotes around the systemd block string text, and dynamically break out of the single quotes around the `$USER` and `$HOME` variables. This cross-platform parser bypass prevents PowerShell from stripping the double quotes during the SSH payload transfer and exposing the spaces to the gcloud argument parser.
+
+## Cleanup UX Instruction Output
+- Removed redundant instruction instructing users to map `NEXUS_WEB_APP_URL` to Apps Script Properties in `scripts/deploy.ps1` and `scripts/deploy.sh` since this variable is automatically securely injected into the remote VM's `.env` file and does not belong on the frontend.
