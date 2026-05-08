@@ -72,8 +72,11 @@ fi
 echo -e "\n${YELLOW}[1/2] Syncing Serverless Frontend (Google Apps Script)...${NC}"
 echo -e "Executing 'clasp push' to upload local HTML/JS/GS files to your Google Account."
 if command -v clasp &> /dev/null; then
-    clasp push
-    echo -e "${GREEN}--> Apps Script UI synced successfully!${NC}"
+    clasp push -f
+    DEPLOY_OUT=$(clasp deploy -d "Nexus Auto-Deploy $(date +'%Y-%m-%d %H:%M')")
+    DEPLOY_ID=$(echo "$DEPLOY_OUT" | grep -oP -- '-\s\K[A-Za-z0-9_-]+(?=\s@)')
+    NEXUS_WEB_APP_URL="https://script.google.com/macros/s/$DEPLOY_ID/exec"
+    echo -e "${GREEN}--> Apps Script UI synced successfully! URL: $NEXUS_WEB_APP_URL${NC}"
 else
     echo -e "${RED}Error: clasp is not installed. Please install it globally (npm install -g @google/clasp).${NC}"
     exit 1
@@ -89,13 +92,12 @@ if [ "$ENV_EXISTS" = "NO" ]; then
     echo "Please provide the following configuration values:"
     read -p "NEXUS_HMAC_SECRET (type a highly unique, secure passphrase): " NEXUS_HMAC_SECRET
     read -p "NEXUS_API_KEY (Your Gemini API Key): " NEXUS_API_KEY
-    read -p "NEXUS_WEBHOOK_URL (The permanent /exec URL for Apps Script): " NEXUS_WEBHOOK_URL
 
     gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --strict-host-key-checking=no --command="
         mkdir -p \$HOME/nexus/shared
         echo \"NEXUS_HMAC_SECRET=\$NEXUS_HMAC_SECRET\" > \$HOME/nexus/shared/.env
         echo \"NEXUS_API_KEY=\$NEXUS_API_KEY\" >> \$HOME/nexus/shared/.env
-        echo \"NEXUS_WEBHOOK_URL=\$NEXUS_WEBHOOK_URL\" >> \$HOME/nexus/shared/.env
+        echo \"NEXUS_WEBHOOK_URL=\$NEXUS_WEB_APP_URL\" >> \$HOME/nexus/shared/.env
         echo 'shared/.env file generated successfully.'
     "
 else
@@ -145,12 +147,6 @@ gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --strict-host-key-checking=no --c
 
 VM_IP=$(gcloud compute instances describe $INSTANCE_NAME --zone=$ZONE --format="get(networkInterfaces[0].accessConfigs[0].natIP)" 2>/dev/null | tr -d '\r')
 NEXUS_VM_URL="http://${VM_IP}:8000"
-
-echo -e "\n${CYAN}Pushing frontend code to Apps Script...${NC}"
-clasp push -f
-DEPLOY_OUT=$(clasp deploy -d "Nexus Auto-Deploy $(date +'%Y-%m-%d %H:%M')")
-DEPLOY_ID=$(echo "$DEPLOY_OUT" | grep -oP -- '-\s\K[A-Za-z0-9_-]+(?=\s@)')
-NEXUS_WEB_APP_URL="https://script.google.com/macros/s/$DEPLOY_ID/exec"
 
 echo -e "\n${RED}====================================================${NC}"
 echo -e "${RED}                 ACTION REQUIRED                    ${NC}"

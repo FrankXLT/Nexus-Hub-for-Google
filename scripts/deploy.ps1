@@ -61,8 +61,11 @@ if (-not (Get-Command "clasp" -ErrorAction SilentlyContinue)) {
     Write-Host "Error: clasp is not installed. Please install it globally (npm install -g @google/clasp)." -ForegroundColor Red
     exit
 }
-clasp push
-Write-Host "--> Apps Script UI synced successfully!" -ForegroundColor Green
+clasp push -f
+$deployOut = clasp deploy -d "Nexus Auto-Deploy $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
+$deployId = ($deployOut | Select-String -Pattern "-\s([A-Za-z0-9_-]+)\s@" | ForEach-Object { $_.Matches.Groups[1].Value })[0]
+$NEXUS_WEB_APP_URL = "https://script.google.com/macros/s/$deployId/exec"
+Write-Host "--> Apps Script UI synced successfully! URL: $NEXUS_WEB_APP_URL" -ForegroundColor Green
 
 Write-Host "`n[2/2] Deploying Backend to Google Cloud VM..." -ForegroundColor Yellow
 
@@ -74,9 +77,8 @@ if ($envExists -eq "NO") {
     Write-Host "`n*** ACTION REQUIRED: shared/.env FILE MISSING ***" -ForegroundColor Red
     $NEXUS_HMAC_SECRET = Read-Host "NEXUS_HMAC_SECRET (type a highly unique, secure passphrase)"
     $NEXUS_API_KEY = Read-Host "NEXUS_API_KEY (Your Gemini API Key)"
-    $NEXUS_WEBHOOK_URL = Read-Host "NEXUS_WEBHOOK_URL (The permanent /exec URL for Apps Script)"
 
-    $envScript = "mkdir -p `$HOME/nexus/shared && echo 'NEXUS_HMAC_SECRET=$NEXUS_HMAC_SECRET' > `$HOME/nexus/shared/.env && echo 'NEXUS_API_KEY=$NEXUS_API_KEY' >> `$HOME/nexus/shared/.env && echo 'NEXUS_WEBHOOK_URL=$NEXUS_WEBHOOK_URL' >> `$HOME/nexus/shared/.env && echo 'shared/.env file generated successfully.'"
+    $envScript = "mkdir -p `$HOME/nexus/shared && echo 'NEXUS_HMAC_SECRET=$NEXUS_HMAC_SECRET' > `$HOME/nexus/shared/.env && echo 'NEXUS_API_KEY=$NEXUS_API_KEY' >> `$HOME/nexus/shared/.env && echo 'NEXUS_WEBHOOK_URL=$NEXUS_WEB_APP_URL' >> `$HOME/nexus/shared/.env && echo 'shared/.env file generated successfully.'"
     gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --strict-host-key-checking=no --command=$envScript
 } else {
     $NEXUS_HMAC_SECRET = gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --strict-host-key-checking=no --command="grep '^NEXUS_HMAC_SECRET=' `$HOME/nexus/shared/.env | cut -d'=' -f2"
@@ -131,12 +133,6 @@ $vmIp = gcloud compute instances describe $INSTANCE_NAME --zone=$ZONE --format="
 $vmIp = $vmIp -replace "`r", ""
 $vmIp = $vmIp -replace "`n", ""
 $NEXUS_VM_URL = "http://${vmIp}:8000"
-
-Write-Host "`nPushing frontend code to Apps Script..." -ForegroundColor Cyan
-clasp push -f
-$deployOut = clasp deploy -d "Nexus Auto-Deploy $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
-$deployId = ($deployOut | Select-String -Pattern "-\s([A-Za-z0-9_-]+)\s@" | ForEach-Object { $_.Matches.Groups[1].Value })[0]
-$NEXUS_WEB_APP_URL = "https://script.google.com/macros/s/$deployId/exec"
 
 Write-Host "====================================================" -ForegroundColor Red
 Write-Host "                 ACTION REQUIRED                    " -ForegroundColor Red

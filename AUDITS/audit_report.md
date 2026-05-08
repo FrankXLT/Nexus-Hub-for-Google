@@ -279,3 +279,10 @@ graph TD
 ## Apps Script Project Naming Collision Fix
 
 - Updated `provision.ps1` and `provision.sh` to include a dynamic timestamp in the generated Apps Script project title (`[$UPPER_ENV] Nexus for Google - $TIMESTAMP`). This ensures every `clasp create` command generates a perfectly unique project name, avoiding invisible name collisions with deleted projects that still reside in the Google Drive Trash.
+
+## Circular Dependency Fix: Environment Variable Auto-Generation
+
+- Reordered the pipeline in `deploy.ps1` and `deploy.sh` to resolve a circular dependency during initial `.env` generation.
+- Moved the entire "Syncing Serverless Frontend" block (`clasp push -f` and `clasp deploy`) before the "Deploying Backend" block.
+- Removed the interactive user prompt for `NEXUS_WEBHOOK_URL`.
+- The scripts now automatically capture the live `$NEXUS_WEB_APP_URL` from the frontend deployment and seamlessly inject it into the remote `.env` creation payload over SSH, eliminating manual user entry while preserving the final Action Required output instructions.
