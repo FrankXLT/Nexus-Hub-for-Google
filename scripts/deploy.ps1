@@ -62,8 +62,19 @@ if (-not (Get-Command "clasp" -ErrorAction SilentlyContinue)) {
     exit
 }
 clasp push -f
-$deployOut = clasp deploy -d "Nexus Auto-Deploy $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
-$deployId = ($deployOut | Select-String -Pattern "-\s([A-Za-z0-9_-]+)\s@" | ForEach-Object { $_.Matches.Groups[1].Value })[0]
+$deployOut = clasp deploy -d "Nexus Auto-Deploy $(Get-Date -Format 'yyyy-MM-dd HH:mm')" 2>&1
+$deployOutString = $deployOut -join "`n"
+
+# Strip invisible ANSI color codes that break regex
+$deployOutClean = $deployOutString -replace "`e\[[0-9;]*m", ""
+
+if ($deployOutClean -match "-\s([A-Za-z0-9_-]+)\s@") {
+    $deployId = $Matches[1]
+} else {
+    Write-Host "`n[FATAL] Error parsing Deployment ID. Clasp output was:" -ForegroundColor Red
+    Write-Host $deployOutString -ForegroundColor Yellow
+    exit
+}
 $NEXUS_WEB_APP_URL = "https://script.google.com/macros/s/$deployId/exec"
 Write-Host "--> Apps Script UI synced successfully! URL: $NEXUS_WEB_APP_URL" -ForegroundColor Green
 

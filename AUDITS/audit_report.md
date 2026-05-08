@@ -291,3 +291,9 @@ graph TD
 
 - Fixed an issue in `provision.ps1` and `provision.sh` where `clasp create` threw an `Invalid container file type` error. Removed the `--type webapp` argument to force Clasp v3 to default to a standalone container.
 - Fixed an `Unknown command` error by completely removing the deprecated `clasp setting projectId` command. Replaced it with native JSON parsing to directly inject the Project ID into `.clasp.json` (using PowerShell for Windows and inline Node.js for Linux/macOS).
+
+## Clasp Deploy Regex Parsing Hardening
+
+- Addressed an issue in `deploy.ps1` and `deploy.sh` where the `clasp deploy` command output contained invisible ANSI color codes, breaking regex matching and resulting in a `Cannot index into a null array` or empty string crash when parsing the Deployment ID.
+- Implemented robust string parsing by stripping ANSI codes (`sed` in Bash, `-replace` in PowerShell) prior to executing regex matches.
+- Added explicit error handling and fatal log outputs if the Deployment ID fails to parse.
