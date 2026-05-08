@@ -298,3 +298,8 @@ graph TD
 - Implemented robust string parsing by stripping ANSI codes (`sed` in Bash, `-replace` in PowerShell) prior to executing regex matches.
 - Added explicit error handling and fatal log outputs if the Deployment ID fails to parse.
 - Updated regex in `deploy.ps1` and `deploy.sh` to match the new `clasp deploy` v3.x output format (`Deployed {ID} @{version}` instead of `- {ID} @{version}`).
+
+## Systemd Absolute Paths Fix
+
+- Patched the deployment scripts (`deploy.ps1` and `deploy.sh`) to self-heal the `nexus.service` systemd daemon on every run by overwriting the file with absolute Linux paths instead of literal `$USER` and `$HOME` strings.
+- Fixed string escaping in the provisioning scripts (`provision.ps1` and `provision.sh`) to correctly expand `$USER` and `$HOME` variables when initially creating the systemd service file on the VM.
