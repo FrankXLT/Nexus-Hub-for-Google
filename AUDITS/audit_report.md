@@ -286,3 +286,8 @@ graph TD
 - Moved the entire "Syncing Serverless Frontend" block (`clasp push -f` and `clasp deploy`) before the "Deploying Backend" block.
 - Removed the interactive user prompt for `NEXUS_WEBHOOK_URL`.
 - The scripts now automatically capture the live `$NEXUS_WEB_APP_URL` from the frontend deployment and seamlessly inject it into the remote `.env` creation payload over SSH, eliminating manual user entry while preserving the final Action Required output instructions.
+
+## Clasp v3 Compatibility Fixes
+
+- Fixed an issue in `provision.ps1` and `provision.sh` where `clasp create` threw an `Invalid container file type` error. Removed the `--type webapp` argument to force Clasp v3 to default to a standalone container.
+- Fixed an `Unknown command` error by completely removing the deprecated `clasp setting projectId` command. Replaced it with native JSON parsing to directly inject the Project ID into `.clasp.json` (using PowerShell for Windows and inline Node.js for Linux/macOS).

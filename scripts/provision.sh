@@ -210,11 +210,11 @@ if [[ "$linkExisting" =~ ^[Yy]$ ]]; then
 EOF
 else
     echo -e "${YELLOW}Commanding Google to create a new Apps Script Web App: '$PROJECT_TITLE'...${NC}"
-    clasp create --type webapp --title "$PROJECT_TITLE" --rootDir "frontend/"
+    clasp create --title "$PROJECT_TITLE" --rootDir "frontend/"
 fi
 
 echo -e "${YELLOW}Linking Apps Script to Google Cloud Project for Cloud Logging...${NC}"
-clasp setting projectId $PROJECT_ID
+node -e "let fs=require('fs'); let cfg=JSON.parse(fs.readFileSync('.clasp.json')); cfg.projectId='$PROJECT_ID'; fs.writeFileSync('.clasp.json', JSON.stringify(cfg, null, 2));"
 echo -e "${GREEN}Apps Script linked to GCP Project for Cloud Logging.${NC}"
 cat > .nexus_env <<EOF
 TARGET_VM=$INSTANCE_NAME

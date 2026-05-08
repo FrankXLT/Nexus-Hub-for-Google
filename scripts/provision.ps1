@@ -215,11 +215,13 @@ if ($linkExisting -match "^[yY]") {
 } else {
     Write-Host "Commanding Google to create a new Apps Script Web App: '$PROJECT_TITLE'..." -ForegroundColor Yellow
     # clasp create will automatically generate the .clasp.json file
-    clasp create --type webapp --title $PROJECT_TITLE --rootDir "frontend/"
+    clasp create --title $PROJECT_TITLE --rootDir "frontend/"
 }
 
 Write-Host "Linking Apps Script to Google Cloud Project for Cloud Logging..." -ForegroundColor Yellow
-clasp setting projectId $PROJECT_ID
+$claspConfig = Get-Content .clasp.json | ConvertFrom-Json
+$claspConfig | Add-Member -Type NoteProperty -Name "projectId" -Value $PROJECT_ID
+$claspConfig | ConvertTo-Json -Depth 10 | Set-Content .clasp.json -Encoding Ascii
 Write-Host "Apps Script linked to GCP Project for Cloud Logging." -ForegroundColor Green
 Set-Content -Path ".nexus_env" -Value "TARGET_VM=$INSTANCE_NAME`nTARGET_ZONE=$ZONE" -Encoding Ascii
 Write-Host "Success! Local clasp is now securely linked to your Google account and restricted to the frontend/ directory." -ForegroundColor Green
