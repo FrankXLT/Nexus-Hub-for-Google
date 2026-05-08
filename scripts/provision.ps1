@@ -204,9 +204,10 @@ if ($CREDS_EXISTS -eq "YES") {
 
 Write-Host "`nApps Script Initialization" -ForegroundColor Cyan
 $UPPER_ENV = $ENV_LABEL.ToUpper()
-$PROJECT_TITLE = "Nexus for Google - [$UPPER_ENV]"
+$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$PROJECT_TITLE = "[$UPPER_ENV] Nexus for Google - $timestamp"
 
-$linkExisting = Read-Host "Do you have an EXISTING (or in Google Drive Trash) Apps Script project to link? (y/N)"
+$linkExisting = Read-Host "Do you have an EXISTING Apps Script project to link? (y/N)"
 if ($linkExisting -match "^[yY]") {
     $SCRIPT_ID = Read-Host "Please paste your existing Script ID here"
     $claspJsonContent = "{`"scriptId`":`"$SCRIPT_ID`",`"rootDir`":`"frontend/`"}"

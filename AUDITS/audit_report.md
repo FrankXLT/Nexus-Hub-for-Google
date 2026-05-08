@@ -275,3 +275,7 @@ graph TD
 
 - Injected `$env:CLOUDSDK_COMPUTE_USE_OPENSSH = "1"` into all PowerShell deployment scripts (`provision.ps1`, `deploy.ps1`, `auth_tunnel.ps1`, `connect.ps1`, `health_check.ps1`) to permanently disable PuTTY/Plink. This silences interactive prompts that ignored `--strict-host-key-checking=no` and caused the automation pipeline to hang on Windows hosts.
 - Fixed an issue in `provision.ps1` and `provision.sh` where `pscp` failed to accurately interpret the `~/` home directory alias during file transfers. Changed the remote destination path for the `credentials.json` upload from `$INSTANCE_NAME:~/nexus/shared/credentials.json` to the strict relative path `$INSTANCE_NAME:nexus/shared/credentials.json`.
+
+## Apps Script Project Naming Collision Fix
+
+- Updated `provision.ps1` and `provision.sh` to include a dynamic timestamp in the generated Apps Script project title (`[$UPPER_ENV] Nexus for Google - $TIMESTAMP`). This ensures every `clasp create` command generates a perfectly unique project name, avoiding invisible name collisions with deleted projects that still reside in the Google Drive Trash.

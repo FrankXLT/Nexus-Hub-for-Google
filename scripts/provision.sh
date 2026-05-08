@@ -199,9 +199,10 @@ fi
 
 echo -e "\n${CYAN}Apps Script Initialization${NC}"
 UPPER_ENV=$(echo "$ENV_LABEL" | tr '[:lower:]' '[:upper:]')
-PROJECT_TITLE="Nexus for Google - [$UPPER_ENV]"
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+PROJECT_TITLE="[$UPPER_ENV] Nexus for Google - $TIMESTAMP"
 
-read -p "Do you have an EXISTING (or in Google Drive Trash) Apps Script project to link? (y/N): " linkExisting
+read -p "Do you have an EXISTING Apps Script project to link? (y/N): " linkExisting
 if [[ "$linkExisting" =~ ^[Yy]$ ]]; then
     read -p "Please paste your existing Script ID here: " SCRIPT_ID
     cat > .clasp.json <<EOF
