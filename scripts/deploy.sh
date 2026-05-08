@@ -76,7 +76,7 @@ if command -v clasp &> /dev/null; then
     DEPLOY_OUT=$(clasp deploy -d "Nexus Auto-Deploy $(date +'%Y-%m-%d %H:%M')" 2>&1)
     # Strip ANSI formatting
     DEPLOY_CLEAN=$(echo "$DEPLOY_OUT" | sed -r "s/\x1B\[[0-9;]*[mK]//g")
-    DEPLOY_ID=$(echo "$DEPLOY_CLEAN" | grep -oP '-\s\K[A-Za-z0-9_-]+(?=\s@)')
+    DEPLOY_ID=$(echo "$DEPLOY_CLEAN" | grep -oP '(?:-\s|Deployed\s)\K[A-Za-z0-9_-]+(?=\s*@)')
 
     if [ -z "$DEPLOY_ID" ]; then
         echo -e "\n${RED}[FATAL] Error parsing Deployment ID. Clasp output was:${NC}"

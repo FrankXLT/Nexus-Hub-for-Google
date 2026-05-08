@@ -68,7 +68,7 @@ $deployOutString = $deployOut -join "`n"
 # Strip invisible ANSI color codes that break regex
 $deployOutClean = $deployOutString -replace "`e\[[0-9;]*m", ""
 
-if ($deployOutClean -match "-\s([A-Za-z0-9_-]+)\s@") {
+if ($deployOutClean -match "(?:-\s|Deployed\s)([A-Za-z0-9_-]+)\s*@") {
     $deployId = $Matches[1]
 } else {
     Write-Host "`n[FATAL] Error parsing Deployment ID. Clasp output was:" -ForegroundColor Red

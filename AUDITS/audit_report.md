@@ -297,3 +297,4 @@ graph TD
 - Addressed an issue in `deploy.ps1` and `deploy.sh` where the `clasp deploy` command output contained invisible ANSI color codes, breaking regex matching and resulting in a `Cannot index into a null array` or empty string crash when parsing the Deployment ID.
 - Implemented robust string parsing by stripping ANSI codes (`sed` in Bash, `-replace` in PowerShell) prior to executing regex matches.
 - Added explicit error handling and fatal log outputs if the Deployment ID fails to parse.
+- Updated regex in `deploy.ps1` and `deploy.sh` to match the new `clasp deploy` v3.x output format (`Deployed {ID} @{version}` instead of `- {ID} @{version}`).
