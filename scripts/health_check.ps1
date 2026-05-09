@@ -9,9 +9,9 @@ Write-Host "====================================================" -ForegroundCol
 
 $claspOut = clasp deployments 2>&1
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "[PASS] Apps Script Frontend..." -ForegroundColor Green
+    Write-Host '[PASS] Apps Script Frontend...' -ForegroundColor Green
 } else {
-    Write-Host "[FAIL] Apps Script Frontend..." -ForegroundColor Red
+    Write-Host '[FAIL] Apps Script Frontend...' -ForegroundColor Red
 }
 
 $vms = gcloud compute instances list --format="value(name,zone,status,networkInterfaces[0].accessConfigs[0].natIP)"
@@ -58,15 +58,16 @@ foreach ($vm in $vmList) {
     try {
         $response = Invoke-WebRequest -Uri "http://$IP:8000/openapi.json" -Method Get -TimeoutSec 5 -UseBasicParsing -ErrorAction Stop
         if ($response.StatusCode -eq 200) {
-            Write-Host "  ├── API Endpoint (Port 8000) : " -NoNewline
-            Write-Host "[PASS] HTTP 200 OK" -ForegroundColor Green
+            Write-Host '  ├── API Endpoint (Port 8000) : ' -NoNewline
+            Write-Host '[PASS] HTTP 200 OK' -ForegroundColor Green
         } else {
-            Write-Host "  ├── API Endpoint (Port 8000) : " -NoNewline
-            Write-Host "[FAIL] HTTP $($response.StatusCode)" -ForegroundColor Red
+            Write-Host '  ├── API Endpoint (Port 8000) : ' -NoNewline
+            Write-Host '[FAIL] HTTP ' -NoNewline -ForegroundColor Red
+            Write-Host $response.StatusCode -ForegroundColor Red
         }
     } catch {
-        Write-Host "  ├── API Endpoint (Port 8000) : " -NoNewline
-        Write-Host "[FAIL] Timeout or unreachable" -ForegroundColor Red
+        Write-Host '  ├── API Endpoint (Port 8000) : ' -NoNewline
+        Write-Host '[FAIL] Timeout or unreachable' -ForegroundColor Red
     }
 
     if ($STATUS -eq "RUNNING") {
@@ -76,25 +77,25 @@ foreach ($vm in $vmList) {
                 Write-Host ""
                 continue
             }
-            if ($line -match "\[PASS\]") {
-                $parts_l = $line -split "\[PASS\]", 2
+            if ($line -match '\[PASS\]') {
+                $parts_l = $line -split '\[PASS\]', 2
                 Write-Host $parts_l[0] -NoNewline
-                Write-Host "[PASS]" -ForegroundColor Green -NoNewline
+                Write-Host '[PASS]' -ForegroundColor Green -NoNewline
                 Write-Host $parts_l[1]
-            } elseif ($line -match "\[FAIL\]") {
-                $parts_l = $line -split "\[FAIL\]", 2
+            } elseif ($line -match '\[FAIL\]') {
+                $parts_l = $line -split '\[FAIL\]', 2
                 Write-Host $parts_l[0] -NoNewline
-                Write-Host "[FAIL]" -ForegroundColor Red -NoNewline
+                Write-Host '[FAIL]' -ForegroundColor Red -NoNewline
                 Write-Host $parts_l[1]
-            } elseif ($line -match "Systemd" -and $line -match "inactive") {
-                $parts_l = $line -split "inactive", 2
+            } elseif ($line -match 'Systemd' -and $line -match 'inactive') {
+                $parts_l = $line -split 'inactive', 2
                 Write-Host $parts_l[0] -NoNewline
-                Write-Host "inactive" -ForegroundColor Red -NoNewline
+                Write-Host 'inactive' -ForegroundColor Red -NoNewline
                 Write-Host $parts_l[1]
-            } elseif ($line -match "Systemd" -and $line -match "active") {
-                $parts_l = $line -split "active", 2
+            } elseif ($line -match 'Systemd' -and $line -match 'active') {
+                $parts_l = $line -split 'active', 2
                 Write-Host $parts_l[0] -NoNewline
-                Write-Host "active" -ForegroundColor Green -NoNewline
+                Write-Host 'active' -ForegroundColor Green -NoNewline
                 Write-Host $parts_l[1]
             } else {
                 Write-Host $line

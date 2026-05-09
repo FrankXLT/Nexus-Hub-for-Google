@@ -1,4 +1,3 @@
-$instructionsContent = @"
 # Nexus for Google - Installation Masterclass
 
 Welcome to Nexus for Google! This guide will walk you through building your personal, privacy-first, automated AI knowledge graph from scratch. By following the interactive scripts below, you will provision a Google Cloud server, deploy your backend, and link it securely to your Google Account.
@@ -232,7 +231,4 @@ PS C:\Users\developer\Github\Nexus-for-Google>
 ```
 
 **Congratulations! Your Nexus for Google Walled Garden is successfully deployed, secured, and authenticated.**
-"@
 
-Set-Content -Path "INSTRUCTIONS.md" -Value $instructionsContent -Encoding UTF8
-Write-Host "INSTRUCTIONS.md has been generated successfully!" -ForegroundColor Green
