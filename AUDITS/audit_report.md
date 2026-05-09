@@ -321,3 +321,8 @@ graph TD
 
 ## Cleanup UX Instruction Output
 - Removed redundant instruction instructing users to map `NEXUS_WEB_APP_URL` to Apps Script Properties in `scripts/deploy.ps1` and `scripts/deploy.sh` since this variable is automatically securely injected into the remote VM's `.env` file and does not belong on the frontend.
+
+## Resolving Path Logic & Final Cleanup
+- Updated `backend/db_init.py` to use a path-agnostic approach (`os.path.abspath(__file__)`) to reliably resolve the `PROMPTS` directory relative to the script's location, preventing initialization failures.
+- Ensured the OpenSSH environment variable (`CLOUDSDK_COMPUTE_USE_OPENSSH=1`) is declared at the top of `scripts/auth_tunnel.ps1` and `scripts/auth_tunnel.sh` to guarantee a smooth SSH tunneling and authentication process on new machines.
+- Confirmed the UX instruction output no longer references the redundant `NEXUS_WEB_APP_URL`.

@@ -6,6 +6,17 @@ Enforces STRICT tables, WAL journaling mode, and JSON data type validation.
 import sqlite3
 import os
 
+# Get the directory where db_init.py is located
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Navigate up to the root to find the PROMPTS folder
+PROMPTS_DIR = os.path.join(BASE_DIR, "..", "PROMPTS")
+
+def get_prompt_template(filename):
+    path = os.path.join(PROMPTS_DIR, filename)
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read()
+
 DB_PATH = 'nexus.db'
 
 def init_db(db_path: str = DB_PATH) -> None:
@@ -358,8 +369,7 @@ def seed_default_prompts(conn: sqlite3.Connection) -> None:
         cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('DRIVE_STAGE_2', PROMPT_DRIVE_STAGE_2))
 
     try:
-        with open(os.path.join('PROMPTS', 'quarantine_consolidation.tmpl'), 'r') as f:
-            consolidation_tmpl = f.read()
+        consolidation_tmpl = get_prompt_template('quarantine_consolidation.tmpl')
         cursor.execute("SELECT target_app FROM Config_Prompts WHERE target_app = ?", ('QUARANTINE_CONSOLIDATION',))
         if cursor.fetchone() is None:
             cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('QUARANTINE_CONSOLIDATION', consolidation_tmpl))

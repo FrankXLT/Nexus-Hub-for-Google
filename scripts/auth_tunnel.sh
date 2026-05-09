@@ -4,6 +4,7 @@
 
 set -e
 set -o pipefail
+export CLOUDSDK_COMPUTE_USE_OPENSSH=1
 
 # Color Codes
 CYAN='\033[0;36m'
