@@ -32,4 +32,4 @@ fi
 
 echo -e "\n${YELLOW}An SSH tunnel is opening, please wait... When the link appears, please open your browser to the URL and authorize. ${NC}"
 
-gcloud compute ssh $TARGET_VM --zone=$TARGET_ZONE --ssh-flag="-L 8080:localhost:8080" --command="sudo fuser -k 8080/tcp >/dev/null 2>&1 ; cd \$HOME/nexus/current/backend && source venv/bin/activate && pip install google-auth-oauthlib google-api-python-client --quiet && python3 -u auth.py"
+gcloud compute ssh $TARGET_VM --zone=$TARGET_ZONE --ssh-flag="-L 8080:localhost:8080" --command="sudo pkill -f auth.py >/dev/null 2>&1 ; sleep 2 ; cd \$HOME/nexus/current/backend && source venv/bin/activate && pip install google-auth-oauthlib google-api-python-client --quiet && python3 -u auth.py"

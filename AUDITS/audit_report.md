@@ -330,3 +330,6 @@ graph TD
 - Updated `backend/db_init.py` to use a path-agnostic approach (`os.path.abspath(__file__)`) to reliably resolve the `PROMPTS` directory relative to the script's location, preventing initialization failures.
 - Ensured the OpenSSH environment variable (`CLOUDSDK_COMPUTE_USE_OPENSSH=1`) is declared at the top of `scripts/auth_tunnel.ps1` and `scripts/auth_tunnel.sh` to guarantee a smooth SSH tunneling and authentication process on new machines.
 - Confirmed the UX instruction output no longer references the redundant `NEXUS_WEB_APP_URL`.
+
+## Eradicating Zombie Auth Processes
+- Updated `scripts/auth_tunnel.ps1` and `scripts/auth_tunnel.sh` to use `sudo pkill -f auth.py >/dev/null 2>&1 ; sleep 2` instead of `sudo fuser -k 8080/tcp >/dev/null 2>&1`. This robustly kills any runaway auth processes from previous aborted runs without relying on `psmisc` (which is not installed by default on minimal GCP images) and allows the OS time to release the port, preventing `[Errno 98] Address already in use` errors.
