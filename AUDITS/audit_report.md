@@ -336,3 +336,6 @@ graph TD
 
 ## Systemd Service Auth Port Fix
 - Resolved `[Errno 98] Address already in use` crashes in `scripts/auth_tunnel.ps1` and `scripts/auth_tunnel.sh` that occurred post-reboot. The `nexus.service` daemon was silently starting on boot and occupying port 8080 in the background. The scripts now gracefully execute `sudo systemctl stop nexus.service` before launching the manual OAuth server flow, and then immediately execute `sudo systemctl start nexus.service` after token generation completes.
+
+## Base64 Payload Obfuscation for Health Checks
+- Resolved `System.Management.Automation.RemoteException` crashes in `scripts/health_check.ps1` on Windows. PowerShell was mangling the multiline `$remotePayload` string during `gcloud compute ssh` argument parsing. Implemented a native PowerShell Base64 encoding pass, securely wrapping the payload into `$b64Payload`, and commanded the remote Linux VM to decode and execute it (`echo $b64Payload | base64 -d | bash`), entirely bypassing the Windows command-line parser.

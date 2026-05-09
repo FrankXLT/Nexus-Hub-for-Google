@@ -71,7 +71,9 @@ foreach ($vm in $vmList) {
     }
 
     if ($STATUS -eq "RUNNING") {
-        $sshOut = gcloud compute ssh $NAME --zone=$ZONE --command="$remotePayload" --quiet --strict-host-key-checking=no 2>&1
+        $b64Payload = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($remotePayload))
+        $sshCmd = "echo $b64Payload | base64 -d | bash"
+        $sshOut = gcloud compute ssh $NAME --zone=$ZONE --command=$sshCmd --quiet --strict-host-key-checking=no 2>&1
         foreach ($line in $sshOut) {
             if ([string]::IsNullOrWhiteSpace($line)) {
                 Write-Host ""
