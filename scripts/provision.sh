@@ -212,6 +212,7 @@ if [[ "$linkExisting" =~ ^[Yy]$ ]]; then
 EOF
 else
     echo -e "${YELLOW}Commanding Google to create a new Apps Script Web App: '$PROJECT_TITLE'...${NC}"
+    if [ -f ".clasp.json" ]; then rm -f .clasp.json; fi
     clasp create --title "$PROJECT_TITLE" --rootDir "frontend/"
 fi
 

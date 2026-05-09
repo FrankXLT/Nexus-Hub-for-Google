@@ -219,7 +219,7 @@ if ($linkExisting -match "^[yY]") {
 
 Write-Host "Linking Apps Script to Google Cloud Project for Cloud Logging..." -ForegroundColor Yellow
 $claspConfig = Get-Content .clasp.json | ConvertFrom-Json
-$claspConfig | Add-Member -Type NoteProperty -Name "projectId" -Value $PROJECT_ID
+$claspConfig | Add-Member -Type NoteProperty -Name "projectId" -Value $PROJECT_ID -Force
 $claspConfig | ConvertTo-Json -Depth 10 | Set-Content .clasp.json -Encoding Ascii
 Write-Host "Apps Script linked to GCP Project for Cloud Logging." -ForegroundColor Green
 Set-Content -Path ".nexus_env" -Value "TARGET_VM=$INSTANCE_NAME`nTARGET_ZONE=$ZONE" -Encoding Ascii

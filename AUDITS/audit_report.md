@@ -309,6 +309,10 @@ graph TD
 - Simplified the bootstrap command in `provision.ps1` and `provision.sh` by removing `$serviceContent` and `SERVICE_CONTENT` entirely to avoid parsing crashes.
 - Shifted systemd service enablement to `deploy.ps1` and `deploy.sh` (`sudo systemctl enable nexus.service`).
 
+## Defensive Clasp File Handling
+- Added local state cleanup to `provision.ps1` and `provision.sh` to delete any existing `.clasp.json` before attempting to create a new Apps Script project, preventing "Project file already exists" errors during end-to-end tests.
+- Added the `-Force` flag to the `Add-Member` command in `provision.ps1` for defensive JSON property injection, preventing `MemberAlreadyExists` crashes.
+
 ## Windows PowerShell Execution Policy Documentation
 - Updated `INSTRUCTIONS.md` to include a clear directive for Windows users to run `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser` if they encounter `UnauthorizedAccess` errors before executing the provisioning script.
 
