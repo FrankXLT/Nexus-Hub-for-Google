@@ -332,4 +332,7 @@ graph TD
 - Confirmed the UX instruction output no longer references the redundant `NEXUS_WEB_APP_URL`.
 
 ## Eradicating Zombie Auth Processes
-- Updated `scripts/auth_tunnel.ps1` and `scripts/auth_tunnel.sh` to use `sudo pkill -f auth.py >/dev/null 2>&1 ; sleep 2` instead of `sudo fuser -k 8080/tcp >/dev/null 2>&1`. This robustly kills any runaway auth processes from previous aborted runs without relying on `psmisc` (which is not installed by default on minimal GCP images) and allows the OS time to release the port, preventing `[Errno 98] Address already in use` errors.
+- Updated `scripts/auth_tunnel.ps1` and `scripts/auth_tunnel.sh` to install `psmisc` (`sudo apt-get update >/dev/null 2>&1 ; sudo apt-get install -y psmisc >/dev/null 2>&1`) before running `sudo fuser -k 8080/tcp >/dev/null 2>&1 ; sleep 2`. This guarantees a bulletproof port kill by explicitly installing `fuser` on minimal GCP images, bypassing process names entirely, and preventing `[Errno 98] Address already in use` errors.
+
+## Systemd Service Auth Port Fix
+- Resolved `[Errno 98] Address already in use` crashes in `scripts/auth_tunnel.ps1` and `scripts/auth_tunnel.sh` that occurred post-reboot. The `nexus.service` daemon was silently starting on boot and occupying port 8080 in the background. The scripts now gracefully execute `sudo systemctl stop nexus.service` before launching the manual OAuth server flow, and then immediately execute `sudo systemctl start nexus.service` after token generation completes.

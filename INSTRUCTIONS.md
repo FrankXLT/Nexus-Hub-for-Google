@@ -1,198 +1,238 @@
-# Nexus for Google - The Ultimate Beginner's Installation Masterclass
+$instructionsContent = @"
+# Nexus for Google - Installation Masterclass
 
-Welcome to Nexus for Google! If you've never used a terminal, spun up a cloud server, or worked with APIs, you are exactly who this guide was written for. We are going to build your personal, privacy-first, automated AI knowledge graph from scratch. 
-
-By the end of this guide, you will have your very own Google Cloud server running silently in the background, intercepting your emails and files to organize them using the power of Google's Gemini AI.
-
-Let's begin!
+Welcome to Nexus for Google! This guide will walk you through building your personal, privacy-first, automated AI knowledge graph from scratch. By following the interactive scripts below, you will provision a Google Cloud server, deploy your backend, and link it securely to your Google Account.
 
 ---
 
-## Phase 0: The Google Cloud Walled Garden
+## Phase 1: Provisioning the Environment
 
-> **🧠 Knowledge Point: What is an API?**
-> API stands for Application Programming Interface. Think of it as a drive-thru window for software. Instead of clicking buttons on a screen, your server "orders" data (like fetching an email) directly from Google's backend.
+To begin, open your terminal and run the provisioning script. This script will configure your Google Cloud project, enable the necessary APIs, and build your backend server.
 
-We need to tell Google Cloud to allow your new server to talk to your personal Gmail and Drive. Because we are self-hosting this, we are creating a "Walled Garden"—your data never leaves your personal Google Account ecosystem.
+```powershell
+PS C:\Users\developer\Github\Nexus-for-Google> .\scripts\provision.ps1
+====================================================
+    Welcome to the Nexus for Google Provisioning Wizard
+====================================================
+This script will automatically configure your Google Cloud project,
+enable the necessary APIs, and build your backend server.
 
-### Step 1: Create a Google Cloud Project & Enable APIs
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/) and log in with your primary Google account.
-2. Accept the Terms of Service.
-3. Click the dropdown at the very top left (next to the Google Cloud logo) and click **NEW PROJECT**. Name it `Nexus` and click **Create**.
-4. You must enable Billing for your project to use cloud servers. Go to the **Billing** menu and link a credit card. (Don't worry, the e2-micro server we are using is well within the free tier!).
+Prerequisite: Google Cloud CLI
+Checking authentication status...
+Authenticated as: developer@example.com
 
-*Note: Our interactive wizard script will actually enable the specific APIs for you in Phase 1, so you don't have to click through all of them manually!*
+Prerequisite: Google Cloud Project & Billing
+1. Go to https://console.cloud.google.com/
+2. Create a new project (e.g., 'Nexus').
+3. Go to the Billing menu and link a credit card.
+Press [Enter] when your project is created and billing is enabled...:
 
-### Step 2: The OAuth Consent Screen
-> **🧠 Knowledge Point: What is an OAuth Consent Screen?**
-> When an app asks to read your emails, Google shows a warning screen asking "Do you trust this app?". Because *you* are building this app for *yourself*, we set this to "Internal" or testing mode so only you can use it.
+Fetching your Google Cloud Projects...
+[0] nexus-project-abc123    Nexus
+Select Project number: 0
+Targeting Project: nexus-project-abc123
+Updated property [core/project].
 
-1. Using the left-hand hamburger menu, go to **APIs & Services > OAuth consent screen**.
-2. Select **Internal** (if you have a Google Workspace account) or **External** (if you have a standard `@gmail.com` account). Click **Create**.
-3. Fill in the **App name** (`Nexus`), **User support email**, and **Developer contact information** (just use your own email).
-4. Click **Save and Continue** at the bottom of the subsequent screens. You don't need to add Scopes manually here.
+Do you want to (1) Create a NEW Nexus Environment or (2) Configure an EXISTING one?
+(1/2): 1
+Enter the Environment Label (e.g., dev, staging, prod): dev
+Using Project: nexus-project-abc123
+Using Zone:    us-central1-f
+Instance Name: nexus-vm-dev
 
-> **⚠️ GOTCHA: ADDING YOURSELF AS A TEST USER**
-> Before you finish Phase 0, you **MUST** add your own Gmail address to the "Test users" list if you selected "External". If you skip this, you will hit a hard "Error 403: access_denied" when trying to log into your own app later!
+Press [Enter] to begin the provisioning process...:
 
-### Step 3: Generating Your Secret Keys
-> **🧠 Knowledge Point: What is Headless Authentication?**
-> A "headless" server is a computer running in the cloud with no monitor or web browser. Since our server has no screen, it can't click "Log In with Google". We must generate a special file (`credentials.json`) that acts as a VIP pass.
+[1/5] Enabling Google Workspace & AI APIs...
+Please go to Google Cloud Console and enable the Drive and Gmail APIs.
+Press [Enter] when complete...:
+```
 
-1. On the left menu, click **Credentials**.
-2. At the top, click **+ CREATE CREDENTIALS** and select **OAuth client ID**.
-3. Under **Application type**, choose **Desktop app** (this is crucial for headless authentication).
-4. Name it `Nexus Headless Server` and click **Create**.
-5. A popup will appear with your Client ID and Client Secret. Click the **DOWNLOAD JSON** button.
-6. Find the downloaded file on your computer and rename it EXACTLY to `credentials.json`. Keep it handy; we will need it in Phase 2.
+### 🛑 Browser Action: Enable APIs
+Before continuing, ensure that you have enabled the required APIs (Gmail, Drive, Document AI, People, Tasks, and Compute Engine) in the Google Cloud Console. Once done, hit \`Enter\` in your terminal.
 
----
+```powershell
+Operation "operations/acat.p2-[REDACTED]" finished successfully.
+APIs successfully enabled!
 
-## Phase 1: The Interactive Provisioner Wizard
+[2/5] Configuring Network Security...
+Creating firewall...-Created [https://www.googleapis.com/compute/v1/projects/nexus-project-abc123/global/firewalls/nexus-allow-8000].
+Creating firewall...done.
+NAME              NETWORK  DIRECTION  PRIORITY  ALLOW     DENY  DISABLED
+nexus-allow-8000  default  INGRESS    1000      tcp:8000        False
+Firewall rule created!
 
-We have engineered an Infrastructure as Code (IaC) deployment script that handles all the heavy lifting via an interactive prompt. 
+[3/5] Manual Step: OAuth Configuration
+Instructions:
+1. Go to: https://console.cloud.google.com/apis/credentials/consent?project=nexus-project-abc123
+2. Select 'Internal' or 'External' and click Create.
+3. Fill in the required app names and emails.
+4. Skip adding scopes here, just save and continue.
+Press [Enter] when you have configured the Consent Screen...:
+```
 
-> **Windows Users:** If you receive an `UnauthorizedAccess` error when running scripts, you must update your PowerShell execution policy. Open PowerShell and run:
-> ```powershell
-> Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-> ```
+### 🛑 Browser Action: OAuth Consent Screen
+Google needs to know you trust this application. Follow the URL provided in your terminal to create the Consent Screen. If you select **External**, you **MUST** add your own email address to the "Test users" list, or you will be locked out later.
 
-Run `./scripts/provision.ps1` (or `.sh`) and follow the interactive terminal prompts to provision your Google Cloud environment, OAuth consent screen, and API keys.
+```powershell
+[4/5] Manual Step: Generating Credentials
+Instructions:
+1. Go to: https://console.cloud.google.com/apis/credentials?project=nexus-project-abc123
+2. Click 'CREATE CREDENTIALS' > 'OAuth client ID'.
+3. Select 'Desktop app' for the Application type.
+4. Click Create, then DOWNLOAD the JSON file.
+5. Rename the downloaded file EXACTLY to: credentials.json
 
-**Multi-Environment Workflow:**
-The script will now ask you if you want to create a new environment or configure an existing one. If configuring an existing one, the script will automatically discover your existing VMs via Google Cloud. The `.nexus_env` file handles all the details invisibly, storing both the `TARGET_VM` and the `TARGET_ZONE`. When deploying, if you ever need to change your target VM, simply type `list` when prompted and select from the dynamically generated menu.
+Press [Enter] when you have downloaded 'credentials.json' to your local machine...:
+```
+
+### 🛑 Browser Action: Generate Credentials
+This JSON file acts as the VIP pass for your headless server. Download it, rename it exactly to \`credentials.json\`, and note the folder where you saved it. Hit \`Enter\` in the terminal once it is secured on your hard drive.
+
+```powershell
+[5/5] Provisioning the Virtual Machine (VM)...
+Created [https://www.googleapis.com/compute/v1/projects/nexus-project-abc123/zones/us-central1-f/instances/nexus-vm-dev].
+NAME          ZONE           MACHINE_TYPE  PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP      STATUS
+nexus-vm-dev  us-central1-f  e2-micro                   10.128.0.22  [YOUR_VM_IP]  RUNNING
+Waiting 30 seconds for the VM's SSH daemon to initialize...
+
+WARNING - POTENTIAL SECURITY BREACH!
+The host key does not match the one Plink has cached for this server...
+Update cached key? (y/n, Return cancels connection, i for more info) y
+
+[6/6] Uploading Credentials...
+Please enter the full local path to your downloaded credentials.json file: D:\Users\developer\Downloads\credentials.json
+credentials.json          | 0 kB |   0.4 kB/s | ETA: 00:00:00 | 100%
+
+Apps Script Initialization
+Do you have an EXISTING Apps Script project to link?
+(y/N): n
+Commanding Google to create a new Apps Script Web App: '[DEV] Nexus for Google - 20260509_124619'...
+Created new script: https://script.google.com/d/[REDACTED_SCRIPT_ID]/edit
+└─ frontend\appsscript.json
+Cloned one file..
+Linking Apps Script to Google Cloud Project for Cloud Logging...
+Apps Script linked to GCP Project for Cloud Logging.
+Success! Local clasp is now securely linked to your Google account and restricted to the frontend/ directory.
+
+====================================================
+             Provisioning Complete!
+====================================================
+Your server is ready.
+```
 
 ---
 
 ## Phase 2: Deploying the Application
 
-Nexus uses a Zero-Downtime deployment model based on symlinks. When you run the deploy script, a new release is downloaded into `/home/frank/nexus/releases/[timestamp]`.
-- **Database Location:** The SQLite database safely lives in `/home/frank/nexus/shared/data/nexus.db` and is symlinked to the new release folder.
-- **Rollback:** The active directory is `/home/frank/nexus/current`. To perform an emergency rollback, see `DEBUGGING.md`.
+Now that the infrastructure exists, we will push our frontend code to Google Apps Script and our Python backend to the Google Cloud VM.
 
-Now that the backend brain is running, we need to upload the visual dashboard.
-
-> **⚠️ GOTCHA: ENABLE THE APPS SCRIPT API**
-> Before you can use `clasp` to upload the code, you must manually grant your computer permission. Visit [https://script.google.com/home/usersettings](https://script.google.com/home/usersettings) and toggle the **"Google Apps Script API"** to **ON**. If you don't, the deployment will fail with an API permission error.
-
-1. Ensure you have [Node.js](https://nodejs.org/) installed on your local computer.
-2. Install Google's Apps Script tool globally by running:
-   ```bash
-   npm install -g @google/clasp
-   ```
-3. Log your terminal into your Google Account:
-   ```bash
-   clasp login
-   ```
-4. **INITIALIZE YOUR PROJECT:** Before deploying, generate the required configuration map so `clasp` knows where to send the code. Run:
-   ```bash
-   clasp create --title "Nexus for Google"
-   ```
-   *(Without this step, the deployer will fail with a "Project settings not found" error!)*
-
-5. Now, deploy the entire system using our verbose wizard based on your operating system:
-
-### Windows Users
-Run the deployment script using PowerShell. It automatically pushes updates to your server and frontend.
 ```powershell
-.\scripts\deploy.ps1
+PS C:\Users\developer\Github\Nexus-for-Google> .\scripts\deploy.ps1
+====================================================
+       Nexus for Google One-Click Deployment Wizard
+====================================================
+Deploying to nexus-vm-dev.
+Press Enter to confirm, or type 'list' to choose a different VM: 
+Fetching git branches...
+[0] development
+Select branch number: 0
+Already on 'development'
+Your branch is up to date with 'origin/development'.
+Backup remote SQLite database? (Y/n): n
+
+[1/2] Syncing Serverless Frontend (Google Apps Script)...
+Pushed 7 files at 12:47:19 PM.
+└─ frontend\appsscript.json
+└─ frontend\Code.gs
+└─ frontend\CSS_Styles.html
+└─ frontend\debug.gs
+└─ frontend\Index.html
+└─ frontend\JS_Actions.html
+└─ frontend\JS_State.html
+--> Apps Script UI synced successfully!
+URL: https://script.google.com/macros/s/[REDACTED_DEPLOY_ID]/exec
+
+[2/2] Deploying Backend to Google Cloud VM...
+
+*** ACTION REQUIRED: shared/.env FILE MISSING ***
+NEXUS_HMAC_SECRET (type a highly unique, secure passphrase): [YOUR_SUPER_SECRET_PASSPHRASE]
+NEXUS_API_KEY (Your Gemini API Key): [YOUR_GEMINI_API_KEY]
+shared/.env file generated successfully.
 ```
 
-### Mac/Linux Users
-Make the script executable and run it using Bash. It automatically pushes updates to your server and frontend.
-```bash
-chmod +x scripts/deploy.sh
-./scripts/deploy.sh
+### 🛑 Action Required: Environment Variables
+The first time you deploy, you will be prompted to create your \`.env\` file. 
+* **NEXUS_HMAC_SECRET:** Create a long, secure passphrase. This acts as the password between your Apps Script frontend and your Linux backend.
+* **NEXUS_API_KEY:** Paste your Gemini API key here.
+
+```powershell
+[VM] 1. Preparing directories...
+[VM] 2. Cloning code into new release directory...
+Cloning into '/home/developer/nexus/releases/20260509_164825'...
+[VM] 3. Activating Python Virtual Environment...
+[VM] 4. Installing dependencies via pip...
+[VM] 5. Setting up Symlinks...
+[VM] 6. Running SQLite3 database migrations...
+Database initialization complete: nexus.db with STRICT tables and WAL mode enabled.
+[VM] 7. Updating main symlink...
+[VM] 7.5. Patching systemd absolute paths...
+[VM] 8. Restarting the FastAPI systemd daemon...
+Created symlink /etc/systemd/system/multi-user.target.wants/nexus.service -> /etc/systemd/system/nexus.service.
+[VM] Deployment sequence completed securely.
+
+====================================================
+                 ACTION REQUIRED
+====================================================
+NEXUS_HMAC_SECRET: [YOUR_SUPER_SECRET_PASSPHRASE]
+NEXUS_VM_URL:      http://[YOUR_VM_IP]:8000
+
+Please copy the variables above.
+In a moment, your browser will open the Apps Script Editor.
+You MUST immediately go to: Project Settings (Gear Icon) -> Script Properties -> Add Script Property. Add NEXUS_HMAC_SECRET and NEXUS_VM_URL.
+Press Enter to open the Editor...:
 ```
 
-**What is the deployer doing?**
-It automatically pushes your HTML and CSS files to Google Apps Script. Then, it securely reaches into your cloud server, pulls any code updates, updates the Python libraries, runs database migrations, and cleanly restarts the background server.
+### 🛑 Browser Action: Apps Script Properties
+Your Apps Script needs to know where your backend lives and what the password is. The script will automatically open the Google Apps Script editor. Go to **Project Settings (the gear icon)** > **Script Properties** and add the two variables displayed in your terminal.
 
 ---
 
 ## Phase 3: Securely Authenticating Your Server
 
-Your server needs permission to interact with your data. Because we use a Zero-Downtime Symlink architecture, you must deploy the code to the server BEFORE you can authenticate.
+Finally, we must authorize the newly deployed backend to read your data. Run the \`auth_tunnel\` script to open a secure bridge to your VM.
 
-1. Ensure you have downloaded the `credentials.json` file as instructed in Phase 1. 
-2. During the provisioning script execution, when prompted, provide the full local path to this `credentials.json` file. The script will securely transfer it to your newly created VM.
-3. Once the provisioning and deployment phases are complete, run the interactive authentication tunnel script based on your operating system:
-   - **Windows:** `.\scripts\auth_tunnel.ps1`
-   - **Mac/Linux:** `./scripts/auth_tunnel.sh`
-4. The script will open a secure SSH tunnel to your VM. 
-5. When prompted in the terminal, click the provided `localhost` link. This will open your browser and ask you to log into your Google Account and authorize the application.
-6. Accept the permissions. The authentication token will automatically be saved securely on your server.
+```powershell
+PS C:\Users\developer\Github\Nexus-for-Google> .\scripts\auth_tunnel.ps1
+====================================================
+           Nexus Auth Tunnel Script
+====================================================
+Checking for backend code on VM...
 
----
+An SSH tunnel is opening, please wait...
+When the link appears, please use ctrl+click to open your browser and authorize.
+Testing Google Workspace Authentication Bridge...
+Initiating new OAuth flow...
+NOTE: Because this VM is headless, you must set up an SSH tunnel to port 8080.
+Example: ssh -L 8080:localhost:8080 user@your-vm-ip
+Then complete the authentication flow in your local browser.
 
-## Phase 4: Securing the Bridge (HMAC)
+Please visit this URL to authorize this application: https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=[REDACTED_CLIENT_ID]...
+```
 
-> **🧠 Knowledge Point: What is HMAC?**
-> Hash-Based Message Authentication Code (HMAC) is like a secret handshake. Because your backend API is open to the internet, we need to ensure only *your* specific dashboard can command it. We give both the UI and the Server the same random password. The UI mathematically hashes your requests using the password, and the Server verifies it.
+### 🛑 Browser Action: Final Authorization
+\`Ctrl+Click\` the URL provided in the terminal. You will be routed to a Google Sign-In page. Select your account, acknowledge the warning (since you built the app, it is safe), and grant the required permissions. 
 
-1. We need to tell your Apps Script dashboard what the secret password is. Go to [script.google.com](https://script.google.com) and open your Nexus project.
-2. Open `Code.gs`.
-3. Scroll to the bottom and paste this temporary code:
-   ```javascript
-   function runOnce() {
-     configureHMAC("MAKE_UP_A_LONG_RANDOM_PASSWORD_HERE");
-   }
-   ```
-4. Select `runOnce` from the top dropdown and click **Run**.
-5. **CRITICAL:** Once it succeeds, delete the `runOnce` function entirely.
-6. Next, tell the UI where your server lives. Go to **Project Settings** (gear icon) on the left.
-7. Scroll down to **Script Properties** and click **Edit script properties**.
-8. Add a property named `NEXUS_VM_URL`. Set the value to your server's External IP address (e.g., `http://192.168.10.125:8000`). You can find your IP in the Google Cloud Console under VM Instances.
-9. **Lastly, on your cloud server:**
-   Run `./scripts/connect.ps1` (or `.sh`) to easily SSH into your VM.
-   ```bash
-   cd /opt/nexus
-   nano .env
-   ```
-10. Type in: `NEXUS_HMAC_SECRET=MAKE_UP_A_LONG_RANDOM_PASSWORD_HERE` (using the exact same password from step 3).
-11. Add your Gemini API key on a new line: `GEMINI_API_KEY=your_key_here`.
-12. Press `Ctrl+O` to save, `Enter` to confirm, and `Ctrl+X` to exit.
-13. Type `sudo systemctl restart nexus.service`.
+Once you see the "Authentication successful!" screen in your browser, check your terminal for the final confirmation.
 
----
+```powershell
+Authentication successful! Token saved to 'token.json'.
+Success!
+Credentials are valid and ready to use.
+PS C:\Users\developer\Github\Nexus-for-Google>
+```
 
-## Phase 5: Launching Your Dashboard
+**Congratulations! Your Nexus for Google Walled Garden is successfully deployed, secured, and authenticated.**
+"@
 
-Now that your Walled Garden is built and secured, it's time to access the Nexus for Google Knowledge Graph.
-
-1. Open your local terminal (where you originally ran the deploy scripts) and run:
-   ```bash
-   clasp open
-   ```
-   *This will launch the Google Apps Script editor in your browser.*
-2. In the top right corner of the editor, click the blue **Deploy** button, then select **New deployment**.
-3. Click the gear icon next to "Select type" and choose **Web app**.
-4. In the configuration settings:
-   - **Description:** `Initial Release`
-   - **Execute as:** `Me (your email)`
-   - **Who has access:** `Only myself` *(Crucial for privacy!)*
-5. Click **Deploy**.
-6. Google will provide you with a **Web App URL**. Copy this link!
-
-**This URL is the permanent, private home for your AI knowledge graph.** Bookmark it.
-
-**Congratulations! You have successfully built and secured a multi-tier cloud application. Welcome to Nexus for Google.**
-
-## Phase 6: Monitoring Fleet Health
-
-Nexus includes an automated diagnostic dashboard to give you a single-pane-of-glass view over your entire infrastructure, database backups, and orphaned releases.
-
-1. From your local project directory, run the health check script based on your operating system:
-   - **Windows:** `.\scripts\health_check.ps1`
-   - **Mac/Linux:** `./scripts\health_check.sh`
-2. The script will ping the Apps Script frontend, dynamically discover all Google Cloud VMs linked to your project, execute health checks against their internal APIs, and tunnel over SSH to map their internal state.
-3. Review the terminal output for `[FAIL]` indicators.
-
----
-
-## Critical Troubleshooting (Lessons Learned)
-
-- **Apps Script Phantom Cache:** The `/exec` deployment URL is an immutable snapshot. Active UI development must strictly use the `/dev` (Test Deployment) URL. To force Google to clear the inner iframe cache after a clasp push, developers must append a version string to the URL (e.g., `?v=123`).
-- **The OAuth Black Hole:** If the `/dev` URL loads a completely blank white screen, the browser has blocked a hidden authorization popup. Fix: Open `Code.gs` in the native Apps Script Editor, manually run `doGet()`, and accept the OAuth permission scopes.
-- **API Method Matching:** A 405 Method Not Allowed error between Apps Script and FastAPI means the `UrlFetchApp` method (`'method': 'get'`) mismatches the FastAPI route decorator (`@app.get`). They must align perfectly.
-- **Webhook Loop:** For the Python backend to push notifications back to the UI, the `NEXUS_WEBHOOK_URL` in the VM's `.env` file must be set to the permanent `/exec` deployment URL.
+Set-Content -Path "INSTRUCTIONS.md" -Value $instructionsContent -Encoding UTF8
+Write-Host "INSTRUCTIONS.md has been generated successfully!" -ForegroundColor Green

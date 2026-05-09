@@ -24,5 +24,5 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "`nAn SSH tunnel is opening, please wait..." -ForegroundColor Yellow
 Write-Host "When the link appears, please use ctrl+click to open your browser and authorize. " -NoNewline -ForegroundColor Yellow
 
-$authCommand = "sudo pkill -f auth.py >/dev/null 2>&1 ; sleep 2 ; cd `$HOME/nexus/current/backend && source venv/bin/activate && pip install google-auth-oauthlib google-api-python-client --quiet && python3 -u auth.py"
+$authCommand = "sudo systemctl stop nexus.service ; sleep 2 ; cd `$HOME/nexus/current/backend && source venv/bin/activate && pip install google-auth-oauthlib google-api-python-client --quiet && python3 -u auth.py ; sudo systemctl start nexus.service"
 gcloud compute ssh $TARGET_VM --zone=$TARGET_ZONE --strict-host-key-checking=no --ssh-flag="-L 8080:localhost:8080" --command="$authCommand"
