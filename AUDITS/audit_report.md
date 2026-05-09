@@ -310,7 +310,7 @@ graph TD
 - Shifted systemd service enablement to `deploy.ps1` and `deploy.sh` (`sudo systemctl enable nexus.service`).
 
 ## Defensive Clasp File Handling
-- Added local state cleanup to `provision.ps1` and `provision.sh` to delete any existing `.clasp.json` before attempting to create a new Apps Script project, preventing "Project file already exists" errors during end-to-end tests.
+- Enforced local state cleanup in `provision.ps1` and `provision.sh` to forcefully delete any existing `.clasp.json` before attempting to run `clasp create`. This prevents "Project file already exists" errors during end-to-end testing and ensures deployments push to the correct, newly provisioned cloud project.
 - Added the `-Force` flag to the `Add-Member` command in `provision.ps1` for defensive JSON property injection, preventing `MemberAlreadyExists` crashes.
 
 ## Windows PowerShell Execution Policy Documentation

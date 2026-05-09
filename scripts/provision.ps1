@@ -213,7 +213,7 @@ if ($linkExisting -match "^[yY]") {
     Set-Content -Path ".clasp.json" -Value $claspJsonContent -Encoding Ascii
 } else {
     Write-Host "Commanding Google to create a new Apps Script Web App: '$PROJECT_TITLE'..." -ForegroundColor Yellow
-    # clasp create will automatically generate the .clasp.json file
+    if (Test-Path ".clasp.json") { Remove-Item ".clasp.json" -Force }
     clasp create --title $PROJECT_TITLE --rootDir "frontend/"
 }
 
