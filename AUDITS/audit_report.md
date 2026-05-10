@@ -356,3 +356,6 @@ graph TD
 ## Pipeline Encoding & Timestamp Formatting Fix
 - Set the PowerShell pipeline encoding (`$OutputEncoding = New-Object System.Text.UTF8Encoding`) in `health_check.ps1` to prevent the legacy system code page from mangling external executable (`gcloud`) outputs containing Linux tree drawing characters.
 - Fixed the orphan deployment timestamp formatting in both `health_check.ps1` and `health_check.sh` payloads by removing the parentheses from the `stat` command (`%y` instead of `(%y)`) to prevent `cut` from stripping the closing parenthesis during the string split operation.
+
+## Python & Gcloud UTF-8 Enforcement
+- Injected `$env:PYTHONIOENCODING = "UTF-8"` at the top of `scripts/health_check.ps1`. This forces the underlying Python runtime used by the `gcloud CLI` to output raw UTF-8 instead of defaulting to Windows-1252, finally resolving the lingering Mojibake display issues on Windows hosts.

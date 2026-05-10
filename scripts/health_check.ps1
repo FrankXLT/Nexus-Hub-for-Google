@@ -2,9 +2,11 @@
 $ErrorActionPreference = "Continue"
 $env:CLOUDSDK_COMPUTE_USE_OPENSSH = "1"
 
-# Force PowerShell to correctly render Linux UTF-8 drawing characters
-[console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding
-$OutputEncoding = New-Object System.Text.UTF8Encoding
+# Force PowerShell and underlying Python/gcloud engine to use UTF-8
+$env:PYTHONIOENCODING = "UTF-8"
+[console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false
+$OutputEncoding = New-Object System.Text.UTF8Encoding $false
+chcp 65001 > $null
 
 Clear-Host
 Write-Host "====================================================" -ForegroundColor Cyan
@@ -24,42 +26,42 @@ $vmList = @($vms)
 
 $remotePayload = @'
 NEXUS_ROOT="$HOME/nexus"
-echo "▼ Critical Services"
+echo "  Critical Services"
 svc_status=$(systemctl is-active nexus.service 2>/dev/null || echo "inactive")
-if [ "$svc_status" == "active" ]; then echo "  ├── Systemd (nexus.service)  : [PASS] active (running)"; else echo "  ├── Systemd (nexus.service)  : [FAIL] $svc_status"; fi
+if [ "$svc_status" == "active" ]; then echo "  +-- Systemd (nexus.service)  : [PASS] active (running)"; else echo "  +-- Systemd (nexus.service)  : [FAIL] $svc_status"; fi
 
 http_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/openapi.json || echo "000")
-if [ "$http_code" == "200" ]; then echo "  ├── API Endpoint (Port 8000) : [PASS] HTTP 200 OK"; else echo "  ├── API Endpoint (Port 8000) : [FAIL] HTTP $http_code"; fi
+if [ "$http_code" == "200" ]; then echo "  +-- API Endpoint (Port 8000) : [PASS] HTTP 200 OK"; else echo "  +-- API Endpoint (Port 8000) : [FAIL] HTTP $http_code"; fi
 
 if [ -f "$NEXUS_ROOT/shared/data/nexus.db" ]; then
   db_size=$(ls -lh "$NEXUS_ROOT/shared/data/nexus.db" | awk '{print $5}')
-  echo "  └── Main Database (nexus.db) : [PASS] $db_size"
+  echo "  +-- Main Database (nexus.db) : [PASS] $db_size"
 else
-  echo "  └── Main Database (nexus.db) : [FAIL] Missing"
+  echo "  +-- Main Database (nexus.db) : [FAIL] Missing"
 fi
 
 echo ""
-echo "▼ Scheduled Jobs (Active: 2)"
-echo "  ├── Gmail Extraction Sync    : [PASS] Last: $(date -d '1 hour ago' +'%b %d %H:%M') | Interval: 15m | Next: $(date -d '15 minutes' +'%H:%M')"
-echo "  └── Drive Document Queue     : [FAIL] OVERDUE | Interval: 60m"
+echo "  Scheduled Jobs (Active: 2)"
+echo "  +-- Gmail Extraction Sync    : [PASS] Last: $(date -d '1 hour ago' +'%b %d %H:%M') | Interval: 15m | Next: $(date -d '15 minutes' +'%H:%M')"
+echo "  +-- Drive Document Queue     : [FAIL] OVERDUE | Interval: 60m"
 
 echo ""
 backup_count=$(ls -1q "$NEXUS_ROOT/shared/backups"/*nexus_backup*.db 2>/dev/null | wc -l)
-echo "▼ Database Backups (Total: $backup_count)"
+echo "  Database Backups (Total: $backup_count)"
 if [ "$backup_count" -gt 0 ]; then
-  ls -lh "$NEXUS_ROOT/shared/backups" | grep "nexus_backup" | awk '{print "  ├── "$9" : "$5"  ("$6" "$7" "$8")"}' | sed '$ s/├/└/'
+  ls -lh "$NEXUS_ROOT/shared/backups" | grep "nexus_backup" | awk '{print "  +-- "$9" : "$5"  ("$6" "$7" "$8")"}' | sed '$ s/├/└/'
 else
-  echo "  └── [PASS] Clean - No backups yet"
+  echo "  +-- [PASS] Clean - No backups yet"
 fi
 
 echo ""
 current_rel=$(readlink -f "$NEXUS_ROOT/current")
 orphan_count=$(ls -d "$NEXUS_ROOT/releases/"*/ 2>/dev/null | grep -v "$current_rel" | wc -l)
-echo "▼ Offline Deployments (Orphans: $orphan_count)"
+echo "  Offline Deployments (Orphans: $orphan_count)"
 if [ "$orphan_count" -gt 0 ]; then
-  ls -d "$NEXUS_ROOT/releases/"*/ 2>/dev/null | grep -v "$current_rel" | xargs -I {} stat -c "  ├── Release: %n : %y" {} | sed "s|$NEXUS_ROOT/releases/||g" | cut -d'.' -f1 | sed '$ s/├/└/'
+  ls -d "$NEXUS_ROOT/releases/"*/ 2>/dev/null | grep -v "$current_rel" | xargs -I {} stat -c "  +-- Release: %n : %y" {} | sed "s|$NEXUS_ROOT/releases/||g" | cut -d'.' -f1 | sed '$ s/├/└/'
 else
-  echo "  └── [PASS] Clean - Only current release exists"
+  echo "  +-- [PASS] Clean - Only current release exists"
 fi
 '@
 
