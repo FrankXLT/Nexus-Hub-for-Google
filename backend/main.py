@@ -180,26 +180,30 @@ async def verify_nexus_signature(request: Request, call_next: Callable[[Request]
     response = await call_next(request)
     return response
 
-@app.post("/api/ingestion/queue-historical")
-async def queue_historical(request: Request):
+async def process_historical_data(search_query: str):
     from googleapiclient.discovery import build
     from auth import authenticate
+    import asyncio
+    import sqlite3
+    from db_init import DB_PATH
     try:
-        payload = await request.json()
-        search_query = payload.get("search_query")
-        if not search_query:
-            return JSONResponse(status_code=400, content={"error": "Missing search_query"})
-        
         creds = authenticate()
         service = build('gmail', 'v1', credentials=creds)
         
         message_ids = []
         page_token = None
+        
+        iteration = 0
         while True:
-            results = service.users().messages().list(userId='me', q=search_query, pageToken=page_token, fields='messages(id),nextPageToken').execute()
+            results = await asyncio.to_thread(
+                service.users().messages().list(userId='me', q=search_query, pageToken=page_token, fields='messages(id),nextPageToken').execute
+            )
             messages = results.get('messages', [])
             for msg in messages:
                 message_ids.append(msg['id'])
+                iteration += 1
+                if iteration % 50 == 0:
+                    await asyncio.sleep(0.01)
             
             page_token = results.get('nextPageToken')
             if not page_token:
@@ -210,13 +214,28 @@ async def queue_historical(request: Request):
         conn.execute("PRAGMA journal_mode=WAL;")
         cursor = conn.cursor()
         
-        for msg_id in message_ids:
+        for i, msg_id in enumerate(message_ids):
             cursor.execute("INSERT INTO Ingestion_Queue (source, source_id, status) VALUES ('gmail', ?, 'PENDING')", (msg_id,))
+            if i % 50 == 0:
+                conn.commit()
+                await asyncio.sleep(0.01)
             
         conn.commit()
         conn.close()
+    except Exception as e:
+        print(f"Error processing historical data: {e}")
+
+@app.post("/api/ingestion/queue-historical")
+async def queue_historical(request: Request, background_tasks: BackgroundTasks):
+    try:
+        payload = await request.json()
+        search_query = payload.get("search_query")
+        if not search_query:
+            return JSONResponse(status_code=400, content={"error": "Missing search_query"})
         
-        return JSONResponse(content={"status": "success", "queued": len(message_ids)})
+        background_tasks.add_task(process_historical_data, search_query)
+        
+        return JSONResponse(content={"status": "success", "message": "Historical sync queued in background."})
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 

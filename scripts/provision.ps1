@@ -114,7 +114,7 @@ if (![string]::IsNullOrWhiteSpace($existingRule) -and $existingRule -match $rule
         --action=ALLOW `
         --rules=tcp:8000 `
         --source-ranges=0.0.0.0/0 `
-        --target-tags=nexus-hub-api `
+        --target-tags=nexus-api `
         --project=$PROJECT_ID
     Write-Host "Firewall rule created!" -ForegroundColor Green
 }

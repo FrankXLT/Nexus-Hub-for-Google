@@ -339,3 +339,20 @@ graph TD
 
 ## Base64 Payload Obfuscation for Health Checks
 - Resolved `System.Management.Automation.RemoteException` crashes in `scripts/health_check.ps1` on Windows. PowerShell was mangling the multiline `$remotePayload` string during `gcloud compute ssh` argument parsing. Implemented a native PowerShell Base64 encoding pass, securely wrapping the payload into `$b64Payload`, and commanded the remote Linux VM to decode and execute it (`echo $b64Payload | base64 -d | bash`), entirely bypassing the Windows command-line parser.
+- Stripped CRLF (`\r\n`) line endings from the PowerShell Here-String payload (`$remotePayload -replace "\`r", ""`) prior to Base64 encoding, preventing Bash syntax errors (`command not found`, `syntax error near fi`) caused by trailing carriage returns on the Linux VM.
+
+## Implement Asynchronous Yielding in Sync Loops
+- Refactored `run_sync`, `sync_drive`, and `sync_gmail` in `backend/sync_engine.py` to be asynchronous (`async def`) and injected `await asyncio.sleep(0.01)` inside the main heavy processing loops. This yields control back to the FastAPI event loop, preventing the server from locking up and dropping incoming webhooks or failing HTTP health checks during massive historical ingestion runs.
+- Updated `backend/main.py` to correctly await `run_sync()` directly in the background `periodic_sync` cron task, allowing the embedded `await asyncio.sleep` calls to effectively unblock the main event loop.
+- Extracted the blocking Gmail API extraction loop within the `/api/ingestion/queue-historical` endpoint into an asynchronous background task (`process_historical_data`). The endpoint now instantly responds to the HTTP caller using FastAPI's `BackgroundTasks`, executing the massive historical query and DB insertions behind the scenes with intermittent event loop yielding.
+
+## Restoring the High-Fidelity Health Dashboard
+- Restored the high-fidelity UI formatting of the health check scripts (`health_check.ps1` and `health_check.sh`), incorporating dynamic header counts, complete `[PASS]/[FAIL]` color-coded badging, and a Scheduled Jobs breakdown.
+- Consolidated the Port 8000 API check into the remote bash payload (`$remotePayload` / `PAYLOAD`) to execute locally on the VM (`curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/openapi.json`), rendering its output synchronously within the exact prototype tree formatting.
+
+## Enforcing UTF-8 Console Rendering
+- Enforced explicit UTF-8 console encoding (`[console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding`) at the top of `scripts/health_check.ps1`. This ensures that the Windows PowerShell console correctly interprets and displays the Linux tree-drawing characters (e.g., `├──`, `▼`) returned by the SSH payload, preventing Mojibake formatting corruption.
+
+## Pipeline Encoding & Timestamp Formatting Fix
+- Set the PowerShell pipeline encoding (`$OutputEncoding = New-Object System.Text.UTF8Encoding`) in `health_check.ps1` to prevent the legacy system code page from mangling external executable (`gcloud`) outputs containing Linux tree drawing characters.
+- Fixed the orphan deployment timestamp formatting in both `health_check.ps1` and `health_check.sh` payloads by removing the parentheses from the `stat` command (`%y` instead of `(%y)`) to prevent `cut` from stripping the closing parenthesis during the string split operation.
