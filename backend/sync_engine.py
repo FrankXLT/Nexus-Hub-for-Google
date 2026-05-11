@@ -443,17 +443,25 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
                 print(f" - Drive Change: File ID {file_id}")
                 
                 if mime_type and mime_type.startswith('application/vnd.google-apps.'):
-                    request = service.files().export_media(fileId=file_id, mimeType='text/plain')
+                    try:
+                        # Attempt native export for Google Docs/Sheets
+                        request = service.files().export_media(fileId=file_id, mimeType='text/plain')
+                        file_content = request.execute().decode('utf-8')
+                    except HttpError as e:
+                        if e.resp.status == 400 and "conversion is not supported" in str(e):
+                            print(f"File {file_id} cannot be exported as text (likely binary/PDF). Passing metadata only.")
+                            file_content = "[Binary File - No Text Extracted]"
+                        else:
+                            raise e
                 else:
                     request = service.files().get_media(fileId=file_id)
-                
-                fh = io.BytesIO()
-                downloader = MediaIoBaseDownload(fh, request)
-                done = False
-                while not done:
-                    status, done = downloader.next_chunk()
-                    governor.record_api_call(cost=1)
-                file_content = fh.getvalue().decode('utf-8', errors='ignore')
+                    fh = io.BytesIO()
+                    downloader = MediaIoBaseDownload(fh, request)
+                    done = False
+                    while not done:
+                        status, done = downloader.next_chunk()
+                        governor.record_api_call(cost=1)
+                    file_content = fh.getvalue().decode('utf-8', errors='ignore')
                 from llm_engine import process_drive_document
                 process_drive_document(f"drive_{file_id}", file_content, "[]")
                 

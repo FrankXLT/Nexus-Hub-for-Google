@@ -546,7 +546,12 @@ def process_drive_document(artifact_id: str, ocr_text: str, dynamic_array_str: s
     if extra_rules:
         prompt_s2 += f"\n\n{extra_rules}"
     context_s2 = f"Purpose Whitelist:\n{purpose_whitelist_str}\n\nOCR Text:\n{ocr_text}"
-    result_s2, telemetry_s2 = call_gemini(prompt_s2, context_s2)
+    try:
+        result_s2, telemetry_s2 = call_gemini(prompt_s2, context_s2)
+    except RetryError as e:
+        print(f"LLM processing failed after all retries for {artifact_id}: {e}")
+        update_artifact_status(artifact_id, "FAILED")
+        return
     combined_telemetry = {
         'processing_time_ms': telemetry_s1.get('processing_time_ms', 0) + telemetry_s2.get('processing_time_ms', 0),
         'api_tokens_used': telemetry_s1.get('api_tokens_used', 0) + telemetry_s2.get('api_tokens_used', 0)
