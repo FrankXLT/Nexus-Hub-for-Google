@@ -135,7 +135,7 @@ while ($true) {
             Write-Host "`nGenerating Database Taxonomy..." -ForegroundColor Green
             gcloud compute ssh $NAME --zone=$ZONE --command="cd ~/nexus/current/backend && python3 db_mapper.py" --strict-host-key-checking=no
             Write-Host "Downloading db_report.md..." -ForegroundColor Green
-            gcloud compute scp ${NAME}:~/nexus/current/backend/db_report.md . --zone=$ZONE --strict-host-key-checking=no
+            gcloud compute scp ${NAME}:~/tmp/db_report.md . --zone=$ZONE --strict-host-key-checking=no
             Write-Host "Done." -ForegroundColor Green
         }
         "3" {
