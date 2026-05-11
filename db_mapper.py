@@ -1,7 +1,7 @@
 import sqlite3
 import os
 
-DB_PATH = "~/nexus/shared/data/nexus.db"
+DB_PATH = "$HOME/nexus/shared/data/nexus.db"
 OUTPUT_FILE = "db_report.md"
 
 def generate_report():
