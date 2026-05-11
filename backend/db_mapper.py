@@ -1,8 +1,8 @@
 import sqlite3
 import os
 
-DB_PATH = "$HOME/nexus/shared/data/nexus.db"
-OUTPUT_FILE = "db_report.md"
+DB_PATH = "~/nexus/shared/data/nexus.db"
+OUTPUT_FILE = "~/nexus/db_report.md"
 
 def generate_report():
     if not os.path.exists(DB_PATH):
