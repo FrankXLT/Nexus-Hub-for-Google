@@ -43,10 +43,10 @@ def generate_report():
         f.write("```\n\n")
 
         # --- SAMPLE DATA DUMP ---
-        f.write("## Sample Records (Limit 3 per table)\n\n")
+        f.write("## Sample Records (Limit 10 per table)\n\n")
         for table in tables:
             f.write(f"### {table}\n")
-            cursor.execute(f"SELECT * FROM {table} LIMIT 3")
+            cursor.execute(f"SELECT * FROM {table} LIMIT 10")
             rows = cursor.fetchall()
             
             if not rows:

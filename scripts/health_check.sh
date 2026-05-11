@@ -105,9 +105,9 @@ while true; do
             ;;
         2)
             echo -e "\n${GREEN}Generating Database Taxonomy...${NC}"
-            gcloud compute ssh "$NAME" --zone="$ZONE" --command="cd ~/nexus/current && python3 db_mapper.py" --strict-host-key-checking=no
+            gcloud compute ssh "$NAME" --zone="$ZONE" --command="cd ~/nexus/current/backend && python3 db_mapper.py" --strict-host-key-checking=no
             echo -e "${GREEN}Downloading db_report.md...${NC}"
-            gcloud compute scp "${NAME}:~/nexus/current/db_report.md" . --zone="$ZONE" --strict-host-key-checking=no
+            gcloud compute scp "${NAME}:/tmp/db_report.md" . --zone="$ZONE" --strict-host-key-checking=no
             echo -e "${GREEN}Done.${NC}"
             ;;
         3)
