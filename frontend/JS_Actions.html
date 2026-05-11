@@ -67,71 +67,35 @@ const appActions = {
   },
 
   buildHeatmap: function(data) {
-    if(window.heatmapChartInst) window.heatmapChartInst.destroy();
-    const ctx = document.getElementById('heatmapChart').getContext('2d');
-    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-main').trim() || '#fff';
+    const container = document.getElementById('heatmapChart');
+    if (!container) return;
+    container.innerHTML = '';
 
-    window.heatmapChartInst = new Chart(ctx, {
-      type: 'matrix',
-      data: {
-        datasets: [{
-          label: 'Activity Heatmap',
-          data: data,
-          backgroundColor(context) {
-            const value = context.dataset.data[context.dataIndex].v;
-            const alpha = Math.min(value / 100, 1);
-            return `rgba(74, 144, 226, ${alpha})`; // using --accent-blue
-          },
-          borderColor: '#333',
-          borderWidth: 1,
-          width: ({chart}) => (chart.chartArea || {}).width / 6 - 1,
-          height: ({chart}) => (chart.chartArea || {}).height / 4 - 1
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              title() { return ''; },
-              label(context) {
-                const item = context.dataset.data[context.dataIndex];
-                return `${item.y} (${item.x}): ${item.v} items`;
-              }
-            }
-          }
-        },
-        scales: {
-          x: {
-            type: 'category',
-            labels: [...new Set(data.map(d => d.x))].sort(),
-            ticks: { color: textColor }
-          },
-          y: {
-            type: 'category',
-            labels: [...new Set(data.map(d => d.y))].sort(),
-            ticks: { color: textColor }
-          }
-        },
-        onClick: (e, elements) => {
-          if (elements.length > 0) {
-            const element = elements[0];
-            const datasetIndex = element.datasetIndex;
-            const index = element.index;
-            const dataItem = window.heatmapChartInst.data.datasets[datasetIndex].data[index];
-            const dateStr = dataItem.x;
-            
-            const input = document.getElementById('ast-input');
-            input.value = `Date:${dateStr}`;
-            appActions.executeASTSearch(input.value);
-            
-            appState.switchTab('grid');
-            appActions.switchWorkspaceView('grid');
-          }
-        }
-      }
+    // Determine max volume for relative scaling
+    const maxVol = Math.max(...data.map(d => d.v || 0), 1);
+
+    data.forEach(item => {
+      const cell = document.createElement('div');
+      cell.className = 'w-full h-8 rounded-sm cursor-pointer transition-colors duration-200 hover:ring-2 hover:ring-academicGold';
+      
+      // Calculate Tailwind intensity based on volume
+      const intensity = item.v / maxVol;
+      if (intensity === 0) cell.classList.add('bg-slate-800');
+      else if (intensity < 0.3) cell.classList.add('bg-blue-900');
+      else if (intensity < 0.7) cell.classList.add('bg-blue-700');
+      else cell.classList.add('bg-blue-500');
+
+      cell.title = `${item.y} (${item.x}): ${item.v} items`;
+      cell.dataset.date = item.x;
+      
+      cell.onclick = () => {
+        const input = document.getElementById('ast-input');
+        input.value = `Date:${item.x}`;
+        appActions.executeASTSearch(input.value);
+        appState.switchTab('tab-grid');
+      };
+      
+      container.appendChild(cell);
     });
   },
 
@@ -1287,99 +1251,34 @@ refreshData: function() {
   },
 
   renderThreadsView: function() {
-    this.showToast("Loading Threads View...");
+    this.showToast("Loading Data Flow...");
     google.script.run
       .withSuccessHandler((result) => {
-        if(result && result.success && result.data) {
-          google.charts.load('current', {'packages':['sankey']});
-          google.charts.setOnLoadCallback(() => {
-            var data = new google.visualization.DataTable();
-            data.addColumn('string', 'From');
-            data.addColumn('string', 'To');
-            data.addColumn('number', 'Weight');
-            // Adding a tooltip and link color role
-            data.addColumn({type: 'string', role: 'tooltip', p: {html: true}});
-            data.addColumn({type: 'string', role: 'style'});
+        const container = document.getElementById('sankey_chart');
+        if (!container) return;
 
-            const limit = parseInt(document.getElementById('node-limit').value, 10);
-            const rawData = result.data.slice(0, limit);
-            
-            const rows = rawData.map(row => {
-              const color = appActions.hexToRgba(row.color || '#4A90E2', 0.45);
-              return [row.source, row.target, row.weight, `<div>${row.weight} items</div>`, color];
-            });
-            
-            data.addRows(rows);
+        let dataToProcess = result && result.success && result.data ? result.data : 
+          // Fallback Mock Data
+          [{source: 'AWS', target: 'Invoice', weight: 50}, {source: 'AWS', target: 'Receipt', weight: 20}, {source: 'Stripe', target: 'Update', weight: 15}];
 
-            var colors = ['#a6cee3', '#b2df8a', '#fb9a99', '#fdbf6f',
-                          '#cab2d6', '#ffff99', '#1f78b4', '#33a02c'];
+        // Build Mermaid Sankey String
+        let mermaidString = "sankey-beta\n\n";
+        dataToProcess.forEach(row => {
+           // Mermaid sankey requires CSV format: source,target,value
+           mermaidString += `${row.source},${row.target || row.entity},${row.weight || row.volume}\n`;
+        });
 
-            var options = {
-              width: '100%',
-              height: '100%',
-              sankey: {
-                node: {
-                  colors: colors,
-                  label: { color: getComputedStyle(document.documentElement).getPropertyValue('--text-main').trim() || '#fff' }
-                },
-                link: {
-                  colorMode: 'source'
-                }
-              }
-            };
-
-            var chart = new google.visualization.Sankey(document.getElementById('sankey_chart'));
-            
-            google.visualization.events.addListener(chart, 'select', function() {
-              var selection = chart.getSelection();
-              if (selection.length > 0 && selection[0].name) {
-                const nodeName = selection[0].name;
-                const input = document.getElementById('ast-input');
-                input.value = `Correspondent:${nodeName}`;
-                appActions.executeASTSearch(input.value);
-                appActions.switchWorkspaceView('grid');
-              }
-            });
-
-            chart.draw(data, options);
-          });
-        } else {
-          // Fallback mock
-          google.charts.load('current', {'packages':['sankey']});
-          google.charts.setOnLoadCallback(() => {
-            var data = new google.visualization.DataTable();
-            data.addColumn('string', 'From');
-            data.addColumn('string', 'To');
-            data.addColumn('number', 'Weight');
-            data.addColumn({type: 'string', role: 'tooltip', p: {html: true}});
-            data.addColumn({type: 'string', role: 'style'});
-            data.addRows([
-              ['AWS', 'Invoice', 50, '50', appActions.hexToRgba('#FF9900', 0.45)],
-              ['AWS', 'Receipt', 20, '20', appActions.hexToRgba('#FF9900', 0.45)],
-              ['Stripe', 'Update', 15, '15', appActions.hexToRgba('#008CDD', 0.45)]
-            ]);
-
-            var options = { width: '100%', height: '100%', sankey: { node: { label: { color: '#fff' } }, link: { colorMode: 'source' } } };
-            var chart = new google.visualization.Sankey(document.getElementById('sankey_chart'));
-            
-            google.visualization.events.addListener(chart, 'select', function() {
-              var selection = chart.getSelection();
-              if (selection.length > 0 && selection[0].name) {
-                const nodeName = selection[0].name;
-                const input = document.getElementById('ast-input');
-                input.value = `Correspondent:${nodeName}`;
-                appActions.executeASTSearch(input.value);
-                appActions.switchWorkspaceView('grid');
-              }
-            });
-
-            chart.draw(data, options);
-          });
+        // Remove old mermaid data attributes to force re-render
+        container.removeAttribute('data-processed');
+        container.innerHTML = mermaidString;
+        
+        try {
+            mermaid.init(undefined, container);
+        } catch (e) {
+            console.error("Mermaid rendering failed:", e);
         }
       })
-      .withFailureHandler((error) => {
-        this.showToast("Apps Script Error: " + error.message);
-      })
+      .withFailureHandler((error) => this.showToast("Apps Script Error: " + error.message))
       .getThreadsData();
   },
 
