@@ -512,7 +512,7 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
         conn.commit()
         print(f"Updated Drive token to: {new_page_token}")
 
-async def sync_gmail(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGovernor) -> None:
+def sync_gmail(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGovernor) -> None:
     """
     Synchronizes Gmail changes via history delta fetching.
     
@@ -521,7 +521,7 @@ async def sync_gmail(creds: Credentials, conn: sqlite3.Connection, governor: Quo
         conn (sqlite3.Connection): The SQLite database connection.
         governor (QuotaGovernor): The active QuotaGovernor instance tracking API calls.
     """
-    import asyncio
+    import time
     service = build('gmail', 'v1', credentials=creds)
     cursor = conn.cursor()
     
@@ -556,7 +556,7 @@ async def sync_gmail(creds: Credentials, conn: sqlite3.Connection, governor: Quo
         print(f"Found {len(history['history'])} Gmail history records.")
         for i, record in enumerate(history['history']):
             if i % 10 == 0:
-                await asyncio.sleep(0.01)
+                time.sleep(0.01)
                 
             file_time = time.time()
             if not process_file_with_governor(file_time, governor):
@@ -769,7 +769,7 @@ def materialize_artifact(artifact_id: str):
         if 'conn' in locals():
             conn.close()
 
-async def run_sync() -> None:
+def run_sync() -> None:
     """
     Main entry point for the Delta Synchronization Engine.
     Coordinates authentication, Quota Governor initialization, seed ingestion,
@@ -795,8 +795,8 @@ async def run_sync() -> None:
         
         ingest_taxonomy_seed(creds, conn, governor)
         sync_contacts(creds, conn, governor)
-        await sync_drive(creds, conn, governor)
-        await sync_gmail(creds, conn, governor)
+        sync_drive(creds, conn, governor)
+        sync_gmail(creds, conn, governor)
         
         # Process historical ingestion queue
         cursor = conn.cursor()
@@ -808,9 +808,6 @@ async def run_sync() -> None:
             service = build('gmail', 'v1', credentials=creds)
             
             for i, item in enumerate(pending_items):
-                if i % 10 == 0:
-                    await asyncio.sleep(0.01)
-                    
                 queue_id = item['id']
                 msg_id = item['source_id']
                 
@@ -836,6 +833,7 @@ async def run_sync() -> None:
                         "snippet": snippet
                     }
                     
+                    from llm_engine import process_gmail_thread
                     process_gmail_thread(f"mail_{msg_id}", email_context, "[]")
                     cursor.execute("UPDATE Ingestion_Queue SET status = 'COMPLETE' WHERE id = ?", (queue_id,))
                 except Exception as e:
@@ -861,5 +859,4 @@ async def run_sync() -> None:
         print("Synchronization engine completed.")
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(run_sync())
+    run_sync()

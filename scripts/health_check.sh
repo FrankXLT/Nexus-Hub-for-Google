@@ -85,3 +85,58 @@ for vm in "${vms[@]}"; do
         done
     fi
 done
+
+while true; do
+    echo -e "\n${CYAN}====================================================${NC}"
+    echo -e "${CYAN}             Nexus Master Control Panel             ${NC}"
+    echo -e "${CYAN}====================================================${NC}"
+    echo "1) Launch SSH Session"
+    echo "2) Pull Database Taxonomy (db_report.md)"
+    echo "3) Pull Latest 50 Logs (nexus_logs.txt)"
+    echo "4) Restart Nexus Service"
+    echo "5) Exit"
+    echo -e "${CYAN}====================================================${NC}"
+    read -p "Select an option: " choice
+
+    case $choice in
+        1)
+            echo -e "\n${GREEN}Launching SSH Session to $NAME...${NC}"
+            gcloud compute ssh "$NAME" --zone="$ZONE" --strict-host-key-checking=no
+            ;;
+        2)
+            echo -e "\n${GREEN}Generating Database Taxonomy...${NC}"
+            gcloud compute ssh "$NAME" --zone="$ZONE" --command="cd ~/nexus/current && python3 db_mapper.py" --strict-host-key-checking=no
+            echo -e "${GREEN}Downloading db_report.md...${NC}"
+            gcloud compute scp "${NAME}:~/nexus/current/db_report.md" . --zone="$ZONE" --strict-host-key-checking=no
+            echo -e "${GREEN}Done.${NC}"
+            ;;
+        3)
+            echo -e "\n${GREEN}Fetching Latest Logs...${NC}"
+            gcloud compute ssh "$NAME" --zone="$ZONE" --command="sudo journalctl -u nexus.service -n 50 > /tmp/nexus_logs.txt" --strict-host-key-checking=no
+            echo -e "${GREEN}Downloading nexus_logs.txt...${NC}"
+            gcloud compute scp "${NAME}:/tmp/nexus_logs.txt" . --zone="$ZONE" --strict-host-key-checking=no
+            echo -e "${GREEN}Done.${NC}"
+            ;;
+        4)
+            echo -e "\n${GREEN}Restarting Nexus Service on $NAME...${NC}"
+            gcloud compute ssh "$NAME" --zone="$ZONE" --command="sudo systemctl restart nexus.service" --strict-host-key-checking=no
+            echo -e "${CYAN}Verifying Health Status...${NC}"
+            gcloud compute ssh "$NAME" --zone="$ZONE" --command="$PAYLOAD" --quiet --strict-host-key-checking=no 2>/dev/null | while IFS= read -r line; do
+                line="${line//\[PASS\]/${GREEN}[PASS]${NC}}"
+                line="${line//\[FAIL\]/${RED}[FAIL]${NC}}"
+                if [[ "$line" == *"Systemd"* ]]; then
+                    line="${line//inactive/${RED}inactive${NC}}"
+                    line="${line//active/${GREEN}active${NC}}"
+                fi
+                echo -e "$line"
+            done
+            ;;
+        5)
+            echo -e "\n${CYAN}Exiting Master Control Panel.${NC}"
+            break
+            ;;
+        *)
+            echo -e "${RED}Invalid option. Please select 1-5.${NC}"
+            ;;
+    esac
+done

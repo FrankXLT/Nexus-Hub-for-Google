@@ -112,3 +112,80 @@ foreach ($vm in $vmList) {
         }
     }
 }
+
+while ($true) {
+    Write-Host "`n====================================================" -ForegroundColor Cyan
+    Write-Host "             Nexus Master Control Panel             " -ForegroundColor Cyan
+    Write-Host "====================================================" -ForegroundColor Cyan
+    Write-Host "[1] Launch SSH Session"
+    Write-Host "[2] Pull Database Taxonomy (db_report.md)"
+    Write-Host "[3] Pull Latest 50 Logs (nexus_logs.txt)"
+    Write-Host "[4] Restart Nexus Service"
+    Write-Host "[5] Exit"
+    Write-Host "====================================================" -ForegroundColor Cyan
+    
+    $choice = Read-Host "Select an option"
+    
+    switch ($choice) {
+        "1" {
+            Write-Host "`nLaunching SSH Session to $NAME..." -ForegroundColor Green
+            gcloud compute ssh $NAME --zone=$ZONE --strict-host-key-checking=no
+        }
+        "2" {
+            Write-Host "`nGenerating Database Taxonomy..." -ForegroundColor Green
+            gcloud compute ssh $NAME --zone=$ZONE --command="cd ~/nexus/current && python3 db_mapper.py" --strict-host-key-checking=no
+            Write-Host "Downloading db_report.md..." -ForegroundColor Green
+            gcloud compute scp ${NAME}:~/nexus/current/db_report.md . --zone=$ZONE --strict-host-key-checking=no
+            Write-Host "Done." -ForegroundColor Green
+        }
+        "3" {
+            Write-Host "`nFetching Latest Logs..." -ForegroundColor Green
+            gcloud compute ssh $NAME --zone=$ZONE --command="sudo journalctl -u nexus.service -n 50 > /tmp/nexus_logs.txt" --strict-host-key-checking=no
+            Write-Host "Downloading nexus_logs.txt..." -ForegroundColor Green
+            gcloud compute scp ${NAME}:/tmp/nexus_logs.txt . --zone=$ZONE --strict-host-key-checking=no
+            Write-Host "Done." -ForegroundColor Green
+        }
+        "4" {
+            Write-Host "`nRestarting Nexus Service on $NAME..." -ForegroundColor Green
+            gcloud compute ssh $NAME --zone=$ZONE --command="sudo systemctl restart nexus.service" --strict-host-key-checking=no
+            Write-Host "Verifying Health Status..." -ForegroundColor Cyan
+            $sshOut = gcloud compute ssh $NAME --zone=$ZONE --command=$sshCmd --quiet --strict-host-key-checking=no 2>&1
+            foreach ($line in $sshOut) {
+                if ([string]::IsNullOrWhiteSpace($line)) {
+                    Write-Host ""
+                    continue
+                }
+                if ($line -match '\[PASS\]') {
+                    $parts_l = $line -split '\[PASS\]', 2
+                    Write-Host $parts_l[0] -NoNewline
+                    Write-Host '[PASS]' -ForegroundColor Green -NoNewline
+                    Write-Host $parts_l[1]
+                } elseif ($line -match '\[FAIL\]') {
+                    $parts_l = $line -split '\[FAIL\]', 2
+                    Write-Host $parts_l[0] -NoNewline
+                    Write-Host '[FAIL]' -ForegroundColor Red -NoNewline
+                    Write-Host $parts_l[1]
+                } elseif ($line -match 'Systemd' -and $line -match 'inactive') {
+                    $parts_l = $line -split 'inactive', 2
+                    Write-Host $parts_l[0] -NoNewline
+                    Write-Host 'inactive' -ForegroundColor Red -NoNewline
+                    Write-Host $parts_l[1]
+                } elseif ($line -match 'Systemd' -and $line -match 'active') {
+                    $parts_l = $line -split 'active', 2
+                    Write-Host $parts_l[0] -NoNewline
+                    Write-Host 'active' -ForegroundColor Green -NoNewline
+                    Write-Host $parts_l[1]
+                } else {
+                    Write-Host $line
+                }
+            }
+        }
+        "5" {
+            Write-Host "`nExiting Master Control Panel." -ForegroundColor Cyan
+            break
+        }
+        default {
+            Write-Host "Invalid option. Please select 1-5." -ForegroundColor Red
+        }
+    }
+}

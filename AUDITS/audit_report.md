@@ -376,3 +376,9 @@ graph TD
 - Fixed Coroutine Await (main.py): Removed syncio.to_thread wrapper around the un_sync call in periodic_sync to natively await the async function.
 - Globalized LLM Imports (sync_engine.py): Moved dynamic llm_engine imports (evaluate_quarantine_clusters, generate_sender_profile, process_gmail_thread, process_drive_document) to the top of the file to resolve namespace errors inside loops.
 - Caught ValueError on Gemini Parsing (llm_engine.py): Updated the exception block in call_gemini to catch ValueError alongside json.JSONDecodeError to prevent crashes when the SDK encounters safety blocks or empty payloads.
+
+## Synchronous Engine Enforcement
+
+- Removed 'async' from 'run_sync' in 'sync_engine.py', establishing it as a strictly synchronous background function.
+- Removed 'async' from 'sync_gmail' and removed 'await' from internal calls (e.g., 'sync_drive', 'sync_gmail', 'asyncio.sleep') so that no coroutines are silently instantiated.
+- Replaced 'asyncio.run(run_sync())' with 'run_sync()' inside the main execution block to ensure correct synchronous evaluation.

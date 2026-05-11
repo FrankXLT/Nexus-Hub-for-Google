@@ -22,3 +22,5 @@ DEPRECATED/*
 
 # Environment
 .nexus_env
+
+db_report.md
