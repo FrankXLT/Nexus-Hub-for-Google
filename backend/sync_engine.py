@@ -828,7 +828,6 @@ async def run_sync() -> None:
                         "snippet": snippet
                     }
                     
-                    from llm_engine import process_gmail_thread
                     process_gmail_thread(f"mail_{msg_id}", email_context, "[]")
                     cursor.execute("UPDATE Ingestion_Queue SET status = 'COMPLETE' WHERE id = ?", (queue_id,))
                 except Exception as e:

@@ -370,3 +370,9 @@ graph TD
 - Built main content containers: Mission Control (#tab-mission-control) with heatmap grid and Sankey chart (#sankey_chart), Grid Tab (#tab-grid), Zero Trust Tab (#tab-zero-trust), and others.
 - Implemented Workspace Context Drawer (#workspace-context-drawer) and Zero Trust Drawer (#zt-context-drawer) for slide-out detail views.
 - Maintained backend variable/script injection at the end of the body (JS_State and JS_Actions).
+
+## Resolving Backend Ingestion Crashes
+
+- Fixed Coroutine Await (main.py): Removed syncio.to_thread wrapper around the un_sync call in periodic_sync to natively await the async function.
+- Globalized LLM Imports (sync_engine.py): Moved dynamic llm_engine imports (evaluate_quarantine_clusters, generate_sender_profile, process_gmail_thread, process_drive_document) to the top of the file to resolve namespace errors inside loops.
+- Caught ValueError on Gemini Parsing (llm_engine.py): Updated the exception block in call_gemini to catch ValueError alongside json.JSONDecodeError to prevent crashes when the SDK encounters safety blocks or empty payloads.

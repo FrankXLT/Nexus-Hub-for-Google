@@ -55,8 +55,8 @@ async def start_cron_jobs():
     async def periodic_sync():
         while True:
             try:
-                # Run sync in a separate thread to avoid blocking the event loop
-                await asyncio.to_thread(run_sync)
+                # run_sync is an async function, await it directly
+                await run_sync()
             except Exception as e:
                 print(f"Background sync error: {e}")
             await asyncio.sleep(3600)  # Run every hour

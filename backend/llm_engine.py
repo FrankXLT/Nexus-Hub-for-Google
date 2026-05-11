@@ -90,8 +90,8 @@ def call_gemini(prompt: str, context: str) -> Tuple[Optional[Dict[str, Any]], Di
         tokens = response.usage_metadata.total_token_count if hasattr(response, 'usage_metadata') and response.usage_metadata else 0
         telemetry = {"processing_time_ms": elapsed_ms, "api_tokens_used": tokens}
         return json.loads(response.text), telemetry
-    except json.JSONDecodeError as e:
-        print(f"JSON Parsing Error. Hallucinated format: {e}")
+    except (json.JSONDecodeError, ValueError) as e:
+        print(f"Parsing Error or Safety Block. Details: {e}")
         if response and response.text:
             print(f"Raw Output: {response.text}")
         return None, {}
