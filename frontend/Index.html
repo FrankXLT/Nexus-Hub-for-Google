@@ -1,170 +1,135 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nexus Intelligence Dashboard</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            deepBlue: '#001A33',
-            slateGrey: '#334155',
-            academicGold: '#F3F0DF',
-          }
-        }
-      }
-    }
-    // Initialize Mermaid
-    mermaid.initialize({ startOnLoad: false, theme: 'dark' });
-  </script>
-  <style>
-    /* Add basic dark mode text colors since we are using a dark theme palette */
-    body {
-      background-color: #001A33;
-      color: #F3F0DF;
-    }
-  </style>
-  <?!= include('CSS_Styles'); ?>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus V2 Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
 </head>
-<body class="bg-deepBlue text-academicGold h-screen flex overflow-hidden font-sans">
+<!-- THE GLOBAL SHELL -->
+<body class="flex h-screen bg-gray-900 text-gray-100 font-sans overflow-hidden relative">
 
-  <!-- Sidebar -->
-  <nav id="sidebar" class="w-64 bg-slateGrey flex-shrink-0 border-r border-gray-700 flex flex-col z-10">
-    <div class="p-4 text-xl font-bold tracking-wider border-b border-gray-700">Nexus Dashboard</div>
-    <ul class="flex-1 p-4 space-y-2">
-      <li>
-        <button onclick="appState.switchTab('tab-mission-control')" class="w-full text-left p-2 hover:bg-gray-600 rounded transition-colors focus:outline-none">Homepage</button>
-      </li>
-      <li>
-        <button onclick="appState.switchTab('tab-zero-trust')" class="w-full text-left p-2 hover:bg-gray-600 rounded transition-colors flex justify-between items-center focus:outline-none">
-          <span>Zero Trust Entity Management</span>
-          <span class="badge bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full hidden" id="zero-trust-badge">0</span>
-        </button>
-      </li>
-      <li>
-        <button onclick="appState.switchTab('tab-pipeline-orchestrator')" class="w-full text-left p-2 hover:bg-gray-600 rounded transition-colors focus:outline-none">Pipeline Orchestrator</button>
-      </li>
-      <li>
-        <button onclick="appState.switchTab('tab-prompt-sandbox')" class="w-full text-left p-2 hover:bg-gray-600 rounded transition-colors focus:outline-none">Prompt Sandbox</button>
-      </li>
-    </ul>
-  </nav>
+    <nav id="sidebar" class="w-64 bg-gray-800 border-r border-gray-700 flex flex-col shrink-0">
+        <div class="p-4 border-b border-gray-700 text-xl font-bold">Nexus V2</div>
+        <ul class="flex-1 p-4 space-y-2">
+            <li><button onclick="appActions.switchTab('tab-home')" class="w-full text-left p-2 hover:bg-gray-700 rounded">Homepage</button></li>
+            <li><button onclick="appActions.switchTab('tab-zero-trust')" class="w-full text-left p-2 hover:bg-gray-700 rounded">Zero Trust Entity</button></li>
+            <li><button onclick="appActions.switchTab('tab-orchestrator')" class="w-full text-left p-2 hover:bg-gray-700 rounded">Pipeline Orchestrator</button></li>
+            <li><button onclick="appActions.switchTab('tab-sandbox')" class="w-full text-left p-2 hover:bg-gray-700 rounded">Prompt Sandbox</button></li>
+            <li><button onclick="appActions.switchTab('tab-settings')" class="w-full text-left p-2 hover:bg-gray-700 rounded">Settings</button></li>
+        </ul>
+    </nav>
 
-  <!-- Main Content Area -->
-  <div class="flex-1 flex flex-col min-w-0">
-    
-    <!-- Omnibox (Search & Command) -->
-    <header class="bg-slateGrey p-4 border-b border-gray-700 flex items-center shadow-md z-10">
-      <div class="relative w-full max-w-3xl flex items-center bg-deepBlue rounded-md border border-gray-600 px-3 py-2 mx-auto lg:mx-0">
-        <!-- S (Search) -->
-        <button onclick="appActions.executeASTSearch(document.getElementById('ast-input').value)" class="text-gray-400 hover:text-academicGold mr-2 focus:outline-none" title="Search">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-        </button>
-        
-        <input type="text" id="ast-input" placeholder="Search & Command..." class="bg-transparent flex-1 outline-none text-academicGold placeholder-gray-500">
-        
-        <!-- B (Bookmarks) -->
-        <button onclick="appActions.toggleBookmarks && appActions.toggleBookmarks()" class="text-gray-400 hover:text-academicGold ml-2 focus:outline-none" title="Bookmarks">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>
-        </button>
-        
-        <!-- A (Action/Quarantine) -->
-        <button onclick="appActions.toggleChip(this, 'Purpose:Purpose/Review')" class="text-gray-400 hover:text-academicGold ml-2 focus:outline-none" title="Action/Quarantine">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-        </button>
-        
-        <!-- O (Options) -->
-        <button onclick="appActions.toggleAdvancedSearch && appActions.toggleAdvancedSearch()" class="text-gray-400 hover:text-academicGold ml-2 focus:outline-none" title="Options">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
-        </button>
-        
-        <!-- X (Clear) -->
-        <button onclick="document.getElementById('ast-input').value=''; appActions.refreshData()" class="text-gray-400 hover:text-academicGold ml-2 focus:outline-none" title="Clear">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-        </button>
-      </div>
-    </header>
+    <main class="flex-1 flex flex-col min-w-0">
+        <!-- THE OMNIBOX (S B A O X) -->
+        <header class="h-16 bg-gray-800 border-b border-gray-700 flex items-center justify-center p-4">
+            <div class="flex items-center bg-gray-900 border border-gray-600 rounded w-full max-w-3xl p-2">
+                <svg id="icon-s" onclick="" class="w-5 h-5 text-gray-400 mr-2 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <svg id="icon-b" onclick="" class="w-5 h-5 text-gray-400 mr-2 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+                <input type="text" id="omnibox-input" placeholder="Search..." class="flex-1 bg-transparent outline-none text-white px-2">
+                <svg id="icon-a" onclick="" class="w-5 h-5 text-gray-400 ml-2 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                <svg id="icon-o" onclick="" class="w-5 h-5 text-gray-400 ml-2 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                <svg id="icon-x" onclick="" class="w-5 h-5 text-gray-400 ml-2 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </div>
+        </header>
 
-    <!-- Tabs Container -->
-    <main class="flex-1 p-6 overflow-y-auto relative">
-      
-      <!-- Mission Control Tab -->
-      <div id="tab-mission-control" class="tab-pane active">
-        <h2 class="text-2xl font-semibold mb-4">Mission Control</h2>
-        <!-- Heatmap -->
-        <div class="mb-8">
-          <h3 class="text-xl mb-2">Activity Heatmap</h3>
-          <!-- Responsive CSS Grid for heatmap: grid-cols-4 mobile, lg:grid-cols-31 desktop -->
-          <div id="heatmapChart" class="grid grid-cols-4 lg:grid-cols-31 gap-1"></div>
+        <div class="flex-1 overflow-y-auto p-6 relative">
+            <div id="tab-home" class="block">
+                <!-- THE VISUAL QUERY BOX (TOGGLEABLE) -->
+                <div class="mb-4 flex space-x-2">
+                    <button onclick="appActions.toggleVQBView('heatmap')" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded">Activity Heatmap</button>
+                    <button onclick="appActions.toggleVQBView('sankey')" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded">Data Flow</button>
+                </div>
+                <div id="vqb-heatmap" class="grid grid-cols-7 gap-1 min-h-[200px] border border-gray-700 p-2"></div>
+                <div id="vqb-sankey" class="hidden min-h-[200px] border border-gray-700 p-2"></div>
+
+                <!-- THE QUERY RESULTS (TREE MAP & CARDS) -->
+                <div id="query-results-container" class="hidden mt-8">
+                    <div id="results-treemap" class="w-full h-48 border border-gray-700 mb-4 p-2"></div>
+                    <div id="results-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                </div>
+            </div>
+
+            <div id="tab-zero-trust" class="hidden h-full">
+                <!-- ZERO TRUST HIERARCHY -->
+                <div class="flex h-full border border-gray-700">
+                    <div class="w-1/3 border-r border-gray-700 overflow-y-auto p-4">
+                        <h2 class="text-lg font-bold mb-4">Taxonomy</h2>
+                        <ul id="zt-taxonomy-tree" class="space-y-2"></ul>
+                    </div>
+                    <div class="w-2/3 p-4 overflow-y-auto">
+                        <div id="zt-action-canvas"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-orchestrator" class="hidden">
+                <!-- PIPELINE ORCHESTRATOR -->
+                <div class="flex space-x-4 mb-6">
+                    <div class="flex-1 bg-gray-800 border border-gray-700 p-4 rounded shadow">
+                        <h3 class="font-bold mb-2">Quota</h3>
+                        <p class="text-sm text-gray-400">Status metrics placeholder</p>
+                    </div>
+                    <div class="flex-1 bg-gray-800 border border-gray-700 p-4 rounded shadow">
+                        <h3 class="font-bold mb-2">Gmail</h3>
+                        <p class="text-sm text-gray-400">Status metrics placeholder</p>
+                    </div>
+                    <div class="flex-1 bg-gray-800 border border-gray-700 p-4 rounded shadow">
+                        <h3 class="font-bold mb-2">Drive</h3>
+                        <p class="text-sm text-gray-400">Status metrics placeholder</p>
+                    </div>
+                </div>
+                <table id="ingestion-queue" class="w-full text-left border-collapse border border-gray-700">
+                    <thead class="bg-gray-800">
+                        <tr>
+                            <th class="p-2 border border-gray-700">ID</th>
+                            <th class="p-2 border border-gray-700">Source</th>
+                            <th class="p-2 border border-gray-700">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Rows injected here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="tab-sandbox" class="hidden h-full">
+                <!-- PROMPT SANDBOX -->
+                <div class="flex h-full border border-gray-700">
+                    <div class="w-1/4 border-r border-gray-700 p-4 overflow-y-auto">
+                        <h2 class="text-lg font-bold mb-4">System Prompts</h2>
+                        <!-- List of system prompts -->
+                    </div>
+                    <div class="w-3/4 p-4 flex flex-col">
+                        <textarea class="flex-1 w-full bg-gray-800 border border-gray-700 p-4 rounded mb-4 outline-none resize-none" placeholder="Prompt editor"></textarea>
+                        <div id="test-bench" class="h-64 border border-gray-700 bg-gray-800 p-4 rounded overflow-y-auto">Test Bench</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-settings" class="hidden space-y-6">
+                <!-- SETTINGS AND TAXONOMY -->
+                <div class="bg-gray-800 border border-gray-700 p-6 rounded shadow">
+                    <h2 class="text-xl font-bold mb-4">Taxonomy Management</h2>
+                    <p class="text-gray-400">Manage Categories and Purposes</p>
+                </div>
+                <div class="bg-gray-800 border border-gray-700 p-6 rounded shadow">
+                    <h2 class="text-xl font-bold mb-4">System Configuration</h2>
+                    <p class="text-gray-400">Global Settings</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- THE CONTEXT DRAWERS -->
+        <div id="workspace-drawer" class="fixed top-0 right-0 w-80 h-full bg-gray-800 border-l border-gray-700 shadow-2xl transform translate-x-full transition-transform duration-300 z-50">
         </div>
         
-        <!-- Sankey Chart (Mermaid) -->
-        <div>
-          <h3 class="text-xl mb-2">Data Flow</h3>
-          <div id="sankey_chart" class="mermaid bg-slateGrey p-4 rounded-md"></div>
+        <div id="zt-drawer" class="fixed top-0 right-0 w-80 h-full bg-gray-800 border-l border-gray-700 shadow-2xl transform translate-x-full transition-transform duration-300 z-50">
         </div>
-      </div>
-
-      <!-- Grid Tab (Not in sidebar, but requested) -->
-      <div id="tab-grid" class="tab-pane hidden">
-         <h2 class="text-2xl font-semibold mb-4">Data Grid</h2>
-         <div id="grid-container"></div>
-      </div>
-
-      <!-- Zero Trust Tab -->
-      <div id="tab-zero-trust" class="tab-pane hidden">
-         <h2 class="text-2xl font-semibold mb-4">Zero Trust Entity Management</h2>
-         <div id="zero-trust-queue" class="space-y-4"></div>
-      </div>
-
-      <!-- Pipeline Orchestrator Tab -->
-      <div id="tab-pipeline-orchestrator" class="tab-pane hidden">
-         <h2 class="text-2xl font-semibold mb-4">Pipeline Orchestrator</h2>
-         <div id="pipeline-orchestrator-content">Content goes here...</div>
-      </div>
-
-      <!-- Prompt Sandbox Tab -->
-      <div id="tab-prompt-sandbox" class="tab-pane hidden">
-         <h2 class="text-2xl font-semibold mb-4">Prompt Sandbox</h2>
-         <div id="prompt-sandbox-content">Content goes here...</div>
-      </div>
-
     </main>
-  </div>
 
-  <!-- Slide-Out Context Panels -->
-  
-  <!-- Workspace Drawer -->
-  <div id="workspace-context-drawer" class="fixed inset-y-0 right-0 w-full md:w-96 bg-slateGrey shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out border-l border-gray-700 z-50">
-    <div class="p-4 flex justify-between items-center border-b border-gray-700">
-      <h3 class="text-xl font-bold">Workspace Details</h3>
-      <button onclick="appActions.closeContextDrawer()" class="text-gray-400 hover:text-academicGold focus:outline-none">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-      </button>
-    </div>
-    <div class="p-4 overflow-y-auto h-full pb-20">
-      <div id="details-view"></div>
-    </div>
-  </div>
-
-  <!-- Zero Trust Drawer -->
-  <div id="zt-context-drawer" class="fixed inset-y-0 right-0 w-full md:w-96 bg-slateGrey shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out border-l border-gray-700 z-50">
-    <div class="p-4 flex justify-between items-center border-b border-gray-700">
-      <h3 class="text-xl font-bold">Zero Trust Details</h3>
-      <button onclick="appActions.closeContextDrawer()" class="text-gray-400 hover:text-academicGold focus:outline-none">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-      </button>
-    </div>
-    <div class="p-4 overflow-y-auto h-full pb-20">
-      <div id="zt-details-view"></div>
-    </div>
-  </div>
-
-  <?!= include('JS_State'); ?>
-  <?!= include('JS_Actions'); ?>
+    <?!= include('JS_State'); ?>
+    <?!= include('JS_Actions'); ?>
 </body>
 </html>
