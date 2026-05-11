@@ -359,3 +359,14 @@ graph TD
 
 ## Python & Gcloud UTF-8 Enforcement
 - Injected `$env:PYTHONIOENCODING = "UTF-8"` at the top of `scripts/health_check.ps1`. This forces the underlying Python runtime used by the `gcloud CLI` to output raw UTF-8 instead of defaulting to Windows-1252, finally resolving the lingering Mojibake display issues on Windows hosts.
+
+## UI Framework Initialization
+
+- Implemented responsive Tailwind CSS layout for frontend/Index.html.
+- Defined a custom Tailwind config in the <head> with dark-mode palette (deepBlue, slateGrey, academicGold).
+- Included Mermaid.js via CDN for diagrams.
+- Reconstructed the Navigation Sidebar (<nav id="sidebar">) with tabs and a Zero Trust badge.
+- Reconstructed the Omnibox (#ast-input) with 5 inline SVG controls (S B A O X) mapping to appActions.
+- Built main content containers: Mission Control (#tab-mission-control) with heatmap grid and Sankey chart (#sankey_chart), Grid Tab (#tab-grid), Zero Trust Tab (#tab-zero-trust), and others.
+- Implemented Workspace Context Drawer (#workspace-context-drawer) and Zero Trust Drawer (#zt-context-drawer) for slide-out detail views.
+- Maintained backend variable/script injection at the end of the body (JS_State and JS_Actions).
