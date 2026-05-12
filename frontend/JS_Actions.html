@@ -3,6 +3,7 @@ const appActions = {
     init: function() {
         this.renderVQB();
         this.renderSankey();
+        this.loadZeroTrustFlow();
     },
 
     switchTab: function(tabId) {
@@ -166,16 +167,136 @@ const appActions = {
         // Render query results (treemap/cards)
     },
     
-    loadZeroTrustTree: function() {
-        // Load Zero Trust hierarchy
+openSettingsModal: function() {
+        document.getElementById('settings-modal').showModal();
     },
-    
-    fetchQueueStatus: function() {
-        // Fetch Orchestrator queue metrics
+
+    closeSettingsModal: function() {
+        document.getElementById('settings-modal').close();
     },
+
+    switchSettingsTab: function(tabId) {
+        const tabs = ['settings-ingestion', 'settings-prompts', 'settings-legacy'];
+        tabs.forEach(t => {
+            const el = document.getElementById(t);
+            if(el) {
+                if(t === tabId) {
+                    el.classList.remove('hidden');
+                    el.classList.add('block');
+                } else {
+                    el.classList.add('hidden');
+                    el.classList.remove('block');
+                }
+            }
+        });
+        
+        // Update styling on the modal tabs
+        const buttons = document.querySelectorAll('#settings-modal .flex.space-x-4 button');
+        buttons.forEach(btn => {
+            if (btn.getAttribute('onclick').includes(tabId)) {
+                btn.className = "px-4 py-2 border-b-2 border-blue-500 text-blue-400";
+            } else {
+                btn.className = "px-4 py-2 border-b-2 border-transparent text-gray-400 hover:text-white";
+            }
+        });
+    },
+
+    snapshotLegacyLabels: function() {
+        appState.legacyLabels = [
+            { old: "Receipts-2023", keep: false, mapTo: "Receipt / Invoice" },
+            { old: "Newsletters", keep: false, mapTo: "Commercial" },
+            { old: "Tax Docs", keep: true, mapTo: "Finance" }
+        ];
+        appState.labelSnapshotTaken = true;
+        
+        const tbody = document.querySelector('#legacy-labels-table tbody');
+        tbody.innerHTML = '';
+        appState.legacyLabels.forEach(lbl => {
+            const tr = document.createElement('tr');
+            tr.className = "border-t border-gray-700";
+            tr.innerHTML = `
+                <td class="p-2">${lbl.old}</td>
+                <td class="p-2"><input type="checkbox" ${lbl.keep ? 'checked' : ''} class="rounded bg-gray-900 border-gray-600 text-blue-500"> Keep</td>
+                <td class="p-2"><select class="bg-gray-800 border border-gray-600 rounded p-1 w-full"><option>${lbl.mapTo}</option><option>Personal Network</option></select></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    },
+
+    loadZeroTrustFlow: function() {
+        const container = document.getElementById('zt-taxonomy-flow');
+        if (!container) return;
+
+        // Ensure NO leading newline before 'flowchart LR'
+        const graphDefinition = `flowchart LR
+    classDef default fill:#ffffff,stroke:#219ebc,stroke-width:2px,color:#023047,font-family:sans-serif,rx:6px,ry:6px
     
-    runPromptTest: function() {
-        // Run prompt in Sandbox
+    E1("Entity #1") --- S11("Sub Entity #1")
+    S11 --- P11("Purpose")
+    
+    E2("Entity #2") --- S21("Sub Entity #1")
+    E2 --- S22("Sub Entity #2")
+    S21 --- P21("Purpose")
+    S22 --- P22("Purpose")
+    S22 --- P23("Purpose")
+    
+    E1 --> n1("None")
+    n1 --> n2("Purpose")
+    
+    E3("Entity #3") --- n3("None")
+    n3 --- P31("Purpose")
+    n3 --- P32("Purpose")`;
+
+        // Notice we removed 'class="mermaid"' from the render-target so the auto-scanner ignores it
+        container.innerHTML = `
+            <details class="group bg-slate-900 border border-slate-700 w-full mb-4 shadow-lg" open>
+                <summary class="p-4 cursor-pointer list-none flex items-center border-b border-slate-700 text-red-500 font-sans text-xl select-none hover:bg-slate-800 transition-colors">
+                    <span class="mr-3 transition-transform group-open:rotate-90">▽</span> Entity Category #1
+                </summary>
+                <div class="p-6 overflow-x-auto bg-slate-800/30">
+                    <div id="mermaid-render-target" class="flex justify-start min-w-[800px] mb-6"></div>
+                    
+                    <div class="mt-4 pt-4 border-t border-slate-700 flex items-center gap-4">
+                        <span class="text-sm text-gray-400 font-bold uppercase tracking-wider">Category Purposes:</span>
+                        <div class="px-4 py-1.5 bg-slate-900 border border-slate-600 text-red-400 rounded cursor-pointer hover:bg-slate-700 transition-colors text-sm" onclick="window.handleNodeClick('Category Purpose')">Category Purpose</div>
+                        <div class="px-4 py-1.5 bg-slate-900 border border-slate-600 text-red-400 rounded cursor-pointer hover:bg-slate-700 transition-colors text-sm" onclick="window.handleNodeClick('Universal Purpose')">Universal Purpose</div>
+                    </div>
+                </div>
+            </details>
+        `;
+
+        const target = document.getElementById('mermaid-render-target');
+        
+        if (window.mermaid) {
+            mermaid.initialize({
+                startOnLoad: false,
+                theme: 'default',
+                securityLevel: 'loose',
+                flowchart: {
+                    curve: 'linear' 
+                }
+            });
+
+            // Execute manual render
+            mermaid.render('preparedScheme', graphDefinition).then(({ svg }) => {
+                target.innerHTML = svg;
+                
+                // Attach native click handlers to the nodes
+                const nodes = target.querySelectorAll('.node');
+                nodes.forEach(node => {
+                    node.style.cursor = 'pointer';
+                    node.addEventListener('mouseenter', () => node.style.opacity = '0.8');
+                    node.addEventListener('mouseleave', () => node.style.opacity = '1');
+                    
+                    node.addEventListener('click', () => {
+                        window.handleNodeClick(node.id);
+                    });
+                });
+            }).catch(err => {
+                console.error("Mermaid Render Error:", err);
+                target.innerHTML = `<div class="text-red-500 p-4">Render Failed: ${err.message}</div>`;
+            });
+        }
     },
 
     // --- TEST GENERATORS (Safe to delete when API is live) ---
@@ -213,6 +334,40 @@ const appActions = {
             {"source": "Home Depot", "target": "Receipt / Invoice", "value": 45}
         ];
     }
+};
+
+window.handleNodeClick = function(nodeId) {
+    const drawer = document.getElementById('zt-drawer');
+    if (!drawer) return;
+    
+    // Slide the drawer open
+    drawer.classList.remove('translate-x-full');
+    
+    // Populate the drawer with dummy edit context
+    drawer.innerHTML = `
+        <div class="h-full flex flex-col bg-gray-800 text-gray-100">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+                <h2 class="text-xl font-bold text-red-500">Edit Node Settings</h2>
+                <button onclick="document.getElementById('zt-drawer').classList.add('translate-x-full')" class="text-gray-400 hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="p-6 flex-1 overflow-y-auto">
+                <p class="text-gray-400 text-sm mb-6">Manage settings, AI prompts, and bulk actions for this entity here.</p>
+                <label class="block text-sm font-bold mb-2">Entity Name</label>
+                <input type="text" class="w-full bg-gray-900 border border-gray-600 rounded p-2 mb-4 text-white" value="Selected Entity">
+                
+                <label class="block text-sm font-bold mb-2">Gmail Navigation Visibility</label>
+                <select class="w-full bg-gray-900 border border-gray-600 rounded p-2 mb-6 text-white">
+                    <option>Show Always</option>
+                    <option>Hide</option>
+                    <option>Show if Important</option>
+                </select>
+
+                <button class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded transition-colors">Save Changes</button>
+            </div>
+        </div>
+    `;
 };
 
 document.addEventListener('DOMContentLoaded', () => {
