@@ -1,51 +1,26 @@
-//<script>
-//const appActions = {
-//  init: function() {
-//    // Initialization logic
-//  },
-//  
-//  switchTab: function(tabId) {
-//    // Switch main tabs
-//  },
-//  
-//  toggleVQBView: function(viewName) {
-//    // Toggle between 'heatmap' and 'sankey' in VQB
-//  },
-//  
-//  executeASTSearch: function() {
-//    // Execute search from Omnibox
-//  },
-//  
-//  stageChip: function() {
-//    // Stage an AST chip in the Omnibox
-//  },
-//  
-//  renderResults: function() {
-//    // Render query results (treemap/cards)
-//  },
-//  
-//  loadZeroTrustTree: function() {
-//    // Load Zero Trust hierarchy
-//  },
-//  
-//  fetchQueueStatus: function() {
-//    // Fetch Orchestrator queue metrics
-//  },
-//  
-//  runPromptTest: function() {
-//    // Run prompt in Sandbox
-//  }
-//};
-//</script>
-
 <script>
 const appActions = {
     init: function() {
         this.renderVQB();
+        this.renderSankey();
     },
 
+    toggleVQBView: function(viewName) {
+        const heatmap = document.getElementById('vqb-heatmap');
+        const sankey = document.getElementById('vqb-sankey');
+        
+        if (viewName === 'heatmap') {
+            heatmap.classList.remove('hidden');
+            sankey.classList.add('hidden');
+        } else {
+            heatmap.classList.add('hidden');
+            sankey.classList.remove('hidden');
+            this.renderSankey(); 
+        }
+    },
+
+    // --- HEATMAP MODULE (2D MATRIX) ---
     renderVQB: async function() {
-        // Fetch heatmap data from the FastAPI Walled Garden
         const API_BASE = 'http://136.119.213.222:8000'; 
         
         try {
@@ -54,82 +29,154 @@ const appActions = {
             const data = await response.json();
             appState.heatmapData = data.heatmap;
         } catch (error) {
-            console.warn("Backend not ready or unreachable. Using UI test data.", error);
-            appState.heatmapData = this.generateDummyHeatmap();
+            console.warn("Heatmap Backend unreachable. Using 2D test matrix.", error);
+            appState.heatmapData = this.generateDummyMatrix();
         }
 
-        this.drawHeatmapGrid();
+        this.drawHeatmapMatrix();
     },
 
-    drawHeatmapGrid: function() {
+    drawHeatmapMatrix: function() {
         const container = document.getElementById('vqb-heatmap');
         if (!container) return;
         
         container.innerHTML = ''; 
-        
-        // Tailwind 31-column grid constraint (Mobile: 4, Tablet: 10, Desktop: 31)
-        container.className = 'grid grid-cols-4 md:grid-cols-10 lg:grid-cols-[repeat(31,minmax(0,1fr))] gap-1 p-4 rounded-lg bg-slate-900/50 border border-slate-700 mt-4';
+        // Changed to a scrolling flex column to handle 30 rows cleanly
+        container.className = 'flex flex-col gap-2 p-4 rounded-lg bg-slate-900/50 border border-slate-700 mt-4 overflow-y-auto max-h-96 shadow-inner';
 
-        appState.heatmapData.forEach(day => {
-            const cell = document.createElement('div');
-            // Apply visual intensity based on artifact volume
-            cell.className = `h-8 w-full rounded cursor-pointer transition-all duration-200 hover:scale-110 hover:ring-2 hover:ring-white ${this.getHeatmapColor(day.count)}`;
-            cell.title = `${day.date}: ${day.count} artifacts`;
-            
-            // Interactivity: Clicking a cell stages a Temporal Chip in the Omnibox
-            cell.onclick = () => {
-                appActions.stageChip(`Date:${day.date}`);
-            };
-            
-            container.appendChild(cell);
+        appState.heatmapData.forEach(row => {
+            const rowWrapper = document.createElement('div');
+            rowWrapper.className = 'flex items-center gap-3';
+
+            // Sender Label
+            const label = document.createElement('div');
+            label.className = 'w-32 text-xs text-[#F3F0DF] truncate opacity-80';
+            label.textContent = row.sender;
+            label.title = row.sender;
+            rowWrapper.appendChild(label);
+
+            // 20-Day Grid
+            const grid = document.createElement('div');
+            grid.className = 'grid grid-cols-[repeat(20,minmax(0,1fr))] gap-1 flex-1';
+
+            row.data.forEach(day => {
+                const cell = document.createElement('div');
+                cell.className = `h-4 w-full rounded cursor-pointer transition-all duration-150 hover:scale-125 hover:ring-1 hover:ring-white hover:z-10 relative ${this.getHeatmapColor(day.count)}`;
+                cell.title = `${row.sender} | ${day.date} | ${day.count} items`;
+                
+                cell.onclick = () => {
+                    // Stages a hyper-specific boolean query
+                    appActions.stageChip(`Entity:"${row.sender}" AND Date:${day.date}`);
+                };
+                
+                grid.appendChild(cell);
+            });
+
+            rowWrapper.appendChild(grid);
+            container.appendChild(rowWrapper);
         });
     },
 
+    // --- SANKEY MODULE (TAXONOMY FLOW) ---
+    renderSankey: async function() {
+        const container = document.getElementById('vqb-sankey');
+        if (!container) return;
+
+        const API_BASE = 'http://136.119.213.222:8000'; 
+        let links = [];
+
+        try {
+            const response = await fetch(`${API_BASE}/api/analytics/taxonomy`);
+            if (!response.ok) throw new Error('API unreachable');
+            const data = await response.json();
+            links = data.links;
+        } catch (error) {
+            console.warn("Taxonomy Backend unreachable. Using test links.", error);
+            links = this.generateDummyLinks();
+        }
+
+        // Build the Mermaid syntax string dynamically
+        let mermaidSyntax = "sankey-beta\n";
+        links.forEach(link => {
+            // Strip commas from names to prevent Mermaid syntax errors
+            const safeSource = link.source.replace(/,/g, '');
+            const safeTarget = link.target.replace(/,/g, '');
+            mermaidSyntax += `${safeSource},${safeTarget},${link.value}\n`;
+        });
+        
+        container.innerHTML = `<div class="mermaid flex justify-center p-4 bg-slate-900/50 border border-slate-700 rounded-lg mt-4 w-full overflow-x-auto">\n${mermaidSyntax}\n</div>`;
+        
+        if (window.mermaid) {
+            try {
+                await window.mermaid.run({ nodes: container.querySelectorAll('.mermaid') });
+            } catch (e) {
+                console.error("Mermaid rendering failed:", e);
+            }
+        }
+    },
+
+    // --- UTILITIES ---
     getHeatmapColor: function(count) {
-        // Spatial intelligence color mapping
-        if (count === 0) return 'bg-slate-800/50';
-        if (count < 5) return 'bg-blue-900';
-        if (count < 15) return 'bg-blue-700';
-        if (count < 30) return 'bg-blue-500';
-        return 'bg-blue-400 shadow-[0_0_10px_rgba(96,165,250,0.5)]'; // High-density glow
+        if (count === 0) return 'bg-slate-800/30';
+        if (count < 3) return 'bg-blue-900';
+        if (count < 8) return 'bg-blue-700';
+        if (count < 15) return 'bg-blue-500';
+        return 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.6)] z-0'; 
     },
 
     stageChip: function(chipString) {
-        // Finds the first text input in the DOM (The Omnibox)
         const input = document.querySelector('input[type="text"]'); 
         if (!input) return;
 
         let currentVal = input.value.trim();
-        
-        // Append logic: prevent exact duplicates
         if (!currentVal.includes(chipString)) {
             input.value = currentVal ? `${currentVal} AND ${chipString}` : chipString;
         }
         
-        // Flash the input to confirm the visual query was received
-        input.classList.add('ring-2', 'ring-blue-400');
-        setTimeout(() => input.classList.remove('ring-2', 'ring-blue-400'), 300);
+        input.classList.add('ring-2', 'ring-blue-400', 'bg-blue-900/20');
+        setTimeout(() => {
+            input.classList.remove('ring-2', 'ring-blue-400', 'bg-blue-900/20');
+        }, 300);
         input.focus();
     },
 
-    // UI Test Generator - Delete once Python endpoint is live
-    generateDummyHeatmap: function() {
-        let dummy = [];
-        let d = new Date();
-        d.setDate(d.getDate() - 30); // Generate last 31 days
-        for(let i=0; i<31; i++) {
-            dummy.push({
-                date: d.toISOString().split('T')[0],
-                // Heavily weight towards zero to make density spikes obvious
-                count: Math.random() > 0.6 ? Math.floor(Math.random() * 40) : 0 
-            });
-            d.setDate(d.getDate() + 1);
-        }
-        return dummy;
+    // --- TEST GENERATORS (Safe to delete when API is live) ---
+    generateDummyMatrix: function() {
+        const dummySenders = ["Nick Green", "Scott Davis", "Home Depot", "GitHub", "AWS Alerts", "Kimberly", "Eva School", "Marriott", "American Airlines", "Wild Fork Foods"];
+        let matrix = [];
+        
+        dummySenders.forEach(sender => {
+            let daysData = [];
+            let d = new Date();
+            d.setDate(d.getDate() - 19); // 20 days total
+            
+            for(let i=0; i<20; i++) {
+                daysData.push({
+                    date: d.toISOString().split('T')[0],
+                    // Random spikes
+                    count: Math.random() > 0.7 ? Math.floor(Math.random() * 20) : 0 
+                });
+                d.setDate(d.getDate() + 1);
+            }
+            matrix.push({ sender: sender, data: daysData });
+        });
+        return matrix;
+    },
+
+    generateDummyLinks: function() {
+        return [
+            {"source": "Gmail", "target": "Personal Network", "value": 45},
+            {"source": "Gmail", "target": "Commercial", "value": 80},
+            {"source": "Drive", "target": "System", "value": 20},
+            {"source": "Personal Network", "target": "Nick Green", "value": 15},
+            {"source": "Personal Network", "target": "Scott Davis", "value": 30},
+            {"source": "Commercial", "target": "Home Depot", "value": 50},
+            {"source": "Nick Green", "target": "Project Planning", "value": 10},
+            {"source": "Home Depot", "target": "Receipt / Invoice", "value": 45}
+        ];
     }
 };
 
-// Trigger the render cycle when the DOM loads
 document.addEventListener('DOMContentLoaded', () => {
     appActions.init();
 });

@@ -1030,6 +1030,141 @@ async def health_check_get():
     """
     return {"status": "healthy"}
 
+@app.get("/api/analytics/heatmap")
+def get_analytics_heatmap():
+    from datetime import datetime, timedelta
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    now = int(time.time())
+    twenty_days_ago = now - (20 * 86400)
+    
+    # 1. Top 30 correspondents over last 20 days
+    cursor.execute("""
+        SELECT tc.id, tc.name, COUNT(DISTINCT wa.artifact_id) as vol
+        FROM Workspace_Artifacts wa
+        JOIN Taxonomy_Purposes tp ON wa.purpose_id = tp.id
+        JOIN Taxonomy_Correspondents tc ON tp.correspondent_id = tc.id
+        JOIN Artifact_History ah ON wa.artifact_id = ah.artifact_id
+        WHERE ah.timestamp >= ?
+        GROUP BY tc.id, tc.name
+        ORDER BY vol DESC
+        LIMIT 30
+    """, (twenty_days_ago,))
+    top_corrs = cursor.fetchall()
+    
+    heatmap_data = []
+    
+    # Generate dates list
+    end_date = datetime.utcnow().date()
+    start_date = end_date - timedelta(days=19) # 20 days inclusive
+    date_list = [(start_date + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(20)]
+    
+    for corr in top_corrs:
+        corr_id = corr['id']
+        corr_name = corr['name']
+        
+        cursor.execute("""
+            SELECT date(ah.timestamp, 'unixepoch') as dt, COUNT(DISTINCT wa.artifact_id) as count
+            FROM Workspace_Artifacts wa
+            JOIN Taxonomy_Purposes tp ON wa.purpose_id = tp.id
+            JOIN Artifact_History ah ON wa.artifact_id = ah.artifact_id
+            WHERE tp.correspondent_id = ? AND ah.timestamp >= ?
+            GROUP BY dt
+        """, (corr_id, twenty_days_ago))
+        
+        counts_by_date = {row['dt']: row['count'] for row in cursor.fetchall()}
+        
+        data_array = []
+        for d in date_list:
+            data_array.append({"date": d, "count": counts_by_date.get(d, 0)})
+            
+        heatmap_data.append({
+            "sender": corr_name,
+            "data": data_array
+        })
+        
+    conn.close()
+    return {"heatmap": heatmap_data}
+
+@app.get("/api/analytics/taxonomy")
+def get_analytics_taxonomy():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    now = int(time.time())
+    twenty_days_ago = now - (20 * 86400)
+    
+    # 1. Top 30 correspondents over last 20 days
+    cursor.execute("""
+        SELECT tc.id
+        FROM Workspace_Artifacts wa
+        JOIN Taxonomy_Purposes tp ON wa.purpose_id = tp.id
+        JOIN Taxonomy_Correspondents tc ON tp.correspondent_id = tc.id
+        JOIN Artifact_History ah ON wa.artifact_id = ah.artifact_id
+        WHERE ah.timestamp >= ?
+        GROUP BY tc.id
+        ORDER BY COUNT(DISTINCT wa.artifact_id) DESC
+        LIMIT 30
+    """, (twenty_days_ago,))
+    top_corrs = [row['id'] for row in cursor.fetchall()]
+    
+    if not top_corrs:
+        conn.close()
+        return {"links": []}
+
+    placeholders = ",".join(["?"] * len(top_corrs))
+    query = f"""
+        SELECT 
+            CASE 
+                WHEN wa.artifact_id LIKE 'mail_%' THEN 'Gmail'
+                WHEN wa.artifact_id LIKE 'drive_%' THEN 'Drive'
+                ELSE 'Other'
+            END as source_app,
+            tcat.name as category_name,
+            tc.name as corr_name,
+            tp.name as purpose_name,
+            COUNT(DISTINCT wa.artifact_id) as vol
+        FROM Workspace_Artifacts wa
+        JOIN Taxonomy_Purposes tp ON wa.purpose_id = tp.id
+        JOIN Taxonomy_Correspondents tc ON tp.correspondent_id = tc.id
+        JOIN Taxonomy_Categories tcat ON tc.category_id = tcat.id
+        JOIN Artifact_History ah ON wa.artifact_id = ah.artifact_id
+        WHERE ah.timestamp >= ? AND tc.id IN ({placeholders})
+        GROUP BY source_app, category_name, corr_name, purpose_name
+    """
+    params = [twenty_days_ago] + top_corrs
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    
+    links_dict = {}
+    
+    def add_link(src, tgt, val):
+        if not src or not tgt:
+            return
+        key = f"{src}|||{tgt}"
+        if key not in links_dict:
+            links_dict[key] = 0
+        links_dict[key] += val
+
+    for row in rows:
+        app = row['source_app']
+        cat = row['category_name']
+        corr = row['corr_name']
+        purp = row['purpose_name']
+        vol = row['vol']
+        
+        add_link(app, cat, vol)
+        add_link(cat, corr, vol)
+        add_link(corr, purp, vol)
+
+    links = [{"source": k.split('|||')[0], "target": k.split('|||')[1], "value": v} for k, v in links_dict.items()]
+    
+    conn.close()
+    return {"links": links}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
