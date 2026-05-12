@@ -5,6 +5,23 @@ const appActions = {
         this.renderSankey();
     },
 
+    switchTab: function(tabId) {
+        const tabs = ['tab-home', 'tab-zero-trust', 'tab-orchestrator', 'tab-sandbox', 'tab-settings'];
+        tabs.forEach(t => {
+            const el = document.getElementById(t);
+            if(el) {
+                if(t === tabId) {
+                    el.classList.remove('hidden');
+                    el.classList.add('block');
+                } else {
+                    el.classList.add('hidden');
+                    el.classList.remove('block');
+                }
+            }
+        });
+        appState.activeTab = tabId;
+    },
+
     toggleVQBView: function(viewName) {
         const heatmap = document.getElementById('vqb-heatmap');
         const sankey = document.getElementById('vqb-sankey');
@@ -17,6 +34,7 @@ const appActions = {
             sankey.classList.remove('hidden');
             this.renderSankey(); 
         }
+        appState.activeVQB = viewName;
     },
 
     // --- HEATMAP MODULE (2D MATRIX) ---
@@ -125,7 +143,7 @@ const appActions = {
     },
 
     stageChip: function(chipString) {
-        const input = document.querySelector('input[type="text"]'); 
+        const input = document.getElementById('omnibox-input') || document.querySelector('input[type="text"]'); 
         if (!input) return;
 
         let currentVal = input.value.trim();
@@ -138,6 +156,26 @@ const appActions = {
             input.classList.remove('ring-2', 'ring-blue-400', 'bg-blue-900/20');
         }, 300);
         input.focus();
+    },
+
+    executeASTSearch: function() {
+        // Execute search from Omnibox
+    },
+    
+    renderResults: function() {
+        // Render query results (treemap/cards)
+    },
+    
+    loadZeroTrustTree: function() {
+        // Load Zero Trust hierarchy
+    },
+    
+    fetchQueueStatus: function() {
+        // Fetch Orchestrator queue metrics
+    },
+    
+    runPromptTest: function() {
+        // Run prompt in Sandbox
     },
 
     // --- TEST GENERATORS (Safe to delete when API is live) ---

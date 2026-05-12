@@ -12,6 +12,7 @@ if (-not (Test-Path ".nexus_env")) {
 }
 $TARGET_VM = (Get-Content .nexus_env | Where-Object { $_ -match "^TARGET_VM=" }) -replace "^TARGET_VM=",""
 $TARGET_ZONE = (Get-Content .nexus_env | Where-Object { $_ -match "^TARGET_ZONE=" }) -replace "^TARGET_ZONE=",""
+$DEPLOYMENT_ID = (Get-Content .nexus_env | Where-Object { $_ -match "^DEPLOYMENT_ID=" }) -replace "^DEPLOYMENT_ID=",""
 
 $confirm_vm = Read-Host "Deploying to $TARGET_VM. Press Enter to confirm, or type 'list' to choose a different VM"
 if ($confirm_vm -eq "list") {
@@ -27,6 +28,9 @@ if ($confirm_vm -eq "list") {
     $TARGET_VM = $parts[0]
     $TARGET_ZONE = $parts[1]
     Set-Content -Path ".nexus_env" -Value "TARGET_VM=$TARGET_VM`nTARGET_ZONE=$TARGET_ZONE" -Encoding Ascii
+    if (-not [string]::IsNullOrWhiteSpace($DEPLOYMENT_ID)) {
+        Add-Content -Path ".nexus_env" -Value "DEPLOYMENT_ID=$DEPLOYMENT_ID" -Encoding Ascii
+    }
 }
 
 $INSTANCE_NAME = $TARGET_VM

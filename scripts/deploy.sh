@@ -73,15 +73,37 @@ echo -e "\n${YELLOW}[1/2] Syncing Serverless Frontend (Google Apps Script)...${N
 echo -e "Executing 'clasp push' to upload local HTML/JS/GS files to your Google Account."
 if command -v clasp &> /dev/null; then
     clasp push -f
-    DEPLOY_OUT=$(clasp deploy -d "Nexus Auto-Deploy $(date +'%Y-%m-%d %H:%M')" 2>&1)
-    # Strip ANSI formatting
-    DEPLOY_CLEAN=$(echo "$DEPLOY_OUT" | sed -r "s/\x1B\[[0-9;]*[mK]//g")
-    DEPLOY_ID=$(echo "$DEPLOY_CLEAN" | grep -oP '(?:-\s|Deployed\s)\K[A-Za-z0-9_-]+(?=\s*@)')
+    
+    DEPLOY_ACTION="N"
+    if [ -n "$DEPLOYMENT_ID" ]; then
+        read -p "Found existing Apps Script deployment ($DEPLOYMENT_ID). Do you want to [U]pdate this deployment, or create a [N]ew one? (U/n): " DEPLOY_ACTION
+        if [ -z "$DEPLOY_ACTION" ]; then
+            DEPLOY_ACTION="U"
+        fi
+    fi
 
-    if [ -z "$DEPLOY_ID" ]; then
-        echo -e "\n${RED}[FATAL] Error parsing Deployment ID. Clasp output was:${NC}"
-        echo -e "${YELLOW}$DEPLOY_OUT${NC}"
-        exit 1
+    if [[ "$DEPLOY_ACTION" =~ ^[Uu]$ ]]; then
+        DEPLOY_OUT=$(clasp deploy -i $DEPLOYMENT_ID -d "Nexus Auto-Deploy $(date +'%Y-%m-%d %H:%M')" 2>&1)
+        DEPLOY_ID=$DEPLOYMENT_ID
+    else
+        DEPLOY_OUT=$(clasp deploy -d "Nexus Auto-Deploy $(date +'%Y-%m-%d %H:%M')" 2>&1)
+        # Strip ANSI formatting
+        DEPLOY_CLEAN=$(echo "$DEPLOY_OUT" | sed -r "s/\x1B\[[0-9;]*[mK]//g")
+        DEPLOY_ID=$(echo "$DEPLOY_CLEAN" | grep -oP '(?:-\s|Deployed\s)\K[A-Za-z0-9_-]+(?=\s*@)')
+
+        if [ -z "$DEPLOY_ID" ]; then
+            echo -e "\n${RED}[FATAL] Error parsing Deployment ID. Clasp output was:${NC}"
+            echo -e "${YELLOW}$DEPLOY_OUT${NC}"
+            exit 1
+        fi
+        
+        if grep -q "^DEPLOYMENT_ID=" .nexus_env; then
+            tmp_file=$(mktemp)
+            sed "s/^DEPLOYMENT_ID=.*/DEPLOYMENT_ID=$DEPLOY_ID/" .nexus_env > "$tmp_file"
+            mv "$tmp_file" .nexus_env
+        else
+            echo "DEPLOYMENT_ID=$DEPLOY_ID" >> .nexus_env
+        fi
     fi
     NEXUS_WEB_APP_URL="https://script.google.com/macros/s/$DEPLOY_ID/exec"
     echo -e "${GREEN}--> Apps Script UI synced successfully! URL: $NEXUS_WEB_APP_URL${NC}"
