@@ -563,3 +563,31 @@ function getQuotaGovernor() {
     return { status: "error", detail: error.message };
   }
 }
+
+/**
+ * Purpose: Fetches live telemetry for the Orchestrator swimlanes.
+ * Expected Outputs: Object - Telemetry data including queue counts.
+ */
+function getOrchestratorTelemetry() {
+  try {
+    const payload = {};
+    const result = sendToNexusVM("/api/orchestrator/telemetry", payload, 'get');
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Purpose: Fetches pending items for the Zero Trust Quarantine Carousel.
+ * Expected Outputs: Object - Array of quarantined artifacts awaiting approval.
+ */
+function getQuarantineQueue() {
+  try {
+    const payload = {};
+    const result = sendToNexusVM("/api/quarantine/queue", payload, 'get');
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}

@@ -349,89 +349,26 @@ def seed_default_prompts(conn: sqlite3.Connection) -> None:
     Expected Inputs: conn (sqlite3.Connection) - An active database connection.
     Expected Outputs: None. Modifies Config_Prompts table.
     """
-    PROMPT_GMAIL = """You are a strict data extraction system for a centralized knowledge hub. Review the provided email thread. 
-
-**Tasks:**
-1. **Taxonomy Mapping:** Map the email to ONE exact `Category \\ Correspondent \\ Purpose` from the provided [ENTITY_PROFILES]. Cross-reference the document's sender email, sending domain, or physical address against the provided entity profiles to increase routing accuracy. If it does not match perfectly, output the purpose as 'Purpose/Review'.
-2. **Summary:** Generate a concise, 1-sentence summary of the thread's current state.
-3. **Action State:** Determine if this email requires human action (true/false).
-4. **Custom Fields:** Based on the mapped Purpose, extract the following fields: [DYNAMIC_ARRAY]. Return null if not found.
-5. **Discovery:** If the LLM cannot match a whitelist, suggest a `discovered_purpose`.
-
-**Rules:** Hallucinating new categories is strictly forbidden. 
-**Output:** ONLY valid JSON.
-{
-  "taxonomy_path": "string",
-  "summary": "string",
-  "requires_action": INTEGER,
-  "custom_fields": { "Field1": "value" },
-  "discovered_purpose": "string"
-}"""
-
-    PROMPT_DRIVE_STAGE_1 = """You are an intelligent document routing engine. Review the following raw OCR text. It may contain scanning errors.
-
-**Task:** Identify the primary organization, vendor, or sender of this document. Match it to ONE exact `Correspondent` string from the provided [ENTITY_PROFILES]. Cross-reference the document's sender email, sending domain, or physical address against the provided entity profiles to increase routing accuracy.
-
-**Rules:**
-- Ignore generic payment processors (e.g., PayPal, Stripe) if the actual vendor is mentioned.
-- If the correspondent is completely unknown or the document is unreadable, output 'UNKNOWN'.
-- If the LLM cannot match a whitelist, suggest a `discovered_correspondent`.
-**Output:** ONLY valid JSON: { "correspondent": "string", "discovered_correspondent": "string" }"""
-
-    PROMPT_DRIVE_STAGE_2 = """You are a precise metadata extraction agent. Review the OCR text for this document belonging to the correspondent: [CORRESPONDENT].
-
-**Tasks:**
-1. **Purpose Mapping:** Map the document's intent to ONE exact `Purpose` from the provided whitelist. Output 'Purpose/Review' if ambiguous.
-2. **Document Title:** Generate a concise, highly descriptive title for this document (e.g., 'Q3 Auto Insurance Renewal Policy').
-3. **Document Date:** Extract the primary creation or effective date of the document in YYYY-MM-DD format.
-4. **Custom Fields:** Extract the following specific fields for this purpose: [DYNAMIC_ARRAY]. Return null if not found.
-5. **Discovery:** If the LLM cannot match a whitelist, suggest a `discovered_purpose`.
-
-**Output:** ONLY valid JSON.
-{
-  "purpose": "string",
-  "title": "string",
-  "document_date": "YYYY-MM-DD",
-  "custom_fields": { "Field1": "value" },
-  "discovered_purpose": "string"
-}"""
-
     cursor = conn.cursor()
-    cursor.execute("SELECT target_app FROM Config_Prompts WHERE target_app = ?", ('GMAIL',))
-    if cursor.fetchone() is None:
-        cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('GMAIL', PROMPT_GMAIL))
     
-    cursor.execute("SELECT target_app FROM Config_Prompts WHERE target_app = ?", ('DRIVE_STAGE_1',))
-    if cursor.fetchone() is None:
-        cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('DRIVE_STAGE_1', PROMPT_DRIVE_STAGE_1))
+    prompts_to_seed = {
+        'GMAIL': 'gmail_extraction.tmpl',
+        'DRIVE_STAGE_1': 'drive_extraction_stage1.tmpl',
+        'DRIVE_STAGE_2': 'drive_extraction_stage2.tmpl',
+        'agent_profiler_personal': 'agent_profiler_personal.tmpl',
+        'agent_profiler_commercial': 'agent_profiler_commercial.tmpl',
+        'agent_classifier': 'agent_classifier.tmpl',
+        'QUARANTINE_CONSOLIDATION': 'quarantine_consolidation.tmpl'
+    }
     
-    cursor.execute("SELECT target_app FROM Config_Prompts WHERE target_app = ?", ('DRIVE_STAGE_2',))
-    if cursor.fetchone() is None:
-        cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('DRIVE_STAGE_2', PROMPT_DRIVE_STAGE_2))
-
-    PROMPT_AGENT_PROFILER_PERSONAL = "You are a Zero Trust Identity Profiler. Evaluate this personal email address. Return a strictly formatted JSON profiling the persona based on the provided context."
-    PROMPT_AGENT_PROFILER_COMMERCIAL = "You are a Commercial Domain Profiler. Using web search grounding, evaluate this corporate domain. Identify the company, their industry, and map them to our internal business taxonomy."
-    PROMPT_AGENT_CLASSIFIER = "You are a Zero Trust Classifier. Map this artifact to an established Category and Purpose. If the Entity is provided, only evaluate for Purpose."
-
-    cursor.execute("SELECT target_app FROM Config_Prompts WHERE target_app = ?", ('agent_profiler_personal',))
-    if cursor.fetchone() is None:
-        cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('agent_profiler_personal', PROMPT_AGENT_PROFILER_PERSONAL))
-        
-    cursor.execute("SELECT target_app FROM Config_Prompts WHERE target_app = ?", ('agent_profiler_commercial',))
-    if cursor.fetchone() is None:
-        cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('agent_profiler_commercial', PROMPT_AGENT_PROFILER_COMMERCIAL))
-        
-    cursor.execute("SELECT target_app FROM Config_Prompts WHERE target_app = ?", ('agent_classifier',))
-    if cursor.fetchone() is None:
-        cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('agent_classifier', PROMPT_AGENT_CLASSIFIER))
-
-    try:
-        consolidation_tmpl = get_prompt_template('quarantine_consolidation.tmpl')
-        cursor.execute("SELECT target_app FROM Config_Prompts WHERE target_app = ?", ('QUARANTINE_CONSOLIDATION',))
-        if cursor.fetchone() is None:
-            cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('QUARANTINE_CONSOLIDATION', consolidation_tmpl))
-    except Exception as e:
-        print(f"Failed to seed QUARANTINE_CONSOLIDATION prompt: {e}")
+    for target_app, filename in prompts_to_seed.items():
+        try:
+            cursor.execute("SELECT target_app FROM Config_Prompts WHERE target_app = ?", (target_app,))
+            if cursor.fetchone() is None:
+                prompt_text = get_prompt_template(filename)
+                cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", (target_app, prompt_text))
+        except Exception as e:
+            print(f"Failed to seed {target_app} prompt: {e}")
 
 # Execute the initialization if the script is run directly.
 if __name__ == "__main__":

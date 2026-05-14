@@ -1260,6 +1260,75 @@ def add_blacklist(payload: BlacklistEntry):
         conn.close()
     return {"message": f"Added {payload.pattern} to {payload.type} blacklist"}
 
+@app.get("/api/orchestrator/telemetry")
+async def get_orchestrator_telemetry():
+    """
+    Returns telemetry data for the Frontend Orchestrator.
+    """
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT COUNT(*) as quarantine_count FROM quarantine_queue WHERE status = 'pending'")
+        row = cursor.fetchone()
+        quarantine_count = row['quarantine_count'] if row else 0
+        
+        cursor.execute("SELECT COUNT(*) as processed_today FROM Artifact_History WHERE date(timestamp, 'unixepoch') = date('now')")
+        row = cursor.fetchone()
+        processed_today = row['processed_today'] if row else 0
+        
+        conn.close()
+        
+        return JSONResponse(content={
+            "quarantine_count": quarantine_count,
+            "processed_today": processed_today,
+            "system_status": "Engine Online"
+        })
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/api/quarantine/queue")
+async def get_quarantine_queue():
+    """
+    Returns the quarantine queue formatted for the frontend carousel.
+    """
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT q.id, q.source_app as source, e.name as entity, q.raw_metadata
+            FROM quarantine_queue q
+            LEFT JOIN entities e ON q.proposed_entity_id = e.id
+            WHERE q.status = 'pending'
+        """)
+        rows = cursor.fetchall()
+        
+        results = []
+        for row in rows:
+            badges = []
+            if row['raw_metadata']:
+                try:
+                    metadata = json.loads(row['raw_metadata'])
+                    if metadata.get('consolidated'):
+                        badges.append('consolidated')
+                    if metadata.get('web_search_used'):
+                        badges.append('web_search_used')
+                except json.JSONDecodeError:
+                    pass
+            
+            results.append({
+                "id": row['id'],
+                "source": row['source'],
+                "entity": row['entity'] or "Unknown",
+                "badges": badges
+            })
+            
+        conn.close()
+        return JSONResponse(content=results)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

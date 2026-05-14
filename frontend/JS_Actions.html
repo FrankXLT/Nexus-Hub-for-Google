@@ -323,7 +323,153 @@ window.handleNodeClick = function(nodeId) {
     `;
 };
 
+// --- Add these missing functions to appActions ---
+Object.assign(appActions, {
+    initOrchestrator: function() {
+        const contactsGraph = `flowchart TB
+            classDef trigger fill:#1e293b,stroke:#219ebc,stroke-width:2px,color:#fff,border-radius:8px
+            classDef check fill:#0f172a,stroke:#ffb703,stroke-width:2px,color:#fff
+            classDef action fill:#023047,stroke:#8ecae6,stroke-width:1px,color:#fff
+            classDef ai fill:#0f172a,stroke:#fb8500,stroke-width:2px,color:#fff
+            classDef endAction fill:#1e293b,stroke:#8ecae6,stroke-width:2px,color:#fff
+
+            A(["Contacts API Polling Interval"]) ::: trigger --> B{"Has nexus-managed flag?"} ::: check
+            B -- Yes --> C["Sync manual changes\nOverwrite DB"] ::: action
+            B -- No --> D["Extract Metadata"] ::: action
+            D --> E{"Is Workspace Directory?"} ::: check
+            E -- Yes --> F["Extract Hierarchy"] ::: action
+            F --> G["Deterministic DB Mapping"] ::: action
+            E -- No --> H{"Domain Known?"} ::: check
+            H -- No --> I["AI Prompt:\nProfile Domain"] ::: ai
+            H -- Yes --> J{"Persona Known?"} ::: check
+            I --> J
+            J -- No --> K["AI Prompt:\nProfile Identity"] ::: ai
+            J -- Yes --> L["Verify Mapping"] ::: action
+            K --> L
+            L --> M["Set DB Status: Quarantined"] ::: action
+            G --> M
+            M --> N["Inject hidden clientData"] ::: action
+            C --> N
+            N --> O(["Route to UI Quarantine Queue"]) ::: endAction`;
+
+        const gmailGraph = `flowchart TB\nA["Gmail API"] --> B["LLM Router"]`;
+        const driveGraph = `flowchart TB\nA["Drive API"] --> B["LLM Filer"]`;
+
+        if (window.mermaid) {
+            mermaid.render('graph-contacts', contactsGraph).then(({ svg }) => {
+                document.getElementById('mermaid-contacts').innerHTML = svg;
+                setTimeout(() => {
+                    const node = document.querySelector('#mermaid-contacts [id^="flowchart-I-"]');
+                    if(node) node.classList.add('active-node');
+                }, 1000);
+            });
+            mermaid.render('graph-gmail', gmailGraph).then(({ svg }) => {
+                document.getElementById('mermaid-gmail').innerHTML = svg;
+            });
+            mermaid.render('graph-drive', driveGraph).then(({ svg }) => {
+                document.getElementById('mermaid-drive').innerHTML = svg;
+            });
+        }
+        this.renderQuarantineBanner();
+    },
+
+    expandSwimlane: function(laneId) {
+        const lanes = ['contacts', 'gmail', 'drive'];
+        lanes.forEach(l => {
+            const el = document.getElementById(`lane-${l}`);
+            if (l === laneId) {
+                el.classList.remove('collapsed', 'bg-[#f8fafc]', 'border-[#8ecae6]/50');
+                el.classList.add('expanded', 'bg-white', 'border-[#8ecae6]');
+                el.querySelector('.swimlane-title-vertical').classList.add('hidden');
+            } else {
+                el.classList.add('collapsed', 'bg-[#f8fafc]', 'border-[#8ecae6]/50');
+                el.classList.remove('expanded', 'bg-white', 'border-[#8ecae6]');
+                el.querySelector('.swimlane-title-vertical').classList.remove('hidden');
+            }
+        });
+    },
+
+    renderQuarantineBanner: function() {
+        const quarantineItems = [
+            { id: 1, source: 'gmail', entity: 'aerodynamics-inc.com', badges: ['fa-globe Web Search Used', 'Consolidated 2 Emails'] },
+            { id: 2, source: 'contacts', entity: 'Nick Green (Workspace)', badges: ['Enterprise Bypass'] }
+        ];
+
+        const container = document.getElementById('quarantine-carousel-container');
+        const carousel = document.getElementById('quarantine-carousel');
+        const countSpan = document.getElementById('quarantine-count');
+
+        if (quarantineItems.length === 0) {
+            container.classList.add('hidden');
+            return;
+        }
+
+        container.classList.remove('hidden');
+        countSpan.innerText = quarantineItems.length;
+        carousel.innerHTML = '';
+
+        quarantineItems.forEach(item => {
+            const icon = item.source === 'gmail' ? `<svg class="w-4 h-4 text-[#fb8500]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>` : 
+                                                   `<svg class="w-4 h-4 text-[#219ebc]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>`;
+            
+            let badgesHtml = item.badges.map(b => `<span class="bg-[#ea580c]/10 text-[#9a3412] text-[10px] px-1.5 py-0.5 rounded border border-[#ea580c]/20 whitespace-nowrap">${b}</span>`).join('');
+
+            carousel.innerHTML += `
+                <div onclick="appActions.filterZeroTrustTree(${item.id}, '${item.entity}')" class="bg-white border border-[#ea580c]/30 rounded-md p-2 shadow-sm cursor-pointer hover:border-[#ea580c] hover:shadow-md transition-all min-w-[250px] shrink-0">
+                    <div class="flex items-center gap-2 mb-1">
+                        ${icon} <span class="font-bold text-[#023047] text-sm truncate">${item.entity}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1 mt-2">
+                        ${badgesHtml}
+                    </div>
+                </div>
+            `;
+        });
+    },
+
+    filterZeroTrustTree: function(itemId, entityName) {
+        document.getElementById('taxonomy-mode-label').innerText = `(Filtering: ${entityName})`;
+        document.getElementById('btn-clear-filter').classList.remove('hidden');
+
+        const targetedGraph = `flowchart LR
+            classDef established fill:#f0fdf4,stroke:#22c55e,stroke-width:2px,color:#14532d,font-family:sans-serif,rx:6px,ry:6px
+            classDef update fill:#eff6ff,stroke:#3b82f6,stroke-width:2px,stroke-dasharray: 5 5,color:#1e3a8a,font-family:sans-serif,rx:6px,ry:6px
+            classDef new fill:#fef2f2,stroke:#ef4444,stroke-width:2px,stroke-dasharray: 5 5,color:#991b1b,font-family:sans-serif,rx:6px,ry:6px
+            classDef ai_action fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#9a3412,font-family:sans-serif,rx:6px,ry:6px
+            
+            C("Category: Business 🔍"):::established
+            E("Entity: ${entityName} 🔍"):::update
+            AI("AI Profiler\nfa:fa-globe Web Search Used"):::ai_action
+            P("Proposed Purpose:\nContract 🔍"):::update
+
+            C --- E
+            E -.->|Consolidated context| AI
+            AI -.->|High Confidence Guess| P`;
+
+        if (window.mermaid) {
+            mermaid.render('graph-filtered', targetedGraph).then(({ svg }) => {
+                const target = document.getElementById('zt-taxonomy-flow');
+                target.innerHTML = `<div class="bg-slate-50/50 p-6 rounded-lg border border-dashed border-[#8ecae6] w-full flex justify-center">${svg}</div>`;
+                
+                setTimeout(() => {
+                    target.querySelectorAll('.node').forEach(node => {
+                        node.style.cursor = 'pointer';
+                        node.addEventListener('click', () => { window.handleNodeClick(node.id); });
+                    });
+                }, 100);
+            });
+        }
+    },
+
+    clearQuarantineFilter: function() {
+        document.getElementById('taxonomy-mode-label').innerText = `(Global X-Ray)`;
+        document.getElementById('btn-clear-filter').classList.add('hidden');
+        this.loadZeroTrustFlow();
+    }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     appActions.init();
+    appActions.initOrchestrator(); // Added initialization trigger
 });
 </script>

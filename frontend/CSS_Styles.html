@@ -552,4 +552,59 @@
   .card-meta { font-size: 12px; color: var(--text-muted); margin-top: 15px; display: flex; justify-content: space-between; align-items: center;}
   .lineage-badge { font-size: 11px; color: var(--accent-blue); cursor: pointer; display: flex; align-items: center; gap: 4px;}
 
+/* Add to CSS_Styles.html */
+
+/* Horizontal Accordion Swimlanes */
+.swimlane {
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.swimlane.expanded {
+    flex: 3;
+    min-width: 600px;
+    opacity: 1;
+}
+.swimlane.collapsed {
+    flex: 0 0 80px;
+    cursor: pointer;
+    background-color: #f8fafc;
+}
+.swimlane.collapsed:hover {
+    background-color: #f1f5f9;
+}
+.swimlane.collapsed .swimlane-content {
+    opacity: 0;
+    pointer-events: none;
+    display: none;
+}
+.swimlane.collapsed .swimlane-title-vertical {
+    display: flex;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+}
+
+/* Quarantine Carousel Scrollbar */
+.quarantine-scroll::-webkit-scrollbar {
+    height: 6px;
+}
+.quarantine-scroll::-webkit-scrollbar-thumb {
+    background-color: #ea580c;
+    border-radius: 4px;
+}
+
+/* Mermaid X-Ray Pulse Effect (For active pipeline nodes) */
+@keyframes nodePulse {
+    0% { filter: drop-shadow(0 0 0px rgba(251, 133, 0, 0.8)); }
+    50% { filter: drop-shadow(0 0 10px rgba(251, 133, 0, 0.8)); }
+    100% { filter: drop-shadow(0 0 0px rgba(251, 133, 0, 0.8)); }
+}
+.active-node rect, .active-node path, .active-node polygon {
+    animation: nodePulse 2s infinite;
+    stroke: #fb8500 !important;
+    stroke-width: 3px !important;
+}
+
 </style>

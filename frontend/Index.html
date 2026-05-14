@@ -118,18 +118,61 @@
                 </div>
             </div>
 
-            <div id="tab-zero-trust" class="hidden h-full">
-                <div class="flex flex-col h-full bg-white shadow-sm rounded-lg overflow-hidden border border-[#8ecae6]/50">
-                    <div class="p-4 border-b border-[#8ecae6]/50 flex justify-between items-center bg-slate-50">
-                        <h2 class="font-bold text-xl text-[#023047]">Taxonomy Explorer</h2>
-                        <span class="text-sm font-semibold text-[#023047]/60">Click any node to edit settings in the side drawer.</span>
-                    </div>
-                    <div id="zt-taxonomy-flow" class="flex flex-col gap-6 overflow-y-auto p-8 flex-1 items-center"></div>
+           <div id="tab-zero-trust" class="hidden h-full flex flex-col">
+    <div id="quarantine-carousel-container" class="hidden w-full bg-[#fff7ed] border-b border-[#ea580c]/30 shrink-0 shadow-inner">
+        <div class="px-4 py-2 flex items-center justify-between text-[#9a3412] text-sm font-bold bg-[#ffedd5]">
+            <span class="flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg> Action Required: Quarantine Queue</span>
+            <span id="quarantine-count" class="bg-[#ea580c] text-white px-2 py-0.5 rounded-full text-xs">0</span>
+        </div>
+        <div id="quarantine-carousel" class="flex gap-3 overflow-x-auto p-3 quarantine-scroll items-center">
+            </div>
+    </div>
+
+    <div class="flex flex-col h-full bg-white overflow-hidden">
+        <div class="p-4 border-b border-[#8ecae6]/50 flex justify-between items-center bg-slate-50 shrink-0">
+            <h2 class="font-bold text-xl text-[#023047]">Taxonomy Explorer <span id="taxonomy-mode-label" class="text-sm font-normal text-[#8ecae6] ml-2">(Global X-Ray)</span></h2>
+            <button onclick="appActions.clearQuarantineFilter()" id="btn-clear-filter" class="hidden text-xs bg-slate-200 hover:bg-slate-300 text-[#023047] px-3 py-1 rounded">Clear Filter</button>
+        </div>
+        <div id="zt-taxonomy-flow" class="flex flex-col gap-6 overflow-y-auto p-8 flex-1 items-center"></div>
+    </div>
+</div>
+
+        <div id="tab-orchestrator" class="hidden h-full flex flex-col bg-slate-100">
+            <div class="p-4 border-b border-[#8ecae6]/50 bg-white shrink-0 flex justify-between items-center shadow-sm z-10">
+                <h2 class="text-xl font-bold text-[#023047]">Pipeline Orchestrator</h2>
+                <div class="flex gap-4 text-sm font-semibold text-[#023047]/70">
+                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Engine Online</span>
                 </div>
             </div>
-
-            <div id="tab-orchestrator" class="hidden"><div class="bg-white border border-[#8ecae6]/50 p-6 rounded shadow-sm"><h2 class="text-xl font-bold">Pipeline Orchestrator</h2></div></div>
-            <div id="tab-sandbox" class="hidden"><div class="bg-white border border-[#8ecae6]/50 p-6 rounded shadow-sm"><h2 class="text-xl font-bold">Prompt Sandbox</h2></div></div>
+            
+            <div class="flex-1 flex overflow-hidden p-4 gap-4" id="swimlanes-container">
+                <div id="lane-contacts" class="swimlane expanded bg-white border border-[#8ecae6] rounded-lg shadow-sm flex flex-col" onclick="appActions.expandSwimlane('contacts')">
+                    <div class="p-4 border-b border-[#8ecae6]/30 bg-slate-50 flex justify-between items-center shrink-0">
+                        <h3 class="font-bold text-[#023047] flex items-center gap-2"><svg class="w-5 h-5 text-[#219ebc]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg> Identity Anchor (Contacts)</h3>
+                        <div class="swimlane-content text-xs text-[#023047]/60 font-mono">Next Poll: 2m 14s | Processed: 12</div>
+                    </div>
+                    <div class="swimlane-title-vertical hidden py-4 px-2 font-bold text-[#023047]/50 tracking-widest items-center justify-center flex-1">CONTACTS</div>
+                    <div class="swimlane-content flex-1 overflow-auto p-4 flex justify-center bg-slate-50/30" id="mermaid-contacts"></div>
+                </div>
+            
+                <div id="lane-gmail" class="swimlane collapsed border border-[#8ecae6]/50 rounded-lg shadow-sm flex flex-col" onclick="appActions.expandSwimlane('gmail')">
+                    <div class="p-4 border-b border-[#8ecae6]/30 bg-slate-50 flex justify-between items-center shrink-0">
+                        <h3 class="font-bold text-[#023047] flex items-center gap-2"><svg class="w-5 h-5 text-[#fb8500]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg> The Router (Gmail)</h3>
+                        <div class="swimlane-content text-xs text-[#023047]/60 font-mono">Next Poll: 0m 45s | Processed: 142</div>
+                    </div>
+                    <div class="swimlane-title-vertical hidden py-4 px-2 font-bold text-[#023047]/50 tracking-widest items-center justify-center flex-1">GMAIL</div>
+                    <div class="swimlane-content flex-1 overflow-auto p-4 flex justify-center bg-slate-50/30" id="mermaid-gmail"></div>
+                </div>
+            
+                <div id="lane-drive" class="swimlane collapsed border border-[#8ecae6]/50 rounded-lg shadow-sm flex flex-col" onclick="appActions.expandSwimlane('drive')">
+                    <div class="p-4 border-b border-[#8ecae6]/30 bg-slate-50 flex justify-between items-center shrink-0">
+                        <h3 class="font-bold text-[#023047] flex items-center gap-2"><svg class="w-5 h-5 text-[#27AE60]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg> The Filer (Drive)</h3>
+                        <div class="swimlane-content text-xs text-[#023047]/60 font-mono">Next Poll: 4m 10s | Processed: 8</div>
+                    </div>
+                    <div class="swimlane-title-vertical hidden py-4 px-2 font-bold text-[#023047]/50 tracking-widest items-center justify-center flex-1">DRIVE</div>
+                    <div class="swimlane-content flex-1 overflow-auto p-4 flex justify-center bg-slate-50/30" id="mermaid-drive"></div>
+                </div>
+            </div>
         </div>
 
         <div id="workspace-drawer" class="fixed top-0 right-0 w-80 h-full bg-white border-l border-[#8ecae6]/50 shadow-2xl transform translate-x-full transition-transform duration-300 z-50"></div>
