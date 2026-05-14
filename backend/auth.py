@@ -6,15 +6,19 @@ Handles headless OAuth 2.0 flow for Gmail and Drive scopes.
 
 import os
 import os.path
+import logging
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = [
     'https://www.googleapis.com/auth/gmail.modify',
     'https://www.googleapis.com/auth/drive',
-    'https://www.googleapis.com/auth/contacts.readonly'
+    'https://www.googleapis.com/auth/contacts'
 ]
 
 CREDENTIALS_FILE = 'credentials.json'
@@ -39,7 +43,11 @@ def authenticate() -> Credentials:
         # If credentials exist but are expired, and we have a refresh token, refresh them automatically.
         if creds and creds.expired and creds.refresh_token:
             print("Token expired. Attempting to refresh...")
-            creds.refresh(Request())
+            try:
+                creds.refresh(Request())
+            except Exception as e:
+                logger.warning(f"Token refresh failed: {e}")
+                raise
         # If no credentials exist or they cannot be refreshed, initiate a new login flow.
         else:
             # If the client secrets file is missing, we cannot start the flow.
@@ -64,6 +72,7 @@ def authenticate() -> Credentials:
         with open(TOKEN_FILE, 'w') as token:
             token.write(creds.to_json())
             print(f"Authentication successful! Token saved to '{TOKEN_FILE}'.")
+            logger.info("OAuth successfully authenticated and token saved.")
 
     return creds
 

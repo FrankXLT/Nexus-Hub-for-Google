@@ -5,6 +5,10 @@ Implements Two-Stage Triage for Drive documents and Single-Pass extraction for G
 """
 
 import json
+import logging
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 import os
 import sqlite3
 import time
@@ -270,7 +274,7 @@ def generate_sender_profile(sender_email: str, email_body: str) -> Optional[Dict
     """
     Uses the entity_profiler.tmpl to generate a profile for an unknown sender.
     """
-    with open(os.path.join("prompts", "entity_profiler.tmpl"), "r", encoding="utf-8") as f:
+    with open(os.path.join("DEFAULTS", "entity_profiler.tmpl"), "r", encoding="utf-8") as f:
         prompt = f.read()
     context = f"Sender Email: {sender_email}\n\nEmail Body:\n{email_body}"
     result, _ = call_gemini(prompt, context)
@@ -384,7 +388,7 @@ def process_gmail_thread(artifact_id: str, email_context: Dict[str, Any], dynami
     whitelist_str = "\n".join(whitelist_paths)
     profiles_str = json.dumps(entity_profiles, indent=2)
 
-    with open(os.path.join("prompts", "gmail_extraction.tmpl"), "r", encoding="utf-8") as f:
+    with open(os.path.join("DEFAULTS", "gmail_extraction.tmpl"), "r", encoding="utf-8") as f:
         prompt = f.read().replace("[DYNAMIC_ARRAY]", dynamic_array_str)
     prompt = prompt.replace("[ENTITY_PROFILES]", profiles_str)
     
@@ -714,3 +718,79 @@ async def append_zero_shot_rule(artifact_ids: list[str], instruction: str) -> di
 
 if __name__ == "__main__":
     print("Nexus LLM Engine initialized.")
+
+
+# ---------------------------------------------------------------------------
+# Zero Trust AI Service Layer
+# ---------------------------------------------------------------------------
+
+def run_agent_profiler(domain: str, is_personal: bool = False, context: str = None) -> Optional[Dict[str, Any]]:
+    """
+    Runs the appropriate profiler agent (personal or commercial) to identify the entity.
+    """
+    prompt_key = 'agent_profiler_personal' if is_personal else 'agent_profiler_commercial'
+    prompt = fetch_active_prompt(prompt_key)
+    
+    client = get_genai_client()
+    start_time = time.time()
+    
+    logger.info(f"Initiating Profiler for {domain}")
+    
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=[prompt, context or f"Evaluate domain/email: {domain}"],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                tools=[{"google_search_retrieval": {}}]
+            ),
+        )
+        end_time = time.time()
+        elapsed = end_time - start_time
+        
+        logger.debug(f"Raw Gemini response: {response.text}")
+        logger.info(f"Profiler completed in {elapsed:.2f} seconds.")
+        
+        return json.loads(response.text)
+    except (json.JSONDecodeError, ValueError) as e:
+        logger.warning(f"Parsing Error or Safety Block in Profiler. Details: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Gemini API Error in Profiler: {e}")
+        raise
+
+def run_agent_classifier(artifact_text: str, entity_known: bool = False, allowed_categories: List[str] = None) -> Optional[Dict[str, Any]]:
+    """
+    Runs the Zero Trust Classifier. Maps artifact to Category and Purpose.
+    """
+    prompt = fetch_active_prompt('agent_classifier')
+    
+    context = f"Artifact Text:\n{artifact_text}"
+    if entity_known:
+        context += "\n\nNote: Entity is known, only evaluate for Purpose."
+    if allowed_categories:
+        context += f"\n\nAllowed Categories: {', '.join(allowed_categories)}"
+        
+    client = get_genai_client()
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=[prompt, context],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+            ),
+        )
+        result = json.loads(response.text)
+        
+        # Telemetry
+        category_id = result.get('category_id')
+        purpose_id = result.get('purpose_id')
+        logger.info(f"Classifier resolved Category ID: {category_id}, Purpose ID: {purpose_id}")
+        
+        return result
+    except (json.JSONDecodeError, ValueError) as e:
+        logger.warning(f"Parsing Error or Safety Block in Classifier. Hallucination catch. Details: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Gemini API Error in Classifier: {e}")
+        raise

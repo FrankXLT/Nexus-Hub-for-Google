@@ -1165,6 +1165,101 @@ def get_analytics_taxonomy():
     conn.close()
     return {"links": links}
 
+class DiscoverEntity(BaseModel):
+    sender_name: str
+    category_id: int
+    is_sub_sender_of: Optional[int] = None
+
+class BlacklistEntry(BaseModel):
+    type: str # Must be 'domain' or 'purpose'
+    pattern: str
+
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+@app.get("/api/taxonomy/flow")
+def get_taxonomy_flow():
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    flow_data = {"categories": [], "universal_purposes": []}
+    
+    cursor.execute("SELECT id, name FROM purposes WHERE scope = 'Universal'")
+    flow_data["universal_purposes"] = [dict(r) for r in cursor.fetchall()]
+    
+    cursor.execute("SELECT id, name, description FROM categories")
+    categories = cursor.fetchall()
+    
+    for cat in categories:
+        cat_dict = dict(cat)
+        
+        cursor.execute("SELECT id, name FROM purposes WHERE category_id = ?", (cat["id"],))
+        cat_dict["categorical_purposes"] = [dict(r) for r in cursor.fetchall()]
+        
+        cursor.execute("SELECT id, name, parent_entity_id FROM entities WHERE category_id = ?", (cat["id"],))
+        entities = cursor.fetchall()
+        
+        cat_dict["entities"] = [dict(e) for e in entities if e["parent_entity_id"] is None]
+        cat_dict["sub_entities"] = [dict(e) for e in entities if e["parent_entity_id"] is not None]
+        
+        flow_data["categories"].append(cat_dict)
+        
+    conn.close()
+    return flow_data
+
+@app.post("/api/taxonomy/discover")
+def discover_entity(payload: DiscoverEntity):
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO entities (name, category_id, parent_entity_id) VALUES (?, ?, ?)",
+            (payload.sender_name, payload.category_id, payload.is_sub_sender_of)
+        )
+        conn.commit()
+        new_id = cursor.lastrowid
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+    return {"message": "Entity discovered and injected", "id": new_id}
+
+@app.get("/api/taxonomy/blacklist")
+def get_blacklist():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, type, pattern FROM blacklist")
+    results = cursor.fetchall()
+    conn.close()
+    
+    blacklist_data = {"domains": [], "purposes": []}
+    for row in results:
+        if row["type"] == "domain":
+            blacklist_data["domains"].append(dict(row))
+        elif row["type"] == "purpose":
+            blacklist_data["purposes"].append(dict(row))
+            
+    return blacklist_data
+
+@app.post("/api/taxonomy/blacklist")
+def add_blacklist(payload: BlacklistEntry):
+    if payload.type not in ['domain', 'purpose']:
+        raise HTTPException(status_code=400, detail="Type must be 'domain' or 'purpose'")
+        
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("INSERT INTO blacklist (type, pattern) VALUES (?, ?)", (payload.type, payload.pattern))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=400, detail="Pattern already exists for this type")
+    finally:
+        conn.close()
+    return {"message": f"Added {payload.pattern} to {payload.type} blacklist"}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

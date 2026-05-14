@@ -1,0 +1,84 @@
+{
+  "universal_purposes": ["Notice", "Statement", "Receipt", "Shipping", "Order", "Hold", "Delete", "Archive"],
+  "blacklist": {
+    "domains": [],
+    "purposes": []
+  },
+  "categories": [
+    {
+      "name": "Financial",
+      "description": "Institutions managing monetary assets, banking, credit, tax reporting, and wealth management.",
+      "categorical_purposes": ["Tax", "Trade"]
+    },
+    {
+      "name": "Health",
+      "description": "Medical providers, pharmacies, dental, insurance EOBs, and wellness or fitness services.",
+      "categorical_purposes": ["Appointment", "Results", "Bill"]
+    },
+    {
+      "name": "Publications",
+      "description": "Editorial content, newsletters, news aggregators, and digital magazines.",
+      "categorical_purposes": ["Digest", "News", "Newsletter"]
+    },
+    {
+      "name": "Gaming",
+      "description": "Video game storefronts, tabletop game publishers, and gaming communities.",
+      "categorical_purposes": ["Community", "Update"]
+    },
+    {
+      "name": "Productivity",
+      "description": "SaaS tools for workflow, task management, collaboration, automated system notifications, server logs, and security protocols.",
+      "categorical_purposes": ["Alert", "Security", "Tag", "Changelog"]
+    },
+    {
+      "name": "Shopping",
+      "description": "Retail merchants, e-commerce platforms, and digital storefronts delivering physical goods or one-off digital purchases.",
+      "categorical_purposes": ["Promo", "Return"]
+    },
+    {
+      "name": "Utilities",
+      "description": "Essential residential or infrastructure services, including telecommunications, electricity, water, and waste management.",
+      "categorical_purposes": ["Bill", "Outage"]
+    },
+    {
+      "name": "Personal",
+      "description": "Direct, 1-to-1 communications from individual human beings, family members, and personal friends.",
+      "categorical_purposes": ["Chatter", "Event", "Request"]
+    },
+    {
+      "name": "Streaming",
+      "description": "Digital entertainment platforms, video/audio streaming subscriptions, and media services.",
+      "categorical_purposes": ["Renewal", "Content"]
+    },
+    {
+      "name": "Dining",
+      "description": "Restaurants, food delivery networks, coffee shops, and dining reservations.",
+      "categorical_purposes": ["Reservation", "Promo"]
+    },
+    {
+      "name": "Government",
+      "description": "Federal, state, and local municipal authorities, including the DMV, postal services, and regulatory agencies.",
+      "categorical_purposes": ["Tax", "Registration", "Official"]
+    },
+    {
+      "name": "Business",
+      "description": "Employer communications, professional associations, HR portals, and B2B operational contacts.",
+      "categorical_purposes": ["HR", "Paystub", "Memo"]
+    },
+    {
+      "name": "Travel & Transit",
+      "description": "Travel logistics, airlines, hotel accommodations, ride-sharing, and transit authorities.",
+      "categorical_purposes": ["Itinerary", "Pass", "Booking"]
+    },
+    {
+      "name": "Education",
+      "description": "Schools, academic institutions, and student educational programs.",
+      "categorical_purposes": ["Grades", "Communication", "Event"]
+    },
+    {
+      "name": "Activities",
+      "description": "In-person events, dance studios, concerts, and recreational activities excluding digital streaming.",
+      "categorical_purposes": ["Tickets", "Schedule", "Class"]
+    }
+  ]
+}

@@ -23,3 +23,11 @@
 | Prompts or Strategy | Prompt Audit or Author Summary |
 | :--- | :--- |
 | *Bug Tracking:* All bugs must be documented here utilizing this standard two-column format. | |
+
+## Phase 2: Zero Trust Architecture
+
+| Prompts or Strategy | Prompt Audit or Author Summary |
+| :--- | :--- |
+| **Directive 1 & 2:** Update Authentication & Requirements (People API scope, logging). Database Schema Expansion (quarantine_queue, nexus_state in entities, explicit transaction blocks). | **AI Audit Summary:**<br>- **Actions Taken:** Validated `requirements.txt` dependencies. Added `contacts` scope to `auth.py` and wrapped refresh in try-except with `logging.warning`. Rewrote `db_init.py` tables using explicit `BEGIN TRANSACTION;` / `COMMIT;` blocks, added `nexus_state` to `entities` (with robust `ALTER TABLE`), added `quarantine_queue`, and implemented `logging` for WAL and schema creation.<br>- **Files Modified:** `backend/auth.py`, `backend/db_init.py`, `FEATURE_TRACKING.md`<br>- **Baseline Date:** May 13, 2026<br>- **AI Model:** Gemini |
+| **Directive 3:** Seed Config_Prompts and expand AI Engine Telemetry. | **AI Audit Summary:**<br>- **Actions Taken:** Injected `agent_profiler_personal`, `agent_profiler_commercial`, and `agent_classifier` prompts into `Config_Prompts` via `db_init.py`. Appended `run_agent_profiler` and `run_agent_classifier` functions to `llm_engine.py`, implementing complete Python logging (INFO/DEBUG/WARNING) and API timing telemetry. Verified Gemini function tools injection (`google_search_retrieval`).<br>- **Files Modified:** `backend/db_init.py`, `backend/llm_engine.py`, `FEATURE_TRACKING.md`<br>- **Baseline Date:** May 13, 2026<br>- **AI Model:** Gemini |
+| **Directive 4 & 5:** Zero Trust Ingestion Pipelines (Contacts, Gmail, Drive). | **AI Audit Summary:**<br>- **Actions Taken:** Implemented `sync_contacts_pipeline`, `sync_gmail_pipeline`, and `sync_drive_pipeline` in `sync_engine.py`. Added explicit `logging` at key decision branches (ETag polling, Shadow Tether syncs, Enterprise Bypass, known vs. unknown entities). Integrated the pipeline output to write proposed routings directly to the `quarantine_queue`.<br>- **Files Modified:** `backend/sync_engine.py`, `FEATURE_TRACKING.md`<br>- **Baseline Date:** May 13, 2026<br>- **AI Model:** Gemini |

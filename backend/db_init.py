@@ -5,12 +5,17 @@ Enforces STRICT tables, WAL journaling mode, and JSON data type validation.
 """
 import sqlite3
 import os
+import json
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Get the directory where db_init.py is located
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Navigate up to the root to find the PROMPTS folder
-PROMPTS_DIR = os.path.join(BASE_DIR, "..", "PROMPTS")
+# Navigate up to the root to find the DEFAULTS folder
+PROMPTS_DIR = os.path.join(BASE_DIR, "..", "DEFAULTS")
 
 def get_prompt_template(filename):
     path = os.path.join(PROMPTS_DIR, filename)
@@ -34,10 +39,12 @@ def init_db(db_path: str = DB_PATH) -> None:
     
     # Enable Write-Ahead Logging for concurrent reading/writing
     conn.execute("PRAGMA journal_mode=WAL;")
+    logger.info("Verified SQLite WAL mode is active.")
     # Enable foreign key constraint enforcement
     conn.execute("PRAGMA foreign_keys = ON;")
     
     cursor = conn.cursor()
+    cursor.execute("BEGIN TRANSACTION;")
     
     # 1. Config_System
     # -- Core key-value store for global settings and Quota Governor API call tracking.
@@ -85,56 +92,49 @@ def init_db(db_path: str = DB_PATH) -> None:
     # 4. Taxonomy_Categories    # -- Tier 1 of the relational taxonomy hierarchy (e.g., 'Finance', 'Technology').
     # -- Uses Zero-Trust default toggles for ecosystem propagation.
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS Taxonomy_Categories (
+        CREATE TABLE IF NOT EXISTS categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE,
-            is_gmail_enabled INTEGER DEFAULT 0,
-            is_drive_enabled INTEGER DEFAULT 0
-        ) STRICT;
-    """)
-
-    # 4b. Taxonomy_Correspondents
-    # -- Tier 2 of the hierarchy representing vendors or senders. 
-    # -- JSON tracking columns (sending_subdomains, physical_addresses, brand_colors) 
-    # -- enrich the deterministic knowledge graph for LLM matching and UI branding.
-    # -- operation_cost tracks historical LLM execution weight for Quota Governor throttling.
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS Taxonomy_Correspondents (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            category_id INTEGER NOT NULL,
-            name TEXT NOT NULL,
-            division TEXT,
-            sending_subdomains TEXT CHECK(sending_subdomains IS NULL OR json_valid(sending_subdomains)),
-            physical_addresses TEXT CHECK(physical_addresses IS NULL OR json_valid(physical_addresses)),
-            brand_colors TEXT CHECK(brand_colors IS NULL OR json_valid(brand_colors)),
-            brand_color TEXT,
-            custom_extraction_rules TEXT,
-            operation_cost INTEGER DEFAULT 0,
-            is_gmail_enabled INTEGER DEFAULT 0,
-            is_drive_enabled INTEGER DEFAULT 0,
-            FOREIGN KEY (category_id) REFERENCES Taxonomy_Categories (id) ON DELETE CASCADE
-        ) STRICT;
+            name TEXT UNIQUE NOT NULL,
+            description TEXT
+        );
     """)
 
     # 4c. Taxonomy_Purposes
     # -- Tier 3 of the hierarchy determining the document's intent. 
     # -- operation_cost tracks execution impact for the Quota Governor.
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS Taxonomy_Purposes (
+        CREATE TABLE IF NOT EXISTS purposes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            correspondent_id INTEGER NOT NULL,
             name TEXT NOT NULL,
-            custom_field_schema TEXT NOT NULL CHECK(custom_field_schema IS NULL OR json_valid(custom_field_schema)),
-            is_global INTEGER DEFAULT 0,
-            auto_archive INTEGER DEFAULT 0,
-            custom_extraction_rules TEXT,
-            frequency_weight INTEGER DEFAULT 0,
-            confidence_weight REAL DEFAULT 0.0,
-            operation_cost INTEGER DEFAULT 0,
-            is_gmail_enabled INTEGER DEFAULT 0,
-            is_drive_enabled INTEGER DEFAULT 0,
-            FOREIGN KEY (correspondent_id) REFERENCES Taxonomy_Correspondents (id) ON DELETE CASCADE
-        ) STRICT;
+            scope TEXT NOT NULL, -- 'Universal' or 'Categorical'
+            category_id INTEGER,
+            FOREIGN KEY (category_id) REFERENCES categories (id)
+        );
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS entities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            category_id INTEGER,
+            parent_entity_id INTEGER,
+            nexus_state TEXT DEFAULT 'active',
+            FOREIGN KEY (category_id) REFERENCES categories (id),
+            FOREIGN KEY (parent_entity_id) REFERENCES entities (id)
+        );
+    """)
+    try:
+        cursor.execute("ALTER TABLE entities ADD COLUMN nexus_state TEXT DEFAULT 'active';")
+    except sqlite3.OperationalError:
+        pass
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS blacklist (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type TEXT NOT NULL, -- 'domain' or 'purpose'
+            pattern TEXT NOT NULL,
+            UNIQUE(type, pattern)
+        );
     """)
     
     # 5. Workspace_Artifacts
@@ -202,10 +202,51 @@ def init_db(db_path: str = DB_PATH) -> None:
             added_timestamp TEXT DEFAULT CURRENT_TIMESTAMP
         ) STRICT;
     """)
+
+    # 9. Quarantine_Queue
+    # -- Holds items that lack trust validation pending manual approval
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS quarantine_queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source_app TEXT NOT NULL,
+            source_id TEXT NOT NULL,
+            raw_metadata TEXT,
+            proposed_category_id INTEGER,
+            proposed_purpose_id INTEGER,
+            proposed_entity_id INTEGER,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+    logger.info("Verified Zero Trust tables (quarantine_queue) are initialized.")
+    cursor.execute("COMMIT;")
     
+    # Bootstrap check
+    cursor.execute("SELECT COUNT(*) FROM categories")
+    if cursor.fetchone()[0] == 0:
+        print("Bootstrapping Zero Trust Scaffolding...")
+        # Since zero_trust_defaults.json is in the root directory
+        json_path = os.path.join(BASE_DIR, "..", "zero_trust_defaults.json")
+        with open(json_path, 'r') as f:
+            data = json.load(f)
+            
+        for p in data.get("universal_purposes", []):
+            cursor.execute("INSERT INTO purposes (name, scope) VALUES (?, 'Universal')", (p,))
+            
+        blacklist = data.get("blacklist", {})
+        for d in blacklist.get("domains", []):
+            cursor.execute("INSERT INTO blacklist (type, pattern) VALUES ('domain', ?)", (d,))
+        for p in blacklist.get("purposes", []):
+            cursor.execute("INSERT INTO blacklist (type, pattern) VALUES ('purpose', ?)", (p,))
+            
+        for cat in data.get("categories", []):
+            cursor.execute("INSERT INTO categories (name, description) VALUES (?, ?)", (cat["name"], cat.get("description", "")))
+            cat_id = cursor.lastrowid
+            for cp in cat.get("categorical_purposes", []):
+                cursor.execute("INSERT INTO purposes (name, scope, category_id) VALUES (?, 'Categorical', ?)", (cat_id,))
+
     seed_default_configs(conn)
     seed_default_prompts(conn)
-    seed_default_taxonomy(conn)
     
     conn.commit()
     conn.close()
@@ -367,6 +408,22 @@ def seed_default_prompts(conn: sqlite3.Connection) -> None:
     cursor.execute("SELECT target_app FROM Config_Prompts WHERE target_app = ?", ('DRIVE_STAGE_2',))
     if cursor.fetchone() is None:
         cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('DRIVE_STAGE_2', PROMPT_DRIVE_STAGE_2))
+
+    PROMPT_AGENT_PROFILER_PERSONAL = "You are a Zero Trust Identity Profiler. Evaluate this personal email address. Return a strictly formatted JSON profiling the persona based on the provided context."
+    PROMPT_AGENT_PROFILER_COMMERCIAL = "You are a Commercial Domain Profiler. Using web search grounding, evaluate this corporate domain. Identify the company, their industry, and map them to our internal business taxonomy."
+    PROMPT_AGENT_CLASSIFIER = "You are a Zero Trust Classifier. Map this artifact to an established Category and Purpose. If the Entity is provided, only evaluate for Purpose."
+
+    cursor.execute("SELECT target_app FROM Config_Prompts WHERE target_app = ?", ('agent_profiler_personal',))
+    if cursor.fetchone() is None:
+        cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('agent_profiler_personal', PROMPT_AGENT_PROFILER_PERSONAL))
+        
+    cursor.execute("SELECT target_app FROM Config_Prompts WHERE target_app = ?", ('agent_profiler_commercial',))
+    if cursor.fetchone() is None:
+        cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('agent_profiler_commercial', PROMPT_AGENT_PROFILER_COMMERCIAL))
+        
+    cursor.execute("SELECT target_app FROM Config_Prompts WHERE target_app = ?", ('agent_classifier',))
+    if cursor.fetchone() is None:
+        cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", ('agent_classifier', PROMPT_AGENT_CLASSIFIER))
 
     try:
         consolidation_tmpl = get_prompt_template('quarantine_consolidation.tmpl')

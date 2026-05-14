@@ -6,17 +6,33 @@ const appActions = {
         this.loadZeroTrustFlow();
     },
 
+    toggleSidebar: function() {
+        const sidebar = document.getElementById('sidebar');
+        const texts = document.querySelectorAll('.sidebar-text');
+        
+        if (sidebar.classList.contains('w-64')) {
+            sidebar.classList.remove('w-64');
+            sidebar.classList.add('w-16');
+            texts.forEach(t => t.classList.add('hidden', 'opacity-0'));
+        } else {
+            sidebar.classList.remove('w-16');
+            sidebar.classList.add('w-64');
+            texts.forEach(t => t.classList.remove('hidden', 'opacity-0'));
+        }
+    },
+
     switchTab: function(tabId) {
-        const tabs = ['tab-home', 'tab-zero-trust', 'tab-orchestrator', 'tab-sandbox', 'tab-settings'];
+        const tabs = ['tab-home', 'tab-zero-trust', 'tab-orchestrator', 'tab-sandbox'];
         tabs.forEach(t => {
             const el = document.getElementById(t);
             if(el) {
                 if(t === tabId) {
                     el.classList.remove('hidden');
                     el.classList.add('block');
+                    if(t === 'tab-home') el.classList.add('flex', 'flex-col', 'items-center', 'w-full');
                 } else {
                     el.classList.add('hidden');
-                    el.classList.remove('block');
+                    el.classList.remove('block', 'flex', 'flex-col', 'items-center', 'w-full');
                 }
             }
         });
@@ -29,101 +45,111 @@ const appActions = {
         
         if (viewName === 'heatmap') {
             heatmap.classList.remove('hidden');
+            heatmap.classList.add('grid');
             sankey.classList.add('hidden');
         } else {
             heatmap.classList.add('hidden');
+            heatmap.classList.remove('grid');
             sankey.classList.remove('hidden');
             this.renderSankey(); 
         }
         appState.activeVQB = viewName;
     },
 
-    // --- HEATMAP MODULE (2D MATRIX) ---
-    renderVQB: async function() {
-        const API_BASE = 'http://136.119.213.222:8000'; 
-        
-        try {
-            const response = await fetch(`${API_BASE}/api/analytics/heatmap`);
-            if (!response.ok) throw new Error('API unreachable');
-            const data = await response.json();
-            appState.heatmapData = data.heatmap;
-        } catch (error) {
-            console.warn("Heatmap Backend unreachable. Using 2D test matrix.", error);
-            appState.heatmapData = this.generateDummyMatrix();
+    // --- HEATMAP MODULE (60 Days x 30 Senders) ---
+    generateDummyHeatmapData: function() {
+        let senders = [];
+        for (let i = 1; i <= 30; i++) {
+            senders.push("Sender " + i);
         }
-
-        this.drawHeatmapMatrix();
+        
+        let matrix = [];
+        senders.forEach(sender => {
+            let daysData = [];
+            let d = new Date();
+            d.setDate(d.getDate() - 59); // 60 days total
+            
+            for(let i=0; i<60; i++) {
+                daysData.push({
+                    date: d.toISOString().split('T')[0],
+                    count: Math.random() > 0.75 ? Math.floor(Math.random() * 20) : 0 
+                });
+                d.setDate(d.getDate() + 1);
+            }
+            matrix.push({ sender: sender, data: daysData });
+        });
+        return matrix;
     },
 
-    drawHeatmapMatrix: function() {
+    renderVQB: function() {
+        const data = this.generateDummyHeatmapData();
         const container = document.getElementById('vqb-heatmap');
-        if (!container) return;
-        
-        container.innerHTML = ''; 
-        // Changed to a scrolling flex column to handle 30 rows cleanly
-        container.className = 'flex flex-col gap-2 p-4 rounded-lg bg-slate-900/50 border border-slate-700 mt-4 overflow-y-auto max-h-96 shadow-inner';
+        if(!container) return;
 
-        appState.heatmapData.forEach(row => {
-            const rowWrapper = document.createElement('div');
-            rowWrapper.className = 'flex items-center gap-3';
+        // Force exactly 61 columns (1 auto-sized for the sender name, 60 fixed 20px squares)
+        container.style.gridTemplateColumns = 'max-content repeat(60, 20px)';
+        container.innerHTML = '';
 
-            // Sender Label
+        data.forEach(row => {
+            // Y-Axis Label for Sender
             const label = document.createElement('div');
-            label.className = 'w-32 text-xs text-[#F3F0DF] truncate opacity-80';
-            label.textContent = row.sender;
-            label.title = row.sender;
-            rowWrapper.appendChild(label);
-
-            // 20-Day Grid
-            const grid = document.createElement('div');
-            grid.className = 'grid grid-cols-[repeat(20,minmax(0,1fr))] gap-1 flex-1';
+            label.className = "flex items-center justify-end pr-3 text-xs font-bold text-[#023047]/70 whitespace-nowrap h-[20px]";
+            label.innerText = row.sender;
+            container.appendChild(label);
 
             row.data.forEach(day => {
                 const cell = document.createElement('div');
-                cell.className = `h-4 w-full rounded cursor-pointer transition-all duration-150 hover:scale-125 hover:ring-1 hover:ring-white hover:z-10 relative ${this.getHeatmapColor(day.count)}`;
-                cell.title = `${row.sender} | ${day.date} | ${day.count} items`;
-                
+                cell.className = "w-[20px] h-[20px] rounded-[2px] cursor-pointer transition-all duration-150 hover:scale-125 hover:ring-2 hover:ring-[#023047] hover:z-10 relative";
+                cell.title = `${row.sender} on ${day.date}: ${day.count} items`;
+
+                if (day.count === 0) {
+                    cell.classList.add('bg-slate-200'); 
+                } else if (day.count < 5) {
+                    cell.classList.add('bg-[#8ecae6]'); 
+                } else if (day.count < 12) {
+                    cell.classList.add('bg-[#219ebc]'); 
+                } else {
+                    cell.classList.add('bg-[#fb8500]'); 
+                }
+
                 cell.onclick = () => {
-                    // Stages a hyper-specific boolean query
                     appActions.stageChip(`Entity:"${row.sender}" AND Date:${day.date}`);
                 };
-                
-                grid.appendChild(cell);
-            });
 
-            rowWrapper.appendChild(grid);
-            container.appendChild(rowWrapper);
+                container.appendChild(cell);
+            });
         });
     },
 
-    // --- SANKEY MODULE (TAXONOMY FLOW) ---
+    // --- SANKEY MODULE ---
+    generateDummyLinks: function() {
+        return [
+            {"source": "Gmail", "target": "Personal Network", "value": 45},
+            {"source": "Gmail", "target": "Commercial", "value": 80},
+            {"source": "Drive", "target": "System", "value": 20},
+            {"source": "Personal Network", "target": "Nick Green", "value": 15},
+            {"source": "Personal Network", "target": "Scott Davis", "value": 30},
+            {"source": "Commercial", "target": "Home Depot", "value": 50},
+            {"source": "Nick Green", "target": "Project Planning", "value": 10},
+            {"source": "Home Depot", "target": "Receipt / Invoice", "value": 45}
+        ];
+    },
+
     renderSankey: async function() {
         const container = document.getElementById('vqb-sankey');
         if (!container) return;
 
-        const API_BASE = 'http://136.119.213.222:8000'; 
-        let links = [];
+        const links = this.generateDummyLinks();
 
-        try {
-            const response = await fetch(`${API_BASE}/api/analytics/taxonomy`);
-            if (!response.ok) throw new Error('API unreachable');
-            const data = await response.json();
-            links = data.links;
-        } catch (error) {
-            console.warn("Taxonomy Backend unreachable. Using test links.", error);
-            links = this.generateDummyLinks();
-        }
-
-        // Build the Mermaid syntax string dynamically
-        let mermaidSyntax = "sankey-beta\n";
+        // 3x SCALING FIX: Force Mermaid to render the Sankey significantly larger (1200x800)
+        let mermaidSyntax = "%%{init: {'sankey': {'width': 1200, 'height': 800}}}%%\nsankey-beta\n";
         links.forEach(link => {
-            // Strip commas from names to prevent Mermaid syntax errors
             const safeSource = link.source.replace(/,/g, '');
             const safeTarget = link.target.replace(/,/g, '');
             mermaidSyntax += `${safeSource},${safeTarget},${link.value}\n`;
         });
         
-        container.innerHTML = `<div class="mermaid flex justify-center p-4 bg-slate-900/50 border border-slate-700 rounded-lg mt-4 w-full overflow-x-auto">\n${mermaidSyntax}\n</div>`;
+        container.innerHTML = `<div class="mermaid flex justify-center w-full">\n${mermaidSyntax}\n</div>`;
         
         if (window.mermaid) {
             try {
@@ -135,14 +161,6 @@ const appActions = {
     },
 
     // --- UTILITIES ---
-    getHeatmapColor: function(count) {
-        if (count === 0) return 'bg-slate-800/30';
-        if (count < 3) return 'bg-blue-900';
-        if (count < 8) return 'bg-blue-700';
-        if (count < 15) return 'bg-blue-500';
-        return 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.6)] z-0'; 
-    },
-
     stageChip: function(chipString) {
         const input = document.getElementById('omnibox-input') || document.querySelector('input[type="text"]'); 
         if (!input) return;
@@ -151,23 +169,10 @@ const appActions = {
         if (!currentVal.includes(chipString)) {
             input.value = currentVal ? `${currentVal} AND ${chipString}` : chipString;
         }
-        
-        input.classList.add('ring-2', 'ring-blue-400', 'bg-blue-900/20');
-        setTimeout(() => {
-            input.classList.remove('ring-2', 'ring-blue-400', 'bg-blue-900/20');
-        }, 300);
         input.focus();
     },
 
-    executeASTSearch: function() {
-        // Execute search from Omnibox
-    },
-    
-    renderResults: function() {
-        // Render query results (treemap/cards)
-    },
-    
-openSettingsModal: function() {
+    openSettingsModal: function() {
         document.getElementById('settings-modal').showModal();
     },
 
@@ -190,13 +195,12 @@ openSettingsModal: function() {
             }
         });
         
-        // Update styling on the modal tabs
         const buttons = document.querySelectorAll('#settings-modal .flex.space-x-4 button');
         buttons.forEach(btn => {
             if (btn.getAttribute('onclick').includes(tabId)) {
-                btn.className = "px-4 py-2 border-b-2 border-blue-500 text-blue-400";
+                btn.className = "px-4 py-2 border-b-2 border-[#219ebc] text-[#219ebc] font-semibold";
             } else {
-                btn.className = "px-4 py-2 border-b-2 border-transparent text-gray-400 hover:text-white";
+                btn.className = "px-4 py-2 border-b-2 border-transparent text-[#023047]/60 hover:text-[#219ebc]";
             }
         });
     },
@@ -213,21 +217,21 @@ openSettingsModal: function() {
         tbody.innerHTML = '';
         appState.legacyLabels.forEach(lbl => {
             const tr = document.createElement('tr');
-            tr.className = "border-t border-gray-700";
+            tr.className = "border-t border-[#8ecae6]/40";
             tr.innerHTML = `
-                <td class="p-2">${lbl.old}</td>
-                <td class="p-2"><input type="checkbox" ${lbl.keep ? 'checked' : ''} class="rounded bg-gray-900 border-gray-600 text-blue-500"> Keep</td>
-                <td class="p-2"><select class="bg-gray-800 border border-gray-600 rounded p-1 w-full"><option>${lbl.mapTo}</option><option>Personal Network</option></select></td>
+                <td class="p-2 border border-[#8ecae6]/40">${lbl.old}</td>
+                <td class="p-2 border border-[#8ecae6]/40"><input type="checkbox" ${lbl.keep ? 'checked' : ''} class="rounded"> Keep</td>
+                <td class="p-2 border border-[#8ecae6]/40"><select class="bg-white border border-[#8ecae6] rounded p-1 w-full"><option>${lbl.mapTo}</option><option>Personal Network</option></select></td>
             `;
             tbody.appendChild(tr);
         });
     },
 
+    // --- ZERO TRUST MODULE ---
     loadZeroTrustFlow: function() {
         const container = document.getElementById('zt-taxonomy-flow');
         if (!container) return;
 
-        // Ensure NO leading newline before 'flowchart LR'
         const graphDefinition = `flowchart LR
     classDef default fill:#ffffff,stroke:#219ebc,stroke-width:2px,color:#023047,font-family:sans-serif,rx:6px,ry:6px
     
@@ -247,19 +251,18 @@ openSettingsModal: function() {
     n3 --- P31("Purpose")
     n3 --- P32("Purpose")`;
 
-        // Notice we removed 'class="mermaid"' from the render-target so the auto-scanner ignores it
         container.innerHTML = `
-            <details class="group bg-slate-900 border border-slate-700 w-full mb-4 shadow-lg" open>
-                <summary class="p-4 cursor-pointer list-none flex items-center border-b border-slate-700 text-red-500 font-sans text-xl select-none hover:bg-slate-800 transition-colors">
+            <details class="group bg-white border border-[#8ecae6] w-full mb-4 shadow-sm rounded-md overflow-hidden" open>
+                <summary class="p-4 cursor-pointer list-none flex items-center border-b border-[#8ecae6]/50 text-[#fb8500] font-sans text-xl font-bold select-none hover:bg-slate-50 transition-colors">
                     <span class="mr-3 transition-transform group-open:rotate-90">▽</span> Entity Category #1
                 </summary>
-                <div class="p-6 overflow-x-auto bg-slate-800/30">
+                <div class="p-6 overflow-x-auto bg-slate-50/50">
                     <div id="mermaid-render-target" class="flex justify-start min-w-[800px] mb-6"></div>
                     
-                    <div class="mt-4 pt-4 border-t border-slate-700 flex items-center gap-4">
-                        <span class="text-sm text-gray-400 font-bold uppercase tracking-wider">Category Purposes:</span>
-                        <div class="px-4 py-1.5 bg-slate-900 border border-slate-600 text-red-400 rounded cursor-pointer hover:bg-slate-700 transition-colors text-sm" onclick="window.handleNodeClick('Category Purpose')">Category Purpose</div>
-                        <div class="px-4 py-1.5 bg-slate-900 border border-slate-600 text-red-400 rounded cursor-pointer hover:bg-slate-700 transition-colors text-sm" onclick="window.handleNodeClick('Universal Purpose')">Universal Purpose</div>
+                    <div class="mt-4 pt-4 border-t border-[#8ecae6]/50 flex items-center gap-4">
+                        <span class="text-sm text-[#023047]/70 font-bold uppercase tracking-wider">Category Purposes:</span>
+                        <div class="px-4 py-1.5 bg-white border border-[#219ebc] text-[#219ebc] font-semibold rounded cursor-pointer hover:bg-[#219ebc] hover:text-white transition-colors text-sm shadow-sm" onclick="window.handleNodeClick('Category Purpose')">Category Purpose</div>
+                        <div class="px-4 py-1.5 bg-white border border-[#219ebc] text-[#219ebc] font-semibold rounded cursor-pointer hover:bg-[#219ebc] hover:text-white transition-colors text-sm shadow-sm" onclick="window.handleNodeClick('Universal Purpose')">Universal Purpose</div>
                     </div>
                 </div>
             </details>
@@ -272,99 +275,49 @@ openSettingsModal: function() {
                 startOnLoad: false,
                 theme: 'default',
                 securityLevel: 'loose',
-                flowchart: {
-                    curve: 'linear' 
-                }
+                flowchart: { curve: 'linear' }
             });
 
-            // Execute manual render
             mermaid.render('preparedScheme', graphDefinition).then(({ svg }) => {
                 target.innerHTML = svg;
-                
-                // Attach native click handlers to the nodes
                 const nodes = target.querySelectorAll('.node');
                 nodes.forEach(node => {
                     node.style.cursor = 'pointer';
                     node.addEventListener('mouseenter', () => node.style.opacity = '0.8');
                     node.addEventListener('mouseleave', () => node.style.opacity = '1');
-                    
-                    node.addEventListener('click', () => {
-                        window.handleNodeClick(node.id);
-                    });
+                    node.addEventListener('click', () => { window.handleNodeClick(node.id); });
                 });
             }).catch(err => {
-                console.error("Mermaid Render Error:", err);
                 target.innerHTML = `<div class="text-red-500 p-4">Render Failed: ${err.message}</div>`;
             });
         }
-    },
-
-    // --- TEST GENERATORS (Safe to delete when API is live) ---
-    generateDummyMatrix: function() {
-        const dummySenders = ["Nick Green", "Scott Davis", "Home Depot", "GitHub", "AWS Alerts", "Kimberly", "Eva School", "Marriott", "American Airlines", "Wild Fork Foods"];
-        let matrix = [];
-        
-        dummySenders.forEach(sender => {
-            let daysData = [];
-            let d = new Date();
-            d.setDate(d.getDate() - 19); // 20 days total
-            
-            for(let i=0; i<20; i++) {
-                daysData.push({
-                    date: d.toISOString().split('T')[0],
-                    // Random spikes
-                    count: Math.random() > 0.7 ? Math.floor(Math.random() * 20) : 0 
-                });
-                d.setDate(d.getDate() + 1);
-            }
-            matrix.push({ sender: sender, data: daysData });
-        });
-        return matrix;
-    },
-
-    generateDummyLinks: function() {
-        return [
-            {"source": "Gmail", "target": "Personal Network", "value": 45},
-            {"source": "Gmail", "target": "Commercial", "value": 80},
-            {"source": "Drive", "target": "System", "value": 20},
-            {"source": "Personal Network", "target": "Nick Green", "value": 15},
-            {"source": "Personal Network", "target": "Scott Davis", "value": 30},
-            {"source": "Commercial", "target": "Home Depot", "value": 50},
-            {"source": "Nick Green", "target": "Project Planning", "value": 10},
-            {"source": "Home Depot", "target": "Receipt / Invoice", "value": 45}
-        ];
     }
 };
 
 window.handleNodeClick = function(nodeId) {
     const drawer = document.getElementById('zt-drawer');
     if (!drawer) return;
-    
-    // Slide the drawer open
     drawer.classList.remove('translate-x-full');
-    
-    // Populate the drawer with dummy edit context
     drawer.innerHTML = `
-        <div class="h-full flex flex-col bg-gray-800 text-gray-100">
-            <div class="p-4 border-b border-gray-700 flex justify-between items-center">
-                <h2 class="text-xl font-bold text-red-500">Edit Node Settings</h2>
-                <button onclick="document.getElementById('zt-drawer').classList.add('translate-x-full')" class="text-gray-400 hover:text-white">
+        <div class="h-full flex flex-col bg-white text-[#023047]">
+            <div class="p-4 border-b border-[#8ecae6]/50 flex justify-between items-center bg-slate-50">
+                <h2 class="text-xl font-bold text-[#fb8500]">Edit Node Settings</h2>
+                <button onclick="document.getElementById('zt-drawer').classList.add('translate-x-full')" class="text-[#8ecae6] hover:text-[#fb8500]">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
             </div>
             <div class="p-6 flex-1 overflow-y-auto">
-                <p class="text-gray-400 text-sm mb-6">Manage settings, AI prompts, and bulk actions for this entity here.</p>
                 <label class="block text-sm font-bold mb-2">Entity Name</label>
-                <input type="text" class="w-full bg-gray-900 border border-gray-600 rounded p-2 mb-4 text-white" value="Selected Entity">
+                <input type="text" class="w-full bg-slate-50 border border-[#8ecae6] rounded p-2 mb-4 text-[#023047] focus:ring-2 focus:ring-[#219ebc] outline-none" value="${nodeId}">
                 
-                <label class="block text-sm font-bold mb-2">Gmail Navigation Visibility</label>
-                <select class="w-full bg-gray-900 border border-gray-600 rounded p-2 mb-6 text-white">
+                <label class="block text-sm font-bold mb-2 mt-4">Gmail Navigation Visibility</label>
+                <select class="w-full bg-slate-50 border border-[#8ecae6] rounded p-2 mb-6 text-[#023047] focus:ring-2 focus:ring-[#219ebc] outline-none">
                     <option>Show Always</option>
                     <option>Hide</option>
                     <option>Show if Important</option>
                 </select>
 
-                <button class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded transition-colors">Save Changes</button>
+                <button class="w-full bg-[#219ebc] hover:bg-[#023047] text-white font-bold py-2 px-4 rounded transition-colors shadow-sm mt-4">Save Changes</button>
             </div>
         </div>
     `;
