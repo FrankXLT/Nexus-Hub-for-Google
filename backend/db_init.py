@@ -226,7 +226,7 @@ def init_db(db_path: str = DB_PATH) -> None:
     if cursor.fetchone()[0] == 0:
         print("Bootstrapping Zero Trust Scaffolding...")
         # Since zero_trust_defaults.json is in the root directory
-        json_path = os.path.join(BASE_DIR, "..", "zero_trust_defaults.json")
+        json_path = os.path.join(BASE_DIR, "..", "DEFAULTS", "zero_trust_defaults.json")
         with open(json_path, 'r') as f:
             data = json.load(f)
             
