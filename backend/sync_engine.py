@@ -19,7 +19,7 @@ from googleapiclient.discovery import build, Resource
 from googleapiclient.http import MediaIoBaseDownload
 from googleapiclient.errors import HttpError
 from google.oauth2.credentials import Credentials
-from tenacity import retry, wait_exponential, stop_after_attempt
+from tenacity import retry, wait_exponential, stop_after_attempt, RetryError
 
 # Local imports
 from auth import authenticate
@@ -79,9 +79,9 @@ class QuotaGovernor:
         # Track cost per entity to power API usage telemetry and warn users before bulk edits
         if entity_id:
             if entity_type == 'purpose':
-                self.cursor.execute("UPDATE Taxonomy_Purposes SET operation_cost = operation_cost + ? WHERE id = ?", (cost, entity_id))
+                self.cursor.execute("UPDATE purposes SET operation_cost = operation_cost + ? WHERE id = ?", (cost, entity_id))
             elif entity_type == 'correspondent':
-                self.cursor.execute("UPDATE Taxonomy_Correspondents SET operation_cost = operation_cost + ? WHERE id = ?", (cost, entity_id))
+                self.cursor.execute("UPDATE entities SET operation_cost = operation_cost + ? WHERE id = ?", (cost, entity_id))
                 
         self.conn.commit()
 
@@ -330,8 +330,8 @@ def ingest_taxonomy_seed(creds: Credentials, conn: sqlite3.Connection, governor:
         # ingested Categories, Correspondents, and Purposes. This prevents a misconfigured 
         # external JSON file or newly discovered contacts from instantly flooding the active 
         # taxonomy graph, ensuring they only go live after explicit human approval in the UI.
-        cursor.execute("INSERT OR IGNORE INTO Taxonomy_Categories (name, is_gmail_enabled, is_drive_enabled) VALUES (?, 0, 0)", (cat_name,))
-        cursor.execute("SELECT id FROM Taxonomy_Categories WHERE name = ?", (cat_name,))
+        cursor.execute("INSERT OR IGNORE INTO categories (name) VALUES (?)", (cat_name,))
+        cursor.execute("SELECT id FROM categories WHERE name = ?", (cat_name,))
         cat_id = cursor.fetchone()['id']
         
         for corr in cat.get('correspondents', []):
@@ -342,25 +342,22 @@ def ingest_taxonomy_seed(creds: Credentials, conn: sqlite3.Connection, governor:
             brand_colors = json.dumps(corr.get('brand_colors', []))
             
             cursor.execute("""
-                INSERT OR IGNORE INTO Taxonomy_Correspondents (category_id, name, division, sending_subdomains, physical_addresses, brand_colors, is_gmail_enabled, is_drive_enabled)
-                VALUES (?, ?, ?, ?, ?, ?, 0, 0)
-            """, (cat_id, corr_name, division, sending_subdomains, physical_addresses, brand_colors))
+                INSERT INTO entities (category_id, name, nexus_state)
+                VALUES (?, ?, 'disabled')
+            """, (cat_id, corr_name))
             
-            cursor.execute("SELECT id FROM Taxonomy_Correspondents WHERE category_id = ? AND name = ? AND division = ?", (cat_id, corr_name, division))
+            cursor.execute("SELECT id FROM entities WHERE category_id = ? AND name = ?", (cat_id, corr_name))
             corr_id_row = cursor.fetchone()
             if not corr_id_row: continue
             corr_id = corr_id_row['id']
             
             for purp in corr.get('purposes', []):
                 purp_name = purp.get('name')
-                schema = json.dumps(purp.get('custom_field_schema', {}))
-                freq = purp.get('frequency_weight', 0)
-                conf = purp.get('confidence_weight', 0.0)
                 
                 cursor.execute("""
-                    INSERT OR IGNORE INTO Taxonomy_Purposes (correspondent_id, name, custom_field_schema, frequency_weight, confidence_weight, is_gmail_enabled, is_drive_enabled)
-                    VALUES (?, ?, ?, ?, ?, 0, 0)
-                """, (corr_id, purp_name, schema, freq, conf))
+                    INSERT INTO purposes (category_id, name, scope)
+                    VALUES (?, ?, 'Categorical')
+                """, (cat_id, purp_name))
                 
     conn.commit()
     print("Ingestion of taxonomy_seed.json complete.")
@@ -594,22 +591,20 @@ def sync_gmail(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
                         }
                         
                         # Autonomous Profiling for Unknown Senders
-                        cursor.execute("CREATE TABLE IF NOT EXISTS Taxonomy_Senders (email TEXT PRIMARY KEY, profile_description TEXT, guessed_correspondent_id INTEGER)")
-                        cursor.execute("SELECT email FROM Taxonomy_Senders WHERE email = ?", (sender,))
+                        cursor.execute("SELECT id FROM entities WHERE name = ?", (sender,))
                         if not cursor.fetchone():
                             print(f"Unknown sender {sender}. Profiling...")
                             from llm_engine import generate_sender_profile
                             profile_data = generate_sender_profile(sender, snippet)
                             if profile_data:
-                                desc = profile_data.get("profile_description", "")
                                 guessed_cat = profile_data.get("guessed_category", "")
                                 
-                                # Attempt to match guessed category to a Correspondent ID
-                                cursor.execute("SELECT id FROM Taxonomy_Correspondents WHERE name = ? OR name LIKE ?", (guessed_cat, f"%{guessed_cat}%"))
-                                corr_row = cursor.fetchone()
-                                corr_id = corr_row['id'] if corr_row else None
+                                # Attempt to match guessed category to a Category ID
+                                cursor.execute("SELECT id FROM categories WHERE name = ? OR name LIKE ?", (guessed_cat, f"%{guessed_cat}%"))
+                                cat_row = cursor.fetchone()
+                                cat_id = cat_row['id'] if cat_row else None
                                 
-                                cursor.execute("INSERT INTO Taxonomy_Senders (email, profile_description, guessed_correspondent_id) VALUES (?, ?, ?)", (sender, desc, corr_id))
+                                cursor.execute("INSERT INTO entities (name, category_id, nexus_state) VALUES (?, ?, 'pending')", (sender, cat_id))
                                 conn.commit()
                         
                         # Process the thread
@@ -671,8 +666,8 @@ def sync_contacts(creds: Credentials, conn: sqlite3.Connection, governor: QuotaG
         
         # Ensure 'Personal Network' category exists
         cat_name = 'Personal Network'
-        cursor.execute("INSERT OR IGNORE INTO Taxonomy_Categories (name, is_gmail_enabled, is_drive_enabled) VALUES (?, 0, 0)", (cat_name,))
-        cursor.execute("SELECT id FROM Taxonomy_Categories WHERE name = ?", (cat_name,))
+        cursor.execute("INSERT OR IGNORE INTO categories (name) VALUES (?)", (cat_name,))
+        cursor.execute("SELECT id FROM categories WHERE name = ?", (cat_name,))
         cat_id = cursor.fetchone()['id']
         
         for person in connections:
@@ -696,19 +691,13 @@ def sync_contacts(creds: Credentials, conn: sqlite3.Connection, governor: QuotaG
             # without human intervention.
             
             # Check if exists
-            cursor.execute("SELECT id FROM Taxonomy_Correspondents WHERE category_id = ? AND name = ?", (cat_id, corr_name))
+            cursor.execute("SELECT id FROM entities WHERE category_id = ? AND name = ?", (cat_id, corr_name))
             row = cursor.fetchone()
-            if row:
+            if not row:
                 cursor.execute("""
-                    UPDATE Taxonomy_Correspondents
-                    SET sending_subdomains = ?, physical_addresses = ?
-                    WHERE id = ?
-                """, (json.dumps(sending_subdomains), json.dumps(physical_addresses), row['id']))
-            else:
-                cursor.execute("""
-                    INSERT INTO Taxonomy_Correspondents (category_id, name, division, sending_subdomains, physical_addresses, brand_colors, is_gmail_enabled, is_drive_enabled)
-                    VALUES (?, ?, '', ?, ?, '[]', 0, 0)
-                """, (cat_id, corr_name, json.dumps(sending_subdomains), json.dumps(physical_addresses)))
+                    INSERT INTO entities (category_id, name, nexus_state)
+                    VALUES (?, ?, 'disabled')
+                """, (cat_id, corr_name))
             
         conn.commit()
         print(f"Ingested {len(connections)} Google Contacts.")

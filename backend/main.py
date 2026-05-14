@@ -10,11 +10,12 @@ import time
 import json
 import sqlite3
 import asyncio
-from typing import Callable, Awaitable
-from fastapi import FastAPI, Request, BackgroundTasks
+from typing import Callable, Awaitable, Optional
+from fastapi import FastAPI, Request, BackgroundTasks, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from pydantic import BaseModel
 
 from db_init import DB_PATH
 from llm_engine import generate_tuning_rule, run_sandbox_prompt, ask_rag, append_zero_shot_rule
@@ -77,11 +78,11 @@ async def start_cron_jobs():
                 # Query Zero-Trust Quarantine
                 # Items where purpose or correspondent is disabled. Since Workspace_Artifacts points to purpose_id
                 cursor.execute("""
-                    SELECT w.artifact_id, w.summary, tp.name as purpose_name, tc.name as correspondent_name
-                    FROM Workspace_Artifacts w
-                    JOIN Taxonomy_Purposes tp ON w.purpose_id = tp.id
-                    JOIN Taxonomy_Correspondents tc ON tp.correspondent_id = tc.id
-                    WHERE tp.is_gmail_enabled = 0 AND tp.is_drive_enabled = 0
+                    SELECT q.source_id as artifact_id, json_extract(q.raw_metadata, '$.summary') as summary, p.name as purpose_name, e.name as correspondent_name
+                    FROM quarantine_queue q
+                    LEFT JOIN purposes p ON q.proposed_purpose_id = p.id
+                    LEFT JOIN entities e ON q.proposed_entity_id = e.id
+                    WHERE q.status = 'pending'
                 """)
                 quarantined = cursor.fetchall()
                 conn.close()
@@ -309,10 +310,10 @@ async def search_artifacts(q: str = "", limit: int = 50, offset: int = 0):
                 operator = "!=" if is_exclude else "="
                 
                 if actual_key.lower() == 'correspondent':
-                    conditions.append(f"tc.name {operator} ?")
+                    conditions.append(f"e.name {operator} ?")
                     params.append(val)
                 elif actual_key.lower() == 'purpose':
-                    conditions.append(f"tp.name {operator} ?")
+                    conditions.append(f"p.name {operator} ?")
                     params.append(val)
                 elif actual_key.lower() == 'date':
                     if len(val) == 7 and '-' in val:
@@ -333,8 +334,8 @@ async def search_artifacts(q: str = "", limit: int = 50, offset: int = 0):
         
         join_clause = """
             FROM Workspace_Artifacts w
-            LEFT JOIN Taxonomy_Purposes tp ON w.purpose_id = tp.id
-            LEFT JOIN Taxonomy_Correspondents tc ON tp.correspondent_id = tc.id
+            LEFT JOIN purposes p ON w.purpose_id = p.id
+            LEFT JOIN entities e ON json_extract(w.custom_data, '$.entity_id') = e.id
         """
         
         count_query = f"SELECT COUNT(*) as total {join_clause} {where_clause}"
@@ -343,7 +344,7 @@ async def search_artifacts(q: str = "", limit: int = 50, offset: int = 0):
         
         data_query = f"""
             SELECT w.artifact_id, w.summary, w.custom_data, w.status,
-                   tp.name as purpose_name, tc.name as correspondent_name
+                   p.name as purpose_name, e.name as correspondent_name
             {join_clause}
             {where_clause}
             ORDER BY json_extract(w.custom_data, '$.document_date') DESC
@@ -394,10 +395,8 @@ async def mission_control():
         
         cursor.execute("""
             SELECT COUNT(*) as quarantine
-            FROM Workspace_Artifacts w
-            JOIN Taxonomy_Purposes tp ON w.purpose_id = tp.id
-            JOIN Taxonomy_Correspondents tc ON tp.correspondent_id = tc.id
-            WHERE tp.is_gmail_enabled = 0 AND tp.is_drive_enabled = 0
+            FROM quarantine_queue
+            WHERE status = 'pending'
         """)
         quarantine = cursor.fetchone()['quarantine']
         
@@ -429,15 +428,15 @@ async def analytics_heatmap(tier: str = 'category', timeframe_months: int = 12, 
         if tier == 'category':
             name_col = "tcat.name"
         elif tier == 'correspondent':
-            name_col = "tc.name"
+            name_col = "e.name"
         else:
-            name_col = "tp.name"
+            name_col = "p.name"
             
         join_clause = """
             FROM Workspace_Artifacts w
-            JOIN Taxonomy_Purposes tp ON w.purpose_id = tp.id
-            JOIN Taxonomy_Correspondents tc ON tp.correspondent_id = tc.id
-            JOIN Taxonomy_Categories tcat ON tc.category_id = tcat.id
+            JOIN purposes p ON w.purpose_id = p.id
+            JOIN categories tcat ON p.category_id = tcat.id
+            LEFT JOIN entities e ON json_extract(w.custom_data, '$.entity_id') = e.id
         """
         
         top_query = f"""
@@ -541,10 +540,10 @@ async def analytics_threads(q: str = "", node_limit: int = 15):
                 operator = "!=" if is_exclude else "="
                 
                 if actual_key.lower() == 'correspondent':
-                    conditions.append(f"tc.name {operator} ?")
+                    conditions.append(f"e.name {operator} ?")
                     params.append(val)
                 elif actual_key.lower() == 'purpose':
-                    conditions.append(f"tp.name {operator} ?")
+                    conditions.append(f"p.name {operator} ?")
                     params.append(val)
                 elif actual_key.lower() == 'date':
                     if len(val) == 7 and '-' in val:
@@ -565,9 +564,9 @@ async def analytics_threads(q: str = "", node_limit: int = 15):
         
         join_clause = """
             FROM Workspace_Artifacts w
-            LEFT JOIN Taxonomy_Purposes tp ON w.purpose_id = tp.id
-            LEFT JOIN Taxonomy_Correspondents tc ON tp.correspondent_id = tc.id
-            LEFT JOIN Taxonomy_Categories tcat ON tc.category_id = tcat.id
+            LEFT JOIN purposes p ON w.purpose_id = p.id
+            LEFT JOIN categories tcat ON p.category_id = tcat.id
+            LEFT JOIN entities e ON json_extract(w.custom_data, '$.entity_id') = e.id
         """
         
         query = f"""
@@ -578,9 +577,9 @@ async def analytics_threads(q: str = "", node_limit: int = 15):
                     ELSE 'other'
                 END as source,
                 tcat.name as entity,
-                tc.name as correspondent,
-                tc.brand_color,
-                tp.name as purpose,
+                e.name as correspondent,
+                '#9AA0A6' as brand_color,
+                p.name as purpose,
                 COUNT(*) as volume
             {join_clause}
             {where_clause}
@@ -909,7 +908,7 @@ async def update_correspondent(id: int, request: Request):
         conn = sqlite3.connect(DB_PATH)
         conn.execute("PRAGMA journal_mode=WAL;")
         cursor = conn.cursor()
-        cursor.execute("UPDATE Taxonomy_Correspondents SET custom_extraction_rules = ? WHERE id = ?", (rules, id))
+        cursor.execute("UPDATE entities SET custom_extraction_rules = ? WHERE id = ?", (rules, id))
         conn.commit()
         conn.close()
         return JSONResponse(content={"status": "success", "message": "Correspondent rules updated."})
@@ -926,7 +925,7 @@ async def update_purpose(id: int, request: Request):
         conn = sqlite3.connect(DB_PATH)
         conn.execute("PRAGMA journal_mode=WAL;")
         cursor = conn.cursor()
-        cursor.execute("UPDATE Taxonomy_Purposes SET custom_extraction_rules = ?, auto_archive = ? WHERE id = ?", (rules, auto_archive_int, id))
+        cursor.execute("UPDATE purposes SET custom_extraction_rules = ?, auto_archive = ? WHERE id = ?", (rules, auto_archive_int, id))
         conn.commit()
         conn.close()
         return JSONResponse(content={"status": "success", "message": "Purpose rules and settings updated."})
@@ -1042,13 +1041,12 @@ def get_analytics_heatmap():
     
     # 1. Top 30 correspondents over last 20 days
     cursor.execute("""
-        SELECT tc.id, tc.name, COUNT(DISTINCT wa.artifact_id) as vol
+        SELECT e.id, e.name, COUNT(DISTINCT wa.artifact_id) as vol
         FROM Workspace_Artifacts wa
-        JOIN Taxonomy_Purposes tp ON wa.purpose_id = tp.id
-        JOIN Taxonomy_Correspondents tc ON tp.correspondent_id = tc.id
         JOIN Artifact_History ah ON wa.artifact_id = ah.artifact_id
-        WHERE ah.timestamp >= ?
-        GROUP BY tc.id, tc.name
+        LEFT JOIN entities e ON json_extract(wa.custom_data, '$.entity_id') = e.id
+        WHERE ah.timestamp >= ? AND e.id IS NOT NULL
+        GROUP BY e.id, e.name
         ORDER BY vol DESC
         LIMIT 30
     """, (twenty_days_ago,))
@@ -1068,9 +1066,8 @@ def get_analytics_heatmap():
         cursor.execute("""
             SELECT date(ah.timestamp, 'unixepoch') as dt, COUNT(DISTINCT wa.artifact_id) as count
             FROM Workspace_Artifacts wa
-            JOIN Taxonomy_Purposes tp ON wa.purpose_id = tp.id
             JOIN Artifact_History ah ON wa.artifact_id = ah.artifact_id
-            WHERE tp.correspondent_id = ? AND ah.timestamp >= ?
+            WHERE json_extract(wa.custom_data, '$.entity_id') = ? AND ah.timestamp >= ?
             GROUP BY dt
         """, (corr_id, twenty_days_ago))
         
@@ -1099,13 +1096,12 @@ def get_analytics_taxonomy():
     
     # 1. Top 30 correspondents over last 20 days
     cursor.execute("""
-        SELECT tc.id
+        SELECT e.id
         FROM Workspace_Artifacts wa
-        JOIN Taxonomy_Purposes tp ON wa.purpose_id = tp.id
-        JOIN Taxonomy_Correspondents tc ON tp.correspondent_id = tc.id
         JOIN Artifact_History ah ON wa.artifact_id = ah.artifact_id
-        WHERE ah.timestamp >= ?
-        GROUP BY tc.id
+        LEFT JOIN entities e ON json_extract(wa.custom_data, '$.entity_id') = e.id
+        WHERE ah.timestamp >= ? AND e.id IS NOT NULL
+        GROUP BY e.id
         ORDER BY COUNT(DISTINCT wa.artifact_id) DESC
         LIMIT 30
     """, (twenty_days_ago,))
@@ -1124,15 +1120,15 @@ def get_analytics_taxonomy():
                 ELSE 'Other'
             END as source_app,
             tcat.name as category_name,
-            tc.name as corr_name,
-            tp.name as purpose_name,
+            e.name as corr_name,
+            p.name as purpose_name,
             COUNT(DISTINCT wa.artifact_id) as vol
         FROM Workspace_Artifacts wa
-        JOIN Taxonomy_Purposes tp ON wa.purpose_id = tp.id
-        JOIN Taxonomy_Correspondents tc ON tp.correspondent_id = tc.id
-        JOIN Taxonomy_Categories tcat ON tc.category_id = tcat.id
+        JOIN purposes p ON wa.purpose_id = p.id
+        JOIN categories tcat ON p.category_id = tcat.id
+        LEFT JOIN entities e ON json_extract(wa.custom_data, '$.entity_id') = e.id
         JOIN Artifact_History ah ON wa.artifact_id = ah.artifact_id
-        WHERE ah.timestamp >= ? AND tc.id IN ({placeholders})
+        WHERE ah.timestamp >= ? AND e.id IN ({placeholders})
         GROUP BY source_app, category_name, corr_name, purpose_name
     """
     params = [twenty_days_ago] + top_corrs
