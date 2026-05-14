@@ -15,10 +15,10 @@ logger = logging.getLogger(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Navigate up to the root to find the DEFAULTS folder
-PROMPTS_DIR = os.path.join(BASE_DIR, "..", "DEFAULTS")
+DEFAULTS_DIR = os.path.join(BASE_DIR, "..", "DEFAULTS")
 
 def get_prompt_template(filename):
-    path = os.path.join(PROMPTS_DIR, filename)
+    path = os.path.join(DEFAULTS_DIR, filename)
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
 
@@ -226,7 +226,7 @@ def init_db(db_path: str = DB_PATH) -> None:
     if cursor.fetchone()[0] == 0:
         print("Bootstrapping Zero Trust Scaffolding...")
         # Since zero_trust_defaults.json is in the root directory
-        json_path = os.path.join(BASE_DIR, "DEFAULTS", "zero_trust_defaults.json")
+        json_path = os.path.join(DEFAULTS_DIR, "zero_trust_defaults.json")
         with open(json_path, 'r') as f:
             data = json.load(f)
             
