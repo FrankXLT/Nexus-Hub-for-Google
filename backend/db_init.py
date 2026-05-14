@@ -153,7 +153,7 @@ def init_db(db_path: str = DB_PATH) -> None:
             parent_artifact_id TEXT,
             lifecycle_status TEXT DEFAULT 'ACTIVE',
             google_task_id TEXT,
-            FOREIGN KEY (purpose_id) REFERENCES Taxonomy_Purposes (id) ON DELETE CASCADE,
+            FOREIGN KEY (purpose_id) REFERENCES purposes (id) ON DELETE CASCADE,
             FOREIGN KEY (parent_artifact_id) REFERENCES Workspace_Artifacts (artifact_id) ON DELETE SET NULL
         ) STRICT;
     """)
@@ -243,7 +243,7 @@ def init_db(db_path: str = DB_PATH) -> None:
             cursor.execute("INSERT INTO categories (name, description) VALUES (?, ?)", (cat["name"], cat.get("description", "")))
             cat_id = cursor.lastrowid
             for cp in cat.get("categorical_purposes", []):
-                cursor.execute("INSERT INTO purposes (name, scope, category_id) VALUES (?, 'Categorical', ?)", (cat_id,))
+                cursor.execute("INSERT INTO purposes (name, scope, category_id) VALUES (?, 'Categorical', ?)", (cp, cat_id))
 
     seed_default_configs(conn)
     seed_default_prompts(conn)
@@ -304,44 +304,6 @@ def seed_default_configs(conn: sqlite3.Connection) -> None:
         cursor.execute("INSERT INTO Config_System (key, value, description) VALUES (?, ?, ?)",
             ('feature_google_tasks', '0', 'Safe Mode: Autonomous Google Tasks'))
 
-
-def seed_default_taxonomy(conn):
-    """
-    Purpose: Seeds default categories and global purposes into the taxonomy tables.
-    Expected Inputs: conn (sqlite3.Connection) - An active database connection.
-    Expected Outputs: None. Populates the Taxonomy categories, correspondents, and purposes tables.
-    """
-    cursor = conn.cursor()
-    # Create a dummy category and correspondent for global purposes if they don't exist
-    cursor.execute("SELECT id FROM Taxonomy_Categories WHERE name = 'System'")
-    cat_row = cursor.fetchone()
-    if cat_row is None:
-        cursor.execute("INSERT INTO Taxonomy_Categories (name, is_gmail_enabled, is_drive_enabled) VALUES ('System', 1, 1)")
-        cursor.execute("SELECT id FROM Taxonomy_Categories WHERE name = 'System'")
-        cat_row = cursor.fetchone()
-        if cat_row is None:
-            raise ValueError("Failed to retrieve or create the 'System' Taxonomy_Category.")
-    cat_id = cat_row['id']
-    
-    cursor.execute("SELECT id FROM Taxonomy_Correspondents WHERE name = 'Global'")
-    corr_row = cursor.fetchone()
-    if corr_row is None:
-        cursor.execute("INSERT INTO Taxonomy_Correspondents (category_id, name, brand_color, is_gmail_enabled, is_drive_enabled) VALUES (?, 'Global', '#4285F4', 1, 1)", (cat_id,))
-        cursor.execute("SELECT id FROM Taxonomy_Correspondents WHERE name = 'Global'")
-        corr_row = cursor.fetchone()
-        if corr_row is None:
-            raise ValueError("Failed to retrieve or create the 'Global' Taxonomy_Correspondent.")
-    corr_id = corr_row['id']
-    
-    global_purposes = ['Receipt / Invoice', 'Bill / Statement', 'Policy / Terms Update']
-    # Loop over the list of default purposes to insert them into the database.
-    for p in global_purposes:
-        cursor.execute("SELECT id FROM Taxonomy_Purposes WHERE name = ? AND correspondent_id = ?", (p, corr_id))
-        if cursor.fetchone() is None:
-            cursor.execute("""
-                INSERT INTO Taxonomy_Purposes (correspondent_id, name, custom_field_schema, is_global, is_gmail_enabled, is_drive_enabled)
-                VALUES (?, ?, '{}', 1, 1, 1)
-            """, (corr_id, p))
 
 def seed_default_prompts(conn: sqlite3.Connection) -> None:
     """
