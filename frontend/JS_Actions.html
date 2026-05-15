@@ -254,7 +254,7 @@ const appActions = {
         container.innerHTML = `
             <details class="group bg-white border border-[#8ecae6] w-full mb-4 shadow-sm rounded-md overflow-hidden" open>
                 <summary class="p-4 cursor-pointer list-none flex items-center border-b border-[#8ecae6]/50 text-[#fb8500] font-sans text-xl font-bold select-none hover:bg-slate-50 transition-colors">
-                    <span class="mr-3 transition-transform group-open:rotate-90">▽</span> Entity Category #1
+                    <span class="mr-3 transition-transform group-open:rotate-90">▼</span> Entity Category #1
                 </summary>
                 <div class="p-6 overflow-x-auto bg-slate-50/50">
                     <div id="mermaid-render-target" class="flex justify-start min-w-[800px] mb-6"></div>
@@ -333,24 +333,24 @@ Object.assign(appActions, {
             classDef ai fill:#0f172a,stroke:#fb8500,stroke-width:2px,color:#fff
             classDef endAction fill:#1e293b,stroke:#8ecae6,stroke-width:2px,color:#fff
 
-            A(["Contacts API Polling Interval"]) ::: trigger --> B{"Has nexus-managed flag?"} ::: check
-            B -- Yes --> C["Sync manual changes\nOverwrite DB"] ::: action
-            B -- No --> D["Extract Metadata"] ::: action
-            D --> E{"Is Workspace Directory?"} ::: check
-            E -- Yes --> F["Extract Hierarchy"] ::: action
-            F --> G["Deterministic DB Mapping"] ::: action
-            E -- No --> H{"Domain Known?"} ::: check
-            H -- No --> I["AI Prompt:\nProfile Domain"] ::: ai
-            H -- Yes --> J{"Persona Known?"} ::: check
+            A(["Contacts API Polling Interval"]):::trigger --> B{"Has nexus-managed flag?"}:::check
+            B -- Yes --> C["Sync manual changes\nOverwrite DB"]:::action
+            B -- No --> D["Extract Metadata"]:::action
+            D --> E{"Is Workspace Directory?"}:::check
+            E -- Yes --> F["Extract Hierarchy"]:::action
+            F --> G["Deterministic DB Mapping"]:::action
+            E -- No --> H{"Domain Known?"}:::check
+            H -- No --> I["AI Prompt:\nProfile Domain"]:::ai
+            H -- Yes --> J{"Persona Known?"}:::check
             I --> J
-            J -- No --> K["AI Prompt:\nProfile Identity"] ::: ai
-            J -- Yes --> L["Verify Mapping"] ::: action
+            J -- No --> K["AI Prompt:\nProfile Identity"]:::ai
+            J -- Yes --> L["Verify Mapping"]:::action
             K --> L
-            L --> M["Set DB Status: Quarantined"] ::: action
+            L --> M["Set DB Status: Quarantined"]:::action
             G --> M
-            M --> N["Inject hidden clientData"] ::: action
+            M --> N["Inject hidden clientData"]:::action
             C --> N
-            N --> O(["Route to UI Quarantine Queue"]) ::: endAction`;
+            N --> O(["Route to UI Quarantine Queue"]):::endAction`;
 
         const gmailGraph = `flowchart TB\nA["Gmail API"] --> B["LLM Router"]`;
         const driveGraph = `flowchart TB\nA["Drive API"] --> B["LLM Filer"]`;
@@ -390,41 +390,48 @@ Object.assign(appActions, {
     },
 
     renderQuarantineBanner: function() {
-        const quarantineItems = [
-            { id: 1, source: 'gmail', entity: 'aerodynamics-inc.com', badges: ['fa-globe Web Search Used', 'Consolidated 2 Emails'] },
-            { id: 2, source: 'contacts', entity: 'Nick Green (Workspace)', badges: ['Enterprise Bypass'] }
-        ];
+        google.script.run
+            .withSuccessHandler(response => {
+                if (!response || !response.success || !response.data) return;
+                
+                const quarantineItems = response.data;
+                const container = document.getElementById('quarantine-carousel-container');
+                const carousel = document.getElementById('quarantine-carousel');
+                const countSpan = document.getElementById('quarantine-count');
 
-        const container = document.getElementById('quarantine-carousel-container');
-        const carousel = document.getElementById('quarantine-carousel');
-        const countSpan = document.getElementById('quarantine-count');
+                if (quarantineItems.length === 0) {
+                    if (container) container.classList.add('hidden');
+                    return;
+                }
 
-        if (quarantineItems.length === 0) {
-            container.classList.add('hidden');
-            return;
-        }
+                if (container) container.classList.remove('hidden');
+                if (countSpan) countSpan.innerText = quarantineItems.length;
+                if (carousel) carousel.innerHTML = '';
 
-        container.classList.remove('hidden');
-        countSpan.innerText = quarantineItems.length;
-        carousel.innerHTML = '';
+                quarantineItems.forEach(item => {
+                    const icon = item.source === 'gmail' ? `<svg class="w-4 h-4 text-[#fb8500]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>` : 
+                                                           `<svg class="w-4 h-4 text-[#219ebc]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>`;
+                    
+                    let badgesHtml = (item.badges || []).map(b => `<span class="bg-[#ea580c]/10 text-[#9a3412] text-[10px] px-1.5 py-0.5 rounded border border-[#ea580c]/20 whitespace-nowrap">${b}</span>`).join('');
 
-        quarantineItems.forEach(item => {
-            const icon = item.source === 'gmail' ? `<svg class="w-4 h-4 text-[#fb8500]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>` : 
-                                                   `<svg class="w-4 h-4 text-[#219ebc]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>`;
-            
-            let badgesHtml = item.badges.map(b => `<span class="bg-[#ea580c]/10 text-[#9a3412] text-[10px] px-1.5 py-0.5 rounded border border-[#ea580c]/20 whitespace-nowrap">${b}</span>`).join('');
-
-            carousel.innerHTML += `
-                <div onclick="appActions.filterZeroTrustTree(${item.id}, '${item.entity}')" class="bg-white border border-[#ea580c]/30 rounded-md p-2 shadow-sm cursor-pointer hover:border-[#ea580c] hover:shadow-md transition-all min-w-[250px] shrink-0">
-                    <div class="flex items-center gap-2 mb-1">
-                        ${icon} <span class="font-bold text-[#023047] text-sm truncate">${item.entity}</span>
-                    </div>
-                    <div class="flex flex-wrap gap-1 mt-2">
-                        ${badgesHtml}
-                    </div>
-                </div>
-            `;
-        });
+                    if (carousel) {
+                        carousel.innerHTML += `
+                            <div onclick="appActions.filterZeroTrustTree(${item.id}, '${item.entity}')" class="bg-white border border-[#ea580c]/30 rounded-md p-2 shadow-sm cursor-pointer hover:border-[#ea580c] hover:shadow-md transition-all min-w-[250px] shrink-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    ${icon} <span class="font-bold text-[#023047] text-sm truncate">${item.entity}</span>
+                                </div>
+                                <div class="flex flex-wrap gap-1 mt-2">
+                                    ${badgesHtml}
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+            })
+            .withFailureHandler(error => {
+                console.error("Failed to fetch quarantine queue:", error);
+            })
+            .getQuarantineQueue();
     },
 
     filterZeroTrustTree: function(itemId, entityName) {

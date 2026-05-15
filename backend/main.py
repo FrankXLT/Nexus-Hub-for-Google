@@ -435,7 +435,7 @@ async def analytics_heatmap(tier: str = 'category', timeframe_months: int = 12, 
         join_clause = """
             FROM Workspace_Artifacts w
             JOIN purposes p ON w.purpose_id = p.id
-            JOIN categories tcat ON p.category_id = tcat.id
+            JOIN categories c ON p.category_id = c.id
             LEFT JOIN entities e ON json_extract(w.custom_data, '$.entity_id') = e.id
         """
         
@@ -576,7 +576,7 @@ async def analytics_threads(q: str = "", node_limit: int = 15):
                     WHEN w.artifact_id LIKE 'drive_%' THEN 'drive'
                     ELSE 'other'
                 END as source,
-                tcat.name as entity,
+                c.name as entity,
                 e.name as correspondent,
                 '#9AA0A6' as brand_color,
                 p.name as purpose,
