@@ -1284,65 +1284,7 @@ async def get_taxonomy_tree():
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-@app.post("/api/ingestion/legacy-labels/preview")
-async def legacy_labels_preview():
-    try:
-        from sync_engine import fetch_legacy_gmail_labels
-        from llm_engine import deduplicate_legacy_labels, profile_and_map_entities
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute("SELECT name FROM categories")
-        categories = [row[0] for row in cursor.fetchall()]
-        conn.close()
 
-        raw_labels = fetch_legacy_gmail_labels()
-        deduped = deduplicate_legacy_labels(raw_labels)
-        profiled = profile_and_map_entities(deduped, categories)
-        return JSONResponse(content={"status": "success", "results": profiled})
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
-@app.post("/api/ingestion/legacy-labels/execute")
-async def legacy_labels_execute(request: Request):
-    try:
-        body = await request.json()
-        payload = body.get("results", [])
-        conn = sqlite3.connect(DB_PATH)
-        conn.execute("BEGIN TRANSACTION;")
-        cursor = conn.cursor()
-        
-        cursor.execute("CREATE TABLE IF NOT EXISTS aliases (id INTEGER PRIMARY KEY, entity_id INTEGER, alias TEXT, FOREIGN KEY(entity_id) REFERENCES entities(id))")
-        
-        for item in payload:
-            category = item.get("proposed_category")
-            entity = item.get("canonical_entity_name")
-            alias = item.get("workspace_alias")
-            original_label = item.get("original_label")
-            
-            if not category or not entity:
-                continue
-
-            cursor.execute("INSERT OR IGNORE INTO categories (name) VALUES (?)", (category,))
-            cursor.execute("SELECT id FROM categories WHERE name = ?", (category,))
-            cat_row = cursor.fetchone()
-            if cat_row:
-                cat_id = cat_row[0]
-                cursor.execute("INSERT OR IGNORE INTO entities (category_id, name, workspace_alias, nexus_state) VALUES (?, ?, ?, 'pending')", (cat_id, entity, alias))
-                
-                cursor.execute("SELECT id FROM entities WHERE category_id = ? AND name = ?", (cat_id, entity))
-                ent_row = cursor.fetchone()
-                if ent_row:
-                    ent_id = ent_row[0]
-                    cursor.execute("INSERT INTO aliases (entity_id, alias) VALUES (?, ?)", (ent_id, original_label))
-                
-        conn.execute("COMMIT;")
-        conn.close()
-        return JSONResponse(content={"status": "success", "message": "Execution complete"})
-    except Exception as e:
-        if 'conn' in locals():
-            conn.execute("ROLLBACK;")
-            conn.close()
-        return JSONResponse(status_code=500, content={"error": str(e)})
 
 if __name__ == "__main__":
     import uvicorn

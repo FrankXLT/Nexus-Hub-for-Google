@@ -91,22 +91,18 @@ var appActions = {
                 ]
             };
             
-            fetch('/api/batch/process', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(data.status === 'success') {
-                    statusCell.innerHTML = `<span class="text-[#27AE60] font-bold">Success (${data.mapped} mapped)</span>`;
-                } else {
-                    statusCell.innerHTML = `<span class="text-red-500 font-bold">Error</span>`;
-                }
-            })
-            .catch(err => {
-                statusCell.innerHTML = `<span class="text-red-500 font-bold">Failed</span>`;
-            });
+            google.script.run
+                .withSuccessHandler(response => {
+                    if(response && response.success && response.data && response.data.status === 'success') {
+                        statusCell.innerHTML = `<span class="text-[#27AE60] font-bold">Success (${response.data.mapped} mapped)</span>`;
+                    } else {
+                        statusCell.innerHTML = `<span class="text-red-500 font-bold">Error</span>`;
+                    }
+                })
+                .withFailureHandler(err => {
+                    statusCell.innerHTML = `<span class="text-red-500 font-bold">Failed: ${err.message || err}</span>`;
+                })
+                .executeBatchProcess(payload);
         });
     },
 
@@ -138,9 +134,8 @@ var appActions = {
 
         container.innerHTML = '<div class="text-[#023047]/50 italic p-4 text-center w-full">Loading Activity Heatmap...</div>';
 
-        fetch(`/api/analytics/heatmap?days=${days}&source=${source}&status=${status}`)
-            .then(res => res.json())
-            .then(data => {
+        google.script.run
+            .withSuccessHandler(data => {
                 if (!Array.isArray(data) || data.length === 0) {
                     container.innerHTML = '<div class="text-[#023047]/50 italic p-4 text-center w-full">No heatmap data found for these filters.</div>';
                     container.style.gridTemplateColumns = '1fr';
@@ -186,10 +181,11 @@ var appActions = {
                     });
                 });
             })
-            .catch(err => {
-                container.innerHTML = `<div class="text-red-500 italic p-4 text-center w-full">Error loading heatmap: ${err.message}</div>`;
+            .withFailureHandler(err => {
+                container.innerHTML = `<div class="text-red-500 italic p-4 text-center w-full">Error loading heatmap: ${err.message || err}</div>`;
                 container.style.gridTemplateColumns = '1fr';
-            });
+            })
+            .getHeatmapData(days, source, status);
     },
 
     // --- SANKEY MODULE (Live Data) ---
@@ -203,9 +199,8 @@ var appActions = {
 
         container.innerHTML = '<div class="text-[#023047]/50 italic p-4 text-center w-full">Loading Data Flow...</div>';
 
-        fetch(`/api/analytics/sankey?days=${days}&source=${source}&status=${status}`)
-            .then(res => res.json())
-            .then(async links => {
+        google.script.run
+            .withSuccessHandler(async links => {
                 if (!Array.isArray(links) || links.length === 0) {
                     container.innerHTML = '<div class="text-[#023047]/50 italic p-4 text-center w-full">No flow data found for these filters.</div>';
                     return;
@@ -230,9 +225,10 @@ var appActions = {
                     }
                 }
             })
-            .catch(err => {
-                container.innerHTML = `<div class="text-red-500 italic p-4 text-center w-full">Error loading flow: ${err.message}</div>`;
-            });
+            .withFailureHandler(err => {
+                container.innerHTML = `<div class="text-red-500 italic p-4 text-center w-full">Error loading flow: ${err.message || err}</div>`;
+            })
+            .getSankeyData(days, source, status);
     },
     
     refreshVQB: function() {
@@ -294,29 +290,26 @@ var appActions = {
         btn.innerText = "Extracting & Profiling... (This may take a minute)";
         btn.disabled = true;
 
-        fetch('/api/ingestion/legacy-labels/preview', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'success') {
-                const results = data.data || data.results || [];
-                this.renderLegacyLabelTable(results);
-                const commitBtn = document.getElementById('btn-commit-legacy');
-                if (commitBtn) commitBtn.classList.remove('hidden');
-            } else {
-                alert("Error: " + (data.error || JSON.stringify(data)));
-            }
-        })
-        .catch(err => {
-            alert("Fetch failed: " + err);
-        })
-        .finally(() => {
-            btn.innerText = "Take Snapshot";
-            btn.disabled = false;
-        });
+        google.script.run
+            .withSuccessHandler(response => {
+                if (response && response.success && response.data && response.data.status === 'success') {
+                    const results = response.data.data || response.data.results || [];
+                    this.renderLegacyLabelTable(results);
+                    const commitBtn = document.getElementById('btn-commit-legacy');
+                    if (commitBtn) commitBtn.classList.remove('hidden');
+                } else {
+                    const errorObj = response ? (response.error || (response.data && (response.data.error || JSON.stringify(response.data)))) : "Unknown error";
+                    alert("Error: " + errorObj);
+                }
+                btn.innerText = "Take Snapshot";
+                btn.disabled = false;
+            })
+            .withFailureHandler(err => {
+                alert("Fetch failed: " + (err.message || err));
+                btn.innerText = "Take Snapshot";
+                btn.disabled = false;
+            })
+            .previewLegacyLabels();
     },
 
     renderLegacyLabelTable: function(data) {
@@ -324,9 +317,8 @@ var appActions = {
         const tbody = document.getElementById('legacy-label-tbody') || document.querySelector('#legacy-labels-table tbody');
         tbody.innerHTML = '';
 
-        fetch('/api/taxonomy/tree')
-            .then(res => res.json())
-            .then(categories => {
+        google.script.run
+            .withSuccessHandler(categories => {
                 let catOptions = '';
                 if (Array.isArray(categories)) {
                     catOptions = categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
@@ -354,9 +346,10 @@ var appActions = {
                     tbody.appendChild(tr);
                 });
             })
-            .catch(err => {
+            .withFailureHandler(err => {
                 console.error("Failed to load taxonomy tree for dropdowns", err);
-            });
+            })
+            .getTaxonomyTree();
     },
 
     executeLegacyLabels: function() {
@@ -377,28 +370,27 @@ var appActions = {
             return;
         }
 
-        fetch('/api/ingestion/legacy-labels/execute', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ results: approvedLabels, approved_labels: approvedLabels })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'success') {
-                alert("Taxonomy committed successfully!");
-                this.closeSettingsModal();
-                if (typeof this.triggerDiagnostics === 'function') {
-                    this.triggerDiagnostics();
+        const payload = { results: approvedLabels, approved_labels: approvedLabels };
+        
+        google.script.run
+            .withSuccessHandler(response => {
+                if (response && response.success && response.data && response.data.status === 'success') {
+                    alert("Taxonomy committed successfully!");
+                    this.closeSettingsModal();
+                    if (typeof this.triggerDiagnostics === 'function') {
+                        this.triggerDiagnostics();
+                    } else {
+                        console.warn("triggerDiagnostics not found.");
+                    }
                 } else {
-                    console.warn("triggerDiagnostics not found.");
+                    const errorObj = response ? (response.error || (response.data && (response.data.error || JSON.stringify(response.data)))) : "Unknown error";
+                    alert("Error: " + errorObj);
                 }
-            } else {
-                alert("Error: " + (data.error || JSON.stringify(data)));
-            }
-        })
-        .catch(err => {
-            alert("Execution failed: " + err);
-        });
+            })
+            .withFailureHandler(err => {
+                alert("Execution failed: " + (err.message || err));
+            })
+            .executeLegacyLabels(payload);
     },
     // --- ZERO TRUST MODULE ---
     loadZeroTrustFlow: function() {
@@ -407,9 +399,8 @@ var appActions = {
 
         container.innerHTML = '<div class="text-[#023047]/50 italic p-4 text-center w-full">Loading Taxonomy Tree...</div>';
 
-        fetch('/api/taxonomy/tree')
-            .then(res => res.json())
-            .then(data => {
+        google.script.run
+            .withSuccessHandler(data => {
                 if (!Array.isArray(data) || data.length === 0) {
                     container.innerHTML = '<div class="text-[#023047]/50 italic p-4 text-center w-full">No taxonomy data available.</div>';
                     return;
@@ -457,9 +448,10 @@ var appActions = {
                     `;
                 });
             })
-            .catch(err => {
-                container.innerHTML = `<div class="text-red-500 italic p-4 text-center w-full">Error loading taxonomy: ${err.message}</div>`;
-            });
+            .withFailureHandler(err => {
+                container.innerHTML = `<div class="text-red-500 italic p-4 text-center w-full">Error loading taxonomy: ${err.message || err}</div>`;
+            })
+            .getTaxonomyTree();
     }
 };
 
@@ -657,24 +649,19 @@ Object.assign(appActions, {
         
         const pipeline = appState.activePipeline || 'gmail';
         
-        fetch('/api/orchestrator/simulate', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ artifact_id: artifactId, pipeline: pipeline })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if(data.status === 'success') {
-                alert("Simulation Successful! Trace saved to Drive.");
-            } else {
-                alert("Simulation Error: " + (data.detail || data.error || data.message || JSON.stringify(data)));
-            }
-        })
-        .catch(err => {
-            alert("Fetch failed: " + err);
-        });
+        google.script.run
+            .withSuccessHandler(response => {
+                if(response && response.success && response.data && response.data.status === 'success') {
+                    alert("Simulation Successful! Trace saved to Drive.");
+                } else {
+                    const errorObj = response ? (response.error || (response.data && (response.data.detail || response.data.error || response.data.message || JSON.stringify(response.data)))) : "Unknown error";
+                    alert("Simulation Error: " + errorObj);
+                }
+            })
+            .withFailureHandler(err => {
+                alert("Execution failed: " + (err.message || err));
+            })
+            .simulateOrchestrator({ artifact_id: artifactId, pipeline: pipeline });
     },
 
     savePipelineConfig: function() {
@@ -711,21 +698,19 @@ Object.assign(appActions, {
     },
 
     runPipelineNow: function(pipelineName) {
-        fetch('/api/orchestrator/run-now/' + pipelineName, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'success') {
-                alert("Success: " + data.message);
-            } else {
-                alert("Error starting pipeline: " + (data.error || data.detail || JSON.stringify(data)));
-            }
-        })
-        .catch(err => {
-            alert("Failed to trigger pipeline: " + err);
-        });
+        google.script.run
+            .withSuccessHandler(response => {
+                if (response && response.success && response.data && response.data.status === 'success') {
+                    alert("Success: " + response.data.message);
+                } else {
+                    const errorObj = response ? (response.error || (response.data && (response.data.error || response.data.detail || JSON.stringify(response.data)))) : "Unknown error";
+                    alert("Error starting pipeline: " + errorObj);
+                }
+            })
+            .withFailureHandler(err => {
+                alert("Failed to trigger pipeline: " + (err.message || err));
+            })
+            .runPipelineNow(pipelineName);
     },
 
     renderQuarantineBanner: function() {

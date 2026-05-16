@@ -4,6 +4,18 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.1.15] - 2026-05-16
+### Changed
+- **Layer 7:** Refactored `JS_Actions.html` network logic, migrating all frontend VM data calls (`renderVQB`, `renderSankey`, `executeBatch`, `simulatePipeline`, `runPipelineNow`, `snapshotLegacyLabels`, `executeLegacyLabels`, `loadZeroTrustFlow`, and `renderLegacyLabelTable`) from raw `fetch()` to `google.script.run` RPC endpoints, properly unboxing envelope payloads and enforcing Google Apps Script iframe CORS compliance while preserving UI state logic.
+
+## [v1.1.14] - 2026-05-16
+### Changed
+- **Layer 7:** Updated `getHeatmapData` and `getSankeyData` in `frontend/Code.gs` to strictly match requested middleware bridge signatures, removing default parameters to ensure explicit downstream routing. Verified all other requested API bridges exist and correctly utilize the `sendToNexusVM` HMAC signature pipeline.
+
+## [v1.1.13] - 2026-05-16
+### Fixed
+- **Layer 3:** Purged duplicate legacy label routes (`legacy_labels_preview` and `legacy_labels_execute`) from the bottom of `backend/main.py` that were causing namespace collisions, preserving the primary fully-implemented ones.
+
 ## [v1.1.12] - 2026-05-16
 ### Changed
 - **Layer 7:** Wired the Legacy Label Migration engine in the Global Settings UI to the backend `/api/ingestion/legacy-labels/preview` and `/api/ingestion/legacy-labels/execute` endpoints.

@@ -216,13 +216,13 @@ function runAskAI(payload) {
 
 /**
  * Purpose: Fetches Heatmap data.
- * Expected Inputs: None.
+ * Expected Inputs: days (int), source (string), status (string).
  * Expected Outputs: Object - The heatmap analytics data.
  */
-function getHeatmapData() {
+function getHeatmapData(days, source, status) {
   const scriptProperties = PropertiesService.getScriptProperties();
   const vmUrl = scriptProperties.getProperty('NEXUS_VM_URL') || "http://localhost:8000"; 
-  const targetUrl = vmUrl + "/api/analytics/heatmap";
+  const targetUrl = `${vmUrl}/api/analytics/heatmap?days=${days}&source=${source}&status=${status}`;
   
   const options = { 'method': 'get', 'muteHttpExceptions': true };
   try {
@@ -238,6 +238,124 @@ function getHeatmapData() {
     }
   } catch (error) {
     return { status: "error", detail: error.message };
+  }
+}
+
+/**
+ * Purpose: Fetches Sankey flow data.
+ * Expected Inputs: days (int), source (string), status (string).
+ * Expected Outputs: Object - The sankey analytics data.
+ */
+function getSankeyData(days, source, status) {
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const vmUrl = scriptProperties.getProperty('NEXUS_VM_URL') || "http://localhost:8000"; 
+  const targetUrl = `${vmUrl}/api/analytics/sankey?days=${days}&source=${source}&status=${status}`;
+  
+  const options = { 'method': 'get', 'muteHttpExceptions': true };
+  try {
+    const response = UrlFetchApp.fetch(targetUrl, options);
+    const responseCode = response.getResponseCode();
+    if (responseCode >= 200 && responseCode < 300) {
+      return JSON.parse(response.getContentText());
+    } else {
+      throw new Error("VM Error (" + responseCode + "): " + response.getContentText());
+    }
+  } catch (error) {
+    return { status: "error", detail: error.message };
+  }
+}
+
+/**
+ * Purpose: Fetches Taxonomy Tree data.
+ * Expected Inputs: None.
+ * Expected Outputs: Object - The taxonomy tree data.
+ */
+function getTaxonomyTree() {
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const vmUrl = scriptProperties.getProperty('NEXUS_VM_URL') || "http://localhost:8000"; 
+  const targetUrl = vmUrl + "/api/taxonomy/tree";
+  
+  const options = { 'method': 'get', 'muteHttpExceptions': true };
+  try {
+    const response = UrlFetchApp.fetch(targetUrl, options);
+    const responseCode = response.getResponseCode();
+    if (responseCode >= 200 && responseCode < 300) {
+      return JSON.parse(response.getContentText());
+    } else {
+      throw new Error("VM Error (" + responseCode + "): " + response.getContentText());
+    }
+  } catch (error) {
+    return { status: "error", detail: error.message };
+  }
+}
+
+/**
+ * Purpose: Previews legacy label migration.
+ * Expected Inputs: None.
+ * Expected Outputs: Object - Preview results.
+ */
+function previewLegacyLabels() {
+  try {
+    const result = sendToNexusVM("/api/ingestion/legacy-labels/preview", {});
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Purpose: Executes legacy label migration.
+ * Expected Inputs: payload (Object) - The approved labels.
+ * Expected Outputs: Object - Execution results.
+ */
+function executeLegacyLabels(payload) {
+  try {
+    const result = sendToNexusVM("/api/ingestion/legacy-labels/execute", payload);
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Purpose: Simulates an orchestrator pipeline run.
+ * Expected Inputs: payload (Object) - The simulation parameters.
+ * Expected Outputs: Object - Simulation trace.
+ */
+function simulateOrchestrator(payload) {
+  try {
+    const result = sendToNexusVM("/api/orchestrator/simulate", payload);
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Purpose: Executes a batch process against artifacts.
+ * Expected Inputs: payload (Object) - The batch process definition.
+ * Expected Outputs: Object - Processing results.
+ */
+function executeBatchProcess(payload) {
+  try {
+    const result = sendToNexusVM("/api/batch/process", payload);
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Purpose: Triggers an immediate run of a specific pipeline.
+ * Expected Inputs: pipelineName (string) - The pipeline to run.
+ * Expected Outputs: Object - Success status.
+ */
+function runPipelineNow(pipelineName) {
+  try {
+    const result = sendToNexusVM(`/api/orchestrator/run-now/${pipelineName}`, {});
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
   }
 }
 
