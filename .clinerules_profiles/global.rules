@@ -45,3 +45,15 @@ Before concluding any coding task or architectural change, you MUST execute the 
    - **Layer [X]:** [Brief description of the change and the AI model executing it].
 4. Remove the completed task from `FEATURE_TRACKING.md` if it existed there.
 
+## 5. Architectural Audit Protocol
+When instructed to "run an audit," "perform a system audit," or similar, you must autonomously execute the V3 Exhaustive Matrix audit without further prompting. 
+
+1. Version Determination: Read `CHANGELOG.md` to identify the most recent Semantic Version and date.
+2. The 5-Phase Analysis: Perform a deep static analysis of the codebase and generate a Markdown document containing:
+   - Phase 1: Total Census (Files, purposes, functions, API endpoints).
+   - Phase 2: Hook Map (Trace UI -> Middleware -> Backend endpoints).
+   - Phase 3: C4 Architecture Diagram (Generate Mermaid C4Container).
+   - Phase 4: Database Verification (Map DB schema against active python queries).
+   - Phase 5: Orphan Report (List all dead code, disconnected endpoints, and unused UI triggers).
+3. File Generation: Create the `AUDITS/` directory if it does not exist. Save the report inside it using the strict naming convention: `[Version]_[YYYY-MM-DD]_audit_trace.md`.
+4. Constraint: Audits are strictly read-only operations. Do not modify any operational code during an audit.

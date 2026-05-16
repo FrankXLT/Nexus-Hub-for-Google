@@ -4,6 +4,11 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.1.12] - 2026-05-16
+### Changed
+- **Layer 7:** Wired the Legacy Label Migration engine in the Global Settings UI to the backend `/api/ingestion/legacy-labels/preview` and `/api/ingestion/legacy-labels/execute` endpoints.
+- **Layer 7:** Updated the Legacy Label staging table in `Index.html` to display category mapping dropdowns and canonical entity badges.
+
 ## [v1.1.11] - 2026-05-16
 ### Changed
 - **Layer 2:** Rewrote `/api/analytics/heatmap` and `/api/analytics/sankey` endpoints in `main.py` to use dynamic SQL telemetry targeting `Workspace_Artifacts`, effectively replacing the initial dummy data generators and adhering to VQB formatting specs.

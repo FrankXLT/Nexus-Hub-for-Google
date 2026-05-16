@@ -289,27 +289,117 @@ var appActions = {
     },
 
     snapshotLegacyLabels: function() {
-        appState.legacyLabels = [
-            { old: "Receipts-2023", keep: false, mapTo: "Receipt / Invoice" },
-            { old: "Newsletters", keep: false, mapTo: "Commercial" },
-            { old: "Tax Docs", keep: true, mapTo: "Finance" }
-        ];
-        appState.labelSnapshotTaken = true;
-        
-        const tbody = document.querySelector('#legacy-labels-table tbody');
-        tbody.innerHTML = '';
-        appState.legacyLabels.forEach(lbl => {
-            const tr = document.createElement('tr');
-            tr.className = "border-t border-[#8ecae6]/40";
-            tr.innerHTML = `
-                <td class="p-2 border border-[#8ecae6]/40">${lbl.old}</td>
-                <td class="p-2 border border-[#8ecae6]/40"><input type="checkbox" ${lbl.keep ? 'checked' : ''} class="rounded"> Keep</td>
-                <td class="p-2 border border-[#8ecae6]/40"><select class="bg-white border border-[#8ecae6] rounded p-1 w-full"><option>${lbl.mapTo}</option><option>Personal Network</option></select></td>
-            `;
-            tbody.appendChild(tr);
+        const btn = document.getElementById('btn-snapshot-legacy') || document.querySelector('button[onclick="appActions.snapshotLegacyLabels()"]');
+        const originalText = btn.innerText;
+        btn.innerText = "Extracting & Profiling... (This may take a minute)";
+        btn.disabled = true;
+
+        fetch('/api/ingestion/legacy-labels/preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const results = data.data || data.results || [];
+                this.renderLegacyLabelTable(results);
+                const commitBtn = document.getElementById('btn-commit-legacy');
+                if (commitBtn) commitBtn.classList.remove('hidden');
+            } else {
+                alert("Error: " + (data.error || JSON.stringify(data)));
+            }
+        })
+        .catch(err => {
+            alert("Fetch failed: " + err);
+        })
+        .finally(() => {
+            btn.innerText = "Take Snapshot";
+            btn.disabled = false;
         });
     },
 
+    renderLegacyLabelTable: function(data) {
+        appState.legacyLabels = data;
+        const tbody = document.getElementById('legacy-label-tbody') || document.querySelector('#legacy-labels-table tbody');
+        tbody.innerHTML = '';
+
+        fetch('/api/taxonomy/tree')
+            .then(res => res.json())
+            .then(categories => {
+                let catOptions = '';
+                if (Array.isArray(categories)) {
+                    catOptions = categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+                }
+
+                data.forEach((lbl, index) => {
+                    const tr = document.createElement('tr');
+                    tr.className = "border-t border-[#8ecae6]/40";
+
+                    let selectHtml = `<select class="bg-white border border-[#8ecae6] rounded p-1 w-full" id="legacy-cat-${index}">
+                        <option value="${lbl.proposed_category || ''}">${lbl.proposed_category || 'Uncategorized'}</option>
+                        ${catOptions}
+                    </select>`;
+
+                    tr.innerHTML = `
+                        <td class="p-2 border border-[#8ecae6]/40">${lbl.original_label || ''}</td>
+                        <td class="p-2 border border-[#8ecae6]/40"><input type="checkbox" id="legacy-keep-${index}" checked class="rounded"> Keep</td>
+                        <td class="p-2 border border-[#8ecae6]/40">${selectHtml}</td>
+                        <td class="p-2 border border-[#8ecae6]/40">
+                            <span class="bg-[#219ebc]/10 text-[#023047] font-bold text-xs px-2 py-1 rounded border border-[#219ebc]/20">
+                                ${lbl.canonical_entity_name || 'Unknown'} <span class="opacity-50">(${lbl.workspace_alias || 'No Alias'})</span>
+                            </span>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            })
+            .catch(err => {
+                console.error("Failed to load taxonomy tree for dropdowns", err);
+            });
+    },
+
+    executeLegacyLabels: function() {
+        if (!appState.legacyLabels || appState.legacyLabels.length === 0) return;
+
+        const approvedLabels = [];
+        appState.legacyLabels.forEach((lbl, index) => {
+            const keepCheck = document.getElementById(`legacy-keep-${index}`);
+            if (keepCheck && keepCheck.checked) {
+                const catSelect = document.getElementById(`legacy-cat-${index}`);
+                lbl.proposed_category = catSelect ? catSelect.value : lbl.proposed_category;
+                approvedLabels.push(lbl);
+            }
+        });
+
+        if (approvedLabels.length === 0) {
+            alert("No labels selected to keep.");
+            return;
+        }
+
+        fetch('/api/ingestion/legacy-labels/execute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ results: approvedLabels, approved_labels: approvedLabels })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert("Taxonomy committed successfully!");
+                this.closeSettingsModal();
+                if (typeof this.triggerDiagnostics === 'function') {
+                    this.triggerDiagnostics();
+                } else {
+                    console.warn("triggerDiagnostics not found.");
+                }
+            } else {
+                alert("Error: " + (data.error || JSON.stringify(data)));
+            }
+        })
+        .catch(err => {
+            alert("Execution failed: " + err);
+        });
+    },
     // --- ZERO TRUST MODULE ---
     loadZeroTrustFlow: function() {
         const container = document.getElementById('zt-taxonomy-flow');

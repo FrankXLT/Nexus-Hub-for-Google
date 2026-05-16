@@ -38,16 +38,18 @@
                 <p class="text-sm">This tool takes a one-time snapshot of your existing Gmail labels to map or archive them, preventing AI drift and keeping your taxonomy clean.</p>
             </div>
             <button onclick="appActions.snapshotLegacyLabels()" class="bg-[#219ebc] hover:bg-[#023047] text-white px-4 py-2 rounded mb-6 transition-colors shadow-sm font-semibold">Take Snapshot</button>
-            <table id="legacy-labels-table" class="w-full text-left border-collapse border border-[#8ecae6]/40">
+            <table id="legacy-labels-table" class="w-full text-left border-collapse border border-[#8ecae6]/40 mb-6">
                 <thead class="bg-slate-50">
                     <tr>
                         <th class="p-2 border border-[#8ecae6]/40 font-semibold">Legacy Label</th>
-                        <th class="p-2 border border-[#8ecae6]/40 font-semibold">Action (Keep/Archive)</th>
-                        <th class="p-2 border border-[#8ecae6]/40 font-semibold">Map to Purpose/Type</th>
+                        <th class="p-2 border border-[#8ecae6]/40 font-semibold">Action (Keep)</th>
+                        <th class="p-2 border border-[#8ecae6]/40 font-semibold">Map to Purpose</th>
+                        <th class="p-2 border border-[#8ecae6]/40 font-semibold">Entity & Alias</th>
                     </tr>
                 </thead>
-                <tbody></tbody>
+                <tbody id="legacy-label-tbody"></tbody>
             </table>
+            <button id="btn-commit-legacy" onclick="appActions.executeLegacyLabels()" class="bg-[#fb8500] hover:bg-[#ea580c] text-white px-4 py-2 rounded transition-colors shadow-sm font-semibold hidden">Commit Taxonomy to Nexus</button>
         </div>
     </dialog>
 
