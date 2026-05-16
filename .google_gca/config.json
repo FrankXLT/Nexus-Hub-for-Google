@@ -1,0 +1,9 @@
+{
+  "project_context": {
+    "name": "Nexus for Google",
+    "governance_rules": ".clinerules_profiles/global.rules",
+    "architecture_doc": "ARCHITECTURE.md",
+    "active_development_layer_focus": [1, 2, 4, 5],
+    "strict_schema_validation": true
+  }
+}

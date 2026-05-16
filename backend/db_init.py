@@ -118,6 +118,10 @@ def init_db(db_path: str = DB_PATH) -> None:
             name TEXT NOT NULL,
             category_id INTEGER,
             parent_entity_id INTEGER,
+            workspace_alias TEXT DEFAULT NULL,
+            show_in_gmail_nav BOOLEAN DEFAULT 1,
+            show_in_gmail_msg BOOLEAN DEFAULT 1,
+            use_in_drive_structure BOOLEAN DEFAULT 1,
             nexus_state TEXT DEFAULT 'active',
             FOREIGN KEY (category_id) REFERENCES categories (id),
             FOREIGN KEY (parent_entity_id) REFERENCES entities (id)
@@ -127,6 +131,39 @@ def init_db(db_path: str = DB_PATH) -> None:
         cursor.execute("ALTER TABLE entities ADD COLUMN nexus_state TEXT DEFAULT 'active';")
     except sqlite3.OperationalError:
         pass
+    try:
+        cursor.execute("ALTER TABLE entities ADD COLUMN workspace_alias TEXT DEFAULT NULL;")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE entities ADD COLUMN show_in_gmail_nav BOOLEAN DEFAULT 1;")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE entities ADD COLUMN show_in_gmail_msg BOOLEAN DEFAULT 1;")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE entities ADD COLUMN use_in_drive_structure BOOLEAN DEFAULT 1;")
+    except sqlite3.OperationalError:
+        pass
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS aliases (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            alias_string TEXT UNIQUE NOT NULL,
+            entity_id INTEGER NOT NULL,
+            FOREIGN KEY (entity_id) REFERENCES entities (id)
+        );
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS pipeline_config (
+            pipeline_name TEXT PRIMARY KEY,
+            is_enabled BOOLEAN DEFAULT 0,
+            settings_json TEXT
+        );
+    """)
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS blacklist (

@@ -22,7 +22,7 @@ const appActions = {
     },
 
     switchTab: function(tabId) {
-        const tabs = ['tab-home', 'tab-zero-trust', 'tab-orchestrator', 'tab-sandbox'];
+        const tabs = ['tab-home', 'tab-zero-trust', 'tab-orchestrator', 'tab-sandbox', 'tab-batch-ingestion'];
         tabs.forEach(t => {
             const el = document.getElementById(t);
             if(el) {
@@ -37,6 +37,77 @@ const appActions = {
             }
         });
         appState.activeTab = tabId;
+    },
+
+    previewBatch: function() {
+        const query = document.getElementById('batch-query').value || 'Default Query';
+        const tbody = document.getElementById('batch-table-body');
+        
+        // Dummy Array Batching Data
+        const dummyData = [
+            { sender: 'orders@amazon.com', count: 50, cost: 1 },
+            { sender: 'receipts@homedepot.com', count: 12, cost: 1 },
+            { sender: 'newsletter@morningbrew.com', count: 140, cost: 3 }
+        ];
+        
+        tbody.innerHTML = '';
+        let totalCost = 0;
+        
+        dummyData.forEach((row, i) => {
+            totalCost += row.cost;
+            tbody.innerHTML += `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="p-3 border-b border-[#8ecae6]/20"><input type="checkbox" class="batch-checkbox rounded border-[#8ecae6]" data-index="${i}" data-sender="${row.sender}" checked></td>
+                    <td class="p-3 border-b border-[#8ecae6]/20 text-[#023047] font-semibold">${row.sender}</td>
+                    <td class="p-3 border-b border-[#8ecae6]/20 text-[#023047]">${row.count} items</td>
+                    <td class="p-3 border-b border-[#8ecae6]/20 text-[#219ebc] font-bold">${row.cost} API Call(s)</td>
+                    <td class="p-3 border-b border-[#8ecae6]/20 text-[#023047]/60" id="batch-status-${i}">Pending Preview</td>
+                </tr>
+            `;
+        });
+        
+        document.getElementById('batch-est-cost').innerText = totalCost;
+    },
+
+    executeBatch: function() {
+        const checkboxes = document.querySelectorAll('.batch-checkbox:checked');
+        if (checkboxes.length === 0) {
+            alert("Please select at least one batch to execute.");
+            return;
+        }
+        
+        checkboxes.forEach(cb => {
+            const index = cb.getAttribute('data-index');
+            const sender = cb.getAttribute('data-sender');
+            const statusCell = document.getElementById(`batch-status-${index}`);
+            statusCell.innerHTML = `<span class="text-[#fb8500] font-bold animate-pulse">Processing...</span>`;
+            
+            // Dummy payload mapping array batching format
+            const payload = {
+                sender_string: sender,
+                artifacts: [
+                    { id: `mail_mock_${index}_1`, snippet: "Sample text 1" },
+                    { id: `mail_mock_${index}_2`, snippet: "Sample text 2" }
+                ]
+            };
+            
+            fetch('/api/batch/process', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    statusCell.innerHTML = `<span class="text-[#27AE60] font-bold">Success (${data.mapped} mapped)</span>`;
+                } else {
+                    statusCell.innerHTML = `<span class="text-red-500 font-bold">Error</span>`;
+                }
+            })
+            .catch(err => {
+                statusCell.innerHTML = `<span class="text-red-500 font-bold">Failed</span>`;
+            });
+        });
     },
 
     toggleVQBView: function(viewName) {
@@ -56,107 +127,119 @@ const appActions = {
         appState.activeVQB = viewName;
     },
 
-    // --- HEATMAP MODULE (60 Days x 30 Senders) ---
-    generateDummyHeatmapData: function() {
-        let senders = [];
-        for (let i = 1; i <= 30; i++) {
-            senders.push("Sender " + i);
-        }
-        
-        let matrix = [];
-        senders.forEach(sender => {
-            let daysData = [];
-            let d = new Date();
-            d.setDate(d.getDate() - 59); // 60 days total
-            
-            for(let i=0; i<60; i++) {
-                daysData.push({
-                    date: d.toISOString().split('T')[0],
-                    count: Math.random() > 0.75 ? Math.floor(Math.random() * 20) : 0 
-                });
-                d.setDate(d.getDate() + 1);
-            }
-            matrix.push({ sender: sender, data: daysData });
-        });
-        return matrix;
-    },
-
+    // --- HEATMAP MODULE (Live Data) ---
     renderVQB: function() {
-        const data = this.generateDummyHeatmapData();
         const container = document.getElementById('vqb-heatmap');
         if(!container) return;
+        
+        const days = document.getElementById('vqb-date-range') ? document.getElementById('vqb-date-range').value : 60;
+        const source = document.getElementById('vqb-source') ? document.getElementById('vqb-source').value : 'All';
+        const status = document.getElementById('vqb-status') ? document.getElementById('vqb-status').value : 'Active';
 
-        // Force exactly 61 columns (1 auto-sized for the sender name, 60 fixed 20px squares)
-        container.style.gridTemplateColumns = 'max-content repeat(60, 20px)';
-        container.innerHTML = '';
+        container.innerHTML = '<div class="text-[#023047]/50 italic p-4 text-center w-full">Loading Activity Heatmap...</div>';
 
-        data.forEach(row => {
-            // Y-Axis Label for Sender
-            const label = document.createElement('div');
-            label.className = "flex items-center justify-end pr-3 text-xs font-bold text-[#023047]/70 whitespace-nowrap h-[20px]";
-            label.innerText = row.sender;
-            container.appendChild(label);
-
-            row.data.forEach(day => {
-                const cell = document.createElement('div');
-                cell.className = "w-[20px] h-[20px] rounded-[2px] cursor-pointer transition-all duration-150 hover:scale-125 hover:ring-2 hover:ring-[#023047] hover:z-10 relative";
-                cell.title = `${row.sender} on ${day.date}: ${day.count} items`;
-
-                if (day.count === 0) {
-                    cell.classList.add('bg-slate-200'); 
-                } else if (day.count < 5) {
-                    cell.classList.add('bg-[#8ecae6]'); 
-                } else if (day.count < 12) {
-                    cell.classList.add('bg-[#219ebc]'); 
-                } else {
-                    cell.classList.add('bg-[#fb8500]'); 
+        fetch(`/api/analytics/heatmap?days=${days}&source=${source}&status=${status}`)
+            .then(res => res.json())
+            .then(data => {
+                if (!Array.isArray(data) || data.length === 0) {
+                    container.innerHTML = '<div class="text-[#023047]/50 italic p-4 text-center w-full">No heatmap data found for these filters.</div>';
+                    container.style.gridTemplateColumns = '1fr';
+                    return;
                 }
 
-                cell.onclick = () => {
-                    appActions.stageChip(`Entity:"${row.sender}" AND Date:${day.date}`);
-                };
+                // Try to determine the max days from the data, fallback to selected days
+                let numDays = parseInt(days);
+                if (data[0] && data[0].data) {
+                    numDays = Math.max(numDays, data[0].data.length);
+                }
 
-                container.appendChild(cell);
+                container.style.gridTemplateColumns = `max-content repeat(${numDays}, 20px)`;
+                container.innerHTML = '';
+
+                data.forEach(row => {
+                    // Y-Axis Label for Sender
+                    const label = document.createElement('div');
+                    label.className = "flex items-center justify-end pr-3 text-xs font-bold text-[#023047]/70 whitespace-nowrap h-[20px]";
+                    label.innerText = row.sender;
+                    container.appendChild(label);
+
+                    row.data.forEach(day => {
+                        const cell = document.createElement('div');
+                        cell.className = "w-[20px] h-[20px] rounded-[2px] cursor-pointer transition-all duration-150 hover:scale-125 hover:ring-2 hover:ring-[#023047] hover:z-10 relative";
+                        cell.title = `${row.sender} on ${day.date}: ${day.count} items`;
+
+                        if (day.count === 0) {
+                            cell.classList.add('bg-slate-200'); 
+                        } else if (day.count < 5) {
+                            cell.classList.add('bg-[#8ecae6]'); 
+                        } else if (day.count < 12) {
+                            cell.classList.add('bg-[#219ebc]'); 
+                        } else {
+                            cell.classList.add('bg-[#fb8500]'); 
+                        }
+
+                        cell.onclick = () => {
+                            appActions.stageChip(`Entity:"${row.sender}" AND Date:${day.date}`);
+                        };
+
+                        container.appendChild(cell);
+                    });
+                });
+            })
+            .catch(err => {
+                container.innerHTML = `<div class="text-red-500 italic p-4 text-center w-full">Error loading heatmap: ${err.message}</div>`;
+                container.style.gridTemplateColumns = '1fr';
             });
-        });
     },
 
-    // --- SANKEY MODULE ---
-    generateDummyLinks: function() {
-        return [
-            {"source": "Gmail", "target": "Personal Network", "value": 45},
-            {"source": "Gmail", "target": "Commercial", "value": 80},
-            {"source": "Drive", "target": "System", "value": 20},
-            {"source": "Personal Network", "target": "Nick Green", "value": 15},
-            {"source": "Personal Network", "target": "Scott Davis", "value": 30},
-            {"source": "Commercial", "target": "Home Depot", "value": 50},
-            {"source": "Nick Green", "target": "Project Planning", "value": 10},
-            {"source": "Home Depot", "target": "Receipt / Invoice", "value": 45}
-        ];
-    },
-
-    renderSankey: async function() {
+    // --- SANKEY MODULE (Live Data) ---
+    renderSankey: function() {
         const container = document.getElementById('vqb-sankey');
         if (!container) return;
-
-        const links = this.generateDummyLinks();
-
-        // 3x SCALING FIX: Force Mermaid to render the Sankey significantly larger (1200x800)
-        let mermaidSyntax = "%%{init: {'sankey': {'width': 1200, 'height': 800}}}%%\nsankey-beta\n";
-        links.forEach(link => {
-            const safeSource = link.source.replace(/,/g, '');
-            const safeTarget = link.target.replace(/,/g, '');
-            mermaidSyntax += `${safeSource},${safeTarget},${link.value}\n`;
-        });
         
-        container.innerHTML = `<div class="mermaid flex justify-center w-full">\n${mermaidSyntax}\n</div>`;
-        
-        if (window.mermaid) {
-            try {
-                await window.mermaid.run({ nodes: container.querySelectorAll('.mermaid') });
-            } catch (e) {
-                console.error("Mermaid rendering failed:", e);
-            }
+        const days = document.getElementById('vqb-date-range') ? document.getElementById('vqb-date-range').value : 60;
+        const source = document.getElementById('vqb-source') ? document.getElementById('vqb-source').value : 'All';
+        const status = document.getElementById('vqb-status') ? document.getElementById('vqb-status').value : 'Active';
+
+        container.innerHTML = '<div class="text-[#023047]/50 italic p-4 text-center w-full">Loading Data Flow...</div>';
+
+        fetch(`/api/analytics/sankey?days=${days}&source=${source}&status=${status}`)
+            .then(res => res.json())
+            .then(async links => {
+                if (!Array.isArray(links) || links.length === 0) {
+                    container.innerHTML = '<div class="text-[#023047]/50 italic p-4 text-center w-full">No flow data found for these filters.</div>';
+                    return;
+                }
+
+                // 3x SCALING FIX: Force Mermaid to render the Sankey significantly larger (1200x800)
+                let mermaidSyntax = "%%{init: {'sankey': {'width': 1200, 'height': 800}}}%%\nsankey-beta\n";
+                links.forEach(link => {
+                    const safeSource = link.source.replace(/,/g, '');
+                    const safeTarget = link.target.replace(/,/g, '');
+                    mermaidSyntax += `${safeSource},${safeTarget},${link.value}\n`;
+                });
+                
+                container.innerHTML = `<div class="mermaid flex justify-center w-full">\n${mermaidSyntax}\n</div>`;
+                
+                if (window.mermaid) {
+                    try {
+                        await window.mermaid.run({ nodes: container.querySelectorAll('.mermaid') });
+                    } catch (e) {
+                        console.error("Mermaid rendering failed:", e);
+                        container.innerHTML = `<div class="text-red-500 italic p-4 text-center w-full">Mermaid Error: ${e.message}</div>`;
+                    }
+                }
+            })
+            .catch(err => {
+                container.innerHTML = `<div class="text-red-500 italic p-4 text-center w-full">Error loading flow: ${err.message}</div>`;
+            });
+    },
+    
+    refreshVQB: function() {
+        if (appState.activeVQB === 'heatmap') {
+            this.renderVQB();
+        } else if (appState.activeVQB === 'sankey') {
+            this.renderSankey();
         }
     },
 
@@ -326,7 +409,7 @@ window.handleNodeClick = function(nodeId) {
 // --- Add these missing functions to appActions ---
 Object.assign(appActions, {
     initOrchestrator: function() {
-        const contactsGraph = `flowchart TB
+        this.contactsGraphDef = `flowchart TB
             classDef default fill:#ffffff,stroke:#219ebc,stroke-width:2px,color:#023047,font-family:sans-serif,rx:6px,ry:6px
             classDef check fill:#ffffff,stroke:#fb8500,stroke-width:2px,color:#023047,font-family:sans-serif,rx:6px,ry:6px
             classDef ai fill:#ffffff,stroke:#fb8500,stroke-width:3px,stroke-dasharray: 5 5,color:#023047,font-family:sans-serif,rx:6px,ry:6px
@@ -350,7 +433,7 @@ Object.assign(appActions, {
             C --> N
             N --> O(["Route to UI Quarantine Queue"]):::default`;
 
-        const gmailGraph = `flowchart TB
+        this.gmailGraphDef = `flowchart TB
             classDef default fill:#ffffff,stroke:#219ebc,stroke-width:2px,color:#023047,font-family:sans-serif,rx:6px,ry:6px
             classDef check fill:#ffffff,stroke:#fb8500,stroke-width:2px,color:#023047,font-family:sans-serif,rx:6px,ry:6px
             classDef ai fill:#ffffff,stroke:#fb8500,stroke-width:3px,stroke-dasharray: 5 5,color:#023047,font-family:sans-serif,rx:6px,ry:6px
@@ -366,7 +449,7 @@ Object.assign(appActions, {
             H --> I
             I --> J(["Flag as nexus-processed"]):::default`;
 
-        const driveGraph = `flowchart TB
+        this.driveGraphDef = `flowchart TB
             classDef default fill:#ffffff,stroke:#219ebc,stroke-width:2px,color:#023047,font-family:sans-serif,rx:6px,ry:6px
             classDef check fill:#ffffff,stroke:#fb8500,stroke-width:2px,color:#023047,font-family:sans-serif,rx:6px,ry:6px
             classDef ai fill:#ffffff,stroke:#fb8500,stroke-width:3px,stroke-dasharray: 5 5,color:#023047,font-family:sans-serif,rx:6px,ry:6px
@@ -382,37 +465,125 @@ Object.assign(appActions, {
             H --> I
             I --> J(["Flag as nexus-processed"]):::default`;
 
-        if (window.mermaid) {
-            mermaid.render('graph-contacts', contactsGraph).then(({ svg }) => {
-                document.getElementById('mermaid-contacts').innerHTML = svg;
-                setTimeout(() => {
-                    const node = document.querySelector('#mermaid-contacts [id^="flowchart-I-"]');
-                    if(node) node.classList.add('active-node');
-                }, 1000);
-            });
-            mermaid.render('graph-gmail', gmailGraph).then(({ svg }) => {
-                document.getElementById('mermaid-gmail').innerHTML = svg;
-            });
-            mermaid.render('graph-drive', driveGraph).then(({ svg }) => {
-                document.getElementById('mermaid-drive').innerHTML = svg;
-            });
-        }
+        appState.activePipeline = 'gmail';
+        this.switchOrchestratorTab('gmail');
         this.renderQuarantineBanner();
     },
 
-    expandSwimlane: function(laneId) {
-        const lanes = ['contacts', 'gmail', 'drive'];
-        lanes.forEach(l => {
-            const el = document.getElementById(`lane-${l}`);
-            if (l === laneId) {
-                el.classList.remove('collapsed', 'bg-[#f8fafc]', 'border-[#8ecae6]/50');
-                el.classList.add('expanded', 'bg-white', 'border-[#8ecae6]');
-                el.querySelector('.swimlane-title-vertical').classList.add('hidden');
+    switchOrchestratorTab: function(pipeline) {
+        const tabs = ['gmail', 'drive', 'contacts'];
+        const chip = document.getElementById('omnibox-chip');
+        const isDebug = document.getElementById('toggle-debug-mode') && document.getElementById('toggle-debug-mode').checked;
+        
+        if (chip) {
+            chip.innerText = (isDebug ? "[DEBUG] " : "") + pipeline.toUpperCase();
+        }
+
+        tabs.forEach(t => {
+            const settingsDiv = document.getElementById(`settings-${t}`);
+            const btn = document.getElementById(`tab-btn-${t}`);
+            
+            if (t === pipeline) {
+                if(settingsDiv) {
+                    settingsDiv.classList.remove('hidden');
+                    settingsDiv.classList.add('block');
+                }
+                if(btn) {
+                    btn.classList.add('border-[#219ebc]', 'text-[#219ebc]');
+                    btn.classList.remove('border-transparent', 'text-[#023047]/60');
+                }
             } else {
-                el.classList.add('collapsed', 'bg-[#f8fafc]', 'border-[#8ecae6]/50');
-                el.classList.remove('expanded', 'bg-white', 'border-[#8ecae6]');
-                el.querySelector('.swimlane-title-vertical').classList.remove('hidden');
+                if(settingsDiv) {
+                    settingsDiv.classList.add('hidden');
+                    settingsDiv.classList.remove('block');
+                }
+                if(btn) {
+                    btn.classList.remove('border-[#219ebc]', 'text-[#219ebc]');
+                    btn.classList.add('border-transparent', 'text-[#023047]/60');
+                }
             }
+        });
+        
+        if (window.mermaid) {
+            const target = document.getElementById('orchestrator-mermaid');
+            if(target) {
+                let graph = "";
+                if(pipeline === 'gmail') graph = this.gmailGraphDef;
+                else if(pipeline === 'drive') graph = this.driveGraphDef;
+                else if(pipeline === 'contacts') graph = this.contactsGraphDef;
+                
+                target.innerHTML = '';
+                mermaid.render(`graph-${pipeline}-render`, graph).then(({ svg }) => {
+                    target.innerHTML = svg;
+                }).catch(e => {
+                    target.innerHTML = `<div class="text-red-500 p-4">Render Failed: ${e.message}</div>`;
+                });
+            }
+        }
+        appState.activePipeline = pipeline;
+    },
+
+    toggleDebugMode: function() {
+        const toggle = document.getElementById('toggle-debug-mode');
+        const container = document.getElementById('omnibox-container');
+        const chip = document.getElementById('omnibox-chip');
+        const input = document.getElementById('orchestrator-omnibox');
+        const isDebug = toggle.checked;
+        
+        if (isDebug) {
+            if(chip) {
+                chip.classList.replace('bg-[#219ebc]', 'bg-red-500');
+                if(!chip.innerText.startsWith('[DEBUG]')) chip.innerText = "[DEBUG] " + chip.innerText;
+            }
+            if(container) {
+                container.classList.add('border-red-500', 'focus-within:ring-red-500', 'focus-within:border-red-500');
+                container.classList.remove('border-[#8ecae6]', 'focus-within:ring-[#219ebc]', 'focus-within:border-[#219ebc]');
+            }
+            if(input) {
+                input.placeholder = "Enter test artifact (e.g. mock_123) for isolated dry run...";
+            }
+        } else {
+            if(chip) {
+                chip.classList.replace('bg-red-500', 'bg-[#219ebc]');
+                chip.innerText = chip.innerText.replace('[DEBUG] ', '');
+            }
+            if(container) {
+                container.classList.remove('border-red-500', 'focus-within:ring-red-500', 'focus-within:border-red-500');
+                container.classList.add('border-[#8ecae6]', 'focus-within:ring-[#219ebc]', 'focus-within:border-[#219ebc]');
+            }
+            if(input) {
+                input.placeholder = "Enter Artifact ID (e.g. mail_12345)";
+            }
+        }
+    },
+
+    simulatePipeline: function() {
+        const input = document.getElementById('orchestrator-omnibox');
+        const artifactId = input ? input.value.trim() : "";
+        if (!artifactId) {
+            alert("Please enter an artifact ID.");
+            return;
+        }
+        
+        const pipeline = appState.activePipeline || 'gmail';
+        
+        fetch('/api/orchestrator/simulate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ artifact_id: artifactId, pipeline: pipeline })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.status === 'success') {
+                alert("Simulation Successful! Trace saved to Drive.");
+            } else {
+                alert("Simulation Error: " + (data.detail || data.error || data.message || JSON.stringify(data)));
+            }
+        })
+        .catch(err => {
+            alert("Fetch failed: " + err);
         });
     },
 

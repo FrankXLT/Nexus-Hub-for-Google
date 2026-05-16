@@ -215,35 +215,6 @@ function runAskAI(payload) {
 }
 
 /**
- * Purpose: Fetches user preferences for boot routing.
- * Expected Inputs: None.
- * Expected Outputs: Object - User settings data.
- */
-function getUserPreferences() {
-  const scriptProperties = PropertiesService.getScriptProperties();
-  const vmUrl = scriptProperties.getProperty('NEXUS_VM_URL') || "http://localhost:8000"; 
-  const targetUrl = vmUrl + "/api/settings/pipeline";
-  
-  const options = { 'method': 'get', 'muteHttpExceptions': true };
-  
-  try {
-    const response = UrlFetchApp.fetch(targetUrl, options);
-    const responseCode = response.getResponseCode();
-    // If the request succeeds, parse and return the settings.
-    if (responseCode >= 200 && responseCode < 300) {
-      const data = JSON.parse(response.getContentText());
-      return { success: true, data: data.settings };
-    } 
-    // Otherwise, throw an error.
-    else {
-      throw new Error("VM Error (" + responseCode + "): " + response.getContentText());
-    }
-  } catch (error) {
-    return { status: "error", detail: error.message };
-  }
-}
-
-/**
  * Purpose: Fetches Heatmap data.
  * Expected Inputs: None.
  * Expected Outputs: Object - The heatmap analytics data.
@@ -360,84 +331,6 @@ function updateSafeMode(payload) {
   try {
     const result = sendToNexusVM("/api/settings/pipeline", payload);
     return { success: true, data: result };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-/**
- * Purpose: Fetches configured retention rules.
- * Expected Inputs: None.
- * Expected Outputs: Object - Array of retention rule data.
- */
-function getRetentionRules() {
-  const scriptProperties = PropertiesService.getScriptProperties();
-  const vmUrl = scriptProperties.getProperty('NEXUS_VM_URL') || "http://localhost:8000"; 
-  const targetUrl = vmUrl + "/api/retention/rules";
-  
-  const options = { 'method': 'get', 'muteHttpExceptions': true };
-  try {
-    const response = UrlFetchApp.fetch(targetUrl, options);
-    // If the request succeeds, return parsed rules.
-    if (response.getResponseCode() >= 200 && response.getResponseCode() < 300) {
-      return JSON.parse(response.getContentText());
-    } 
-    // Otherwise, throw a general error.
-    else {
-      throw new Error("VM Error");
-    }
-  } catch (error) {
-    return { status: "error", detail: error.message };
-  }
-}
-
-/**
- * Purpose: Adds a new retention rule to the system.
- * Expected Inputs: payload (Object) - The rule data to add.
- * Expected Outputs: Object - Response indicating success or failure.
- */
-function addRetentionRule(payload) {
-  try {
-    return sendToNexusVM("/api/retention/rules", payload);
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-/**
- * Purpose: Deletes a specified retention rule.
- * Expected Inputs: payload (Object) - Contains the rule_id to delete.
- * Expected Outputs: Object - Status of the deletion request.
- */
-function deleteRetentionRule(payload) {
-  const scriptProperties = PropertiesService.getScriptProperties();
-  const vmUrl = scriptProperties.getProperty('NEXUS_VM_URL') || "http://localhost:8000"; 
-  const targetUrl = vmUrl + "/api/retention/rules/" + payload.rule_id;
-  
-  const options = { 'method': 'delete', 'muteHttpExceptions': true };
-  try {
-    const response = UrlFetchApp.fetch(targetUrl, options);
-    // If the deletion was acknowledged, parse and return the response.
-    if (response.getResponseCode() >= 200 && response.getResponseCode() < 300) {
-      return JSON.parse(response.getContentText());
-    } 
-    // Otherwise, throw an error.
-    else {
-      throw new Error("VM Error");
-    }
-  } catch (error) {
-    return { status: "error", detail: error.message };
-  }
-}
-
-/**
- * Purpose: Manually triggers the retention sweep task.
- * Expected Inputs: None.
- * Expected Outputs: Object - Results of the sweep task trigger.
- */
-function triggerRetentionSweep() {
-  try {
-    return sendToNexusVM("/api/retention/sweep", {});
   } catch (error) {
     return { success: false, error: error.message };
   }

@@ -270,15 +270,6 @@ async def generate_tuning_rule(artifact_id: str, original_json: Dict[str, Any], 
 # Processing Pipelines
 # ---------------------------------------------------------------------------
 
-def generate_sender_profile(sender_email: str, email_body: str) -> Optional[Dict[str, Any]]:
-    """
-    Uses the entity_profiler.tmpl to generate a profile for an unknown sender.
-    """
-    with open(os.path.join("DEFAULTS", "entity_profiler.tmpl"), "r", encoding="utf-8") as f:
-        prompt = f.read()
-    context = f"Sender Email: {sender_email}\n\nEmail Body:\n{email_body}"
-    result, _ = call_gemini(prompt, context)
-    return result
 
 def normalize_taxonomy(extracted_tag: str, whitelist_str: str) -> str:
     """
@@ -794,3 +785,56 @@ def run_agent_classifier(artifact_text: str, entity_known: bool = False, allowed
     except Exception as e:
         logger.error(f"Gemini API Error in Classifier: {e}")
         raise
+
+def run_bulk_profiler(sender: str, bulk_context: str) -> Optional[Dict[str, Any]]:
+    """
+    Uses profiler prompt with concatenated snippets to profile an entity in bulk.
+    """
+    prompt_key = 'agent_profiler_commercial' # Defaulting to commercial, could be dynamic
+    prompt = fetch_active_prompt(prompt_key)
+    
+    client = get_genai_client()
+    context = f"Evaluate domain/email: {sender}\n\nBulk Context Snippets:\n{bulk_context}"
+    logger.info(f"Initiating Bulk Profiler for {sender}")
+    
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=[prompt, context],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                tools=[{"google_search_retrieval": {}}]
+            ),
+        )
+        return json.loads(response.text)
+    except Exception as e:
+        logger.error(f"Error in Bulk Profiler for {sender}: {e}")
+        return None
+
+def run_bulk_classifier(entity_name: str, artifacts: List[dict]) -> Optional[List[Dict[str, Any]]]:
+    """
+    Instructs LLM to map a JSON array of artifacts from the entity to specific Purposes.
+    """
+    client = get_genai_client()
+    prompt = f"You are a Zero Trust Bulk Classifier. The entity is '{entity_name}'. Map each artifact in the following JSON array to a specific 'purpose' and return a JSON list of objects containing 'id' and 'purpose'."
+    
+    context = json.dumps(artifacts)
+    logger.info(f"Initiating Bulk Classifier for {entity_name} with {len(artifacts)} artifacts")
+    
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=[prompt, context],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+            ),
+        )
+        result = json.loads(response.text)
+        if isinstance(result, list):
+            return result
+        elif isinstance(result, dict) and 'artifacts' in result:
+            return result['artifacts']
+        return result
+    except Exception as e:
+        logger.error(f"Error in Bulk Classifier for {entity_name}: {e}")
+        return None

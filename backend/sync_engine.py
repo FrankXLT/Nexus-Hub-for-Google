@@ -397,8 +397,14 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
         conn (sqlite3.Connection): The SQLite database connection.
         governor (QuotaGovernor): The active QuotaGovernor instance tracking API calls.
     """
-    service = build('drive', 'v3', credentials=creds)
     cursor = conn.cursor()
+    cursor.execute("SELECT is_enabled FROM pipeline_config WHERE pipeline_name = 'drive'")
+    row = cursor.fetchone()
+    if row and not row['is_enabled']:
+        print("Drive pipeline disabled. Halting.")
+        return
+
+    service = build('drive', 'v3', credentials=creds)
     
     page_token = get_sync_state(cursor, 'drive')
     
@@ -523,8 +529,14 @@ def sync_gmail(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
         governor (QuotaGovernor): The active QuotaGovernor instance tracking API calls.
     """
     import time
-    service = build('gmail', 'v1', credentials=creds)
     cursor = conn.cursor()
+    cursor.execute("SELECT is_enabled FROM pipeline_config WHERE pipeline_name = 'gmail'")
+    row = cursor.fetchone()
+    if row and not row['is_enabled']:
+        print("Gmail pipeline disabled. Halting.")
+        return
+
+    service = build('gmail', 'v1', credentials=creds)
     
     # Fetch dynamic Gmail filters from UI settings
     cursor.execute("SELECT value FROM Config_System WHERE key = 'ui_gmail_filters'")
@@ -594,17 +606,24 @@ def sync_gmail(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
                         cursor.execute("SELECT id FROM entities WHERE name = ?", (sender,))
                         if not cursor.fetchone():
                             print(f"Unknown sender {sender}. Profiling...")
-                            from llm_engine import generate_sender_profile
-                            profile_data = generate_sender_profile(sender, snippet)
+                            from llm_engine import run_agent_profiler
+                            profile_data = run_agent_profiler(sender, is_personal=False, context=snippet)
                             if profile_data:
-                                guessed_cat = profile_data.get("guessed_category", "")
+                                entity_name = profile_data.get("entity_name", sender)
+                                parent_org = profile_data.get("parent_organization")
+                                workspace_alias = profile_data.get("workspace_alias")
                                 
-                                # Attempt to match guessed category to a Category ID
-                                cursor.execute("SELECT id FROM categories WHERE name = ? OR name LIKE ?", (guessed_cat, f"%{guessed_cat}%"))
-                                cat_row = cursor.fetchone()
-                                cat_id = cat_row['id'] if cat_row else None
+                                parent_id = None
+                                if parent_org:
+                                    cursor.execute("SELECT id FROM entities WHERE name = ?", (parent_org,))
+                                    p_row = cursor.fetchone()
+                                    if p_row:
+                                        parent_id = p_row['id']
+                                    else:
+                                        cursor.execute("INSERT INTO entities (name, nexus_state) VALUES (?, 'pending')", (parent_org,))
+                                        parent_id = cursor.lastrowid
                                 
-                                cursor.execute("INSERT INTO entities (name, category_id, nexus_state) VALUES (?, ?, 'pending')", (sender, cat_id))
+                                cursor.execute("INSERT INTO entities (name, parent_entity_id, workspace_alias, nexus_state) VALUES (?, ?, ?, 'pending')", (entity_name, parent_id, workspace_alias))
                                 conn.commit()
                         
                         # Process the thread
@@ -646,6 +665,13 @@ def sync_contacts(creds: Credentials, conn: sqlite3.Connection, governor: QuotaG
         conn (sqlite3.Connection): The SQLite database connection.
         governor (QuotaGovernor): The active QuotaGovernor instance tracking API calls.
     """
+    cursor = conn.cursor()
+    cursor.execute("SELECT is_enabled FROM pipeline_config WHERE pipeline_name = 'contacts'")
+    row = cursor.fetchone()
+    if row and not row['is_enabled']:
+        print("Contacts pipeline disabled. Halting.")
+        return
+
     print("Fetching Google Contacts...")
     service = build('people', 'v1', credentials=creds)
     governor.record_api_call()

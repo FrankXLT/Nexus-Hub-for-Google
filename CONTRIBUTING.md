@@ -44,7 +44,27 @@ To get started with development, follow these steps to configure your local VS C
    ```
    *Tip: Ensure VS Code uses the python interpreter from your new `venv` by selecting it from the Command Palette (`Ctrl+Shift+P` -> `Python: Select Interpreter`).*
 
-5. **Docker Configuration:**
+### 5. Unified AI Governance Setup (Windows Host)
+Nexus uses a single, centralized rule profile to govern both Cline and Gemini Code Assist (GCA), preventing model divergence and database schema drift during automated refactoring cycles.
+
+Run the following commands in an elevated Windows PowerShell terminal at your repository root to construct the profile matrix and link it directly to your runtime configurations:
+
+```powershell
+# 1. Create the dedicated governance directories
+New-Item -ItemType Directory -Force -Path ".\.clinerules_profiles"
+New-Item -ItemType Directory -Force -Path ".\.google_gca"
+
+# 2. Initialize blank rule profiles
+New-Item -ItemType File -Force -Path ".\.clinerules_profiles\global.rules"
+New-Item -ItemType File -Force -Path ".\.google_gca\config.json"
+
+# 3. Create a Windows Symbolic Link binding Cline to the central rules engine
+New-Item -ItemType SymbolicLink -Path ".\.clinerules" -Target ".\.clinerules_profiles\global.rules" -Force
+```
+
+Once initialized, populate `.\.clinerules_profiles\global.rules` with your system's Seven-Layer architecture rules. Cline will automatically parse this via the root symlink, and you can explicitly reference it inside Gemini Code Assist using the `@` symbol context loader.
+
+6. **Docker Configuration:**
    If you are running the backend stack locally, ensure Docker Desktop is running. You can start the local database and services via:
    ```bash
    docker-compose up -d

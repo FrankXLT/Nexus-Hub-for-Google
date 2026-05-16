@@ -82,6 +82,12 @@
                 </button>
             </li>
             <li>
+                <button onclick="appActions.switchTab('tab-batch-ingestion')" class="w-full flex items-center px-4 py-3 text-sm font-semibold text-[#023047]/70 hover:text-[#219ebc] hover:bg-[#8ecae6]/10 transition-colors border-l-4 border-transparent hover:border-[#219ebc]">
+                    <svg class="w-6 h-6 shrink-0 mx-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    <span class="sidebar-text ml-4 whitespace-nowrap">Batch Ingestion</span>
+                </button>
+            </li>
+            <li>
                 <button onclick="appActions.switchTab('tab-sandbox')" class="w-full flex items-center px-4 py-3 text-sm font-semibold text-[#023047]/70 hover:text-[#219ebc] hover:bg-[#8ecae6]/10 transition-colors border-l-4 border-transparent hover:border-[#219ebc]">
                     <svg class="w-6 h-6 shrink-0 mx-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
                     <span class="sidebar-text ml-4 whitespace-nowrap">Prompt Sandbox</span>
@@ -108,9 +114,27 @@
                 </div>
 
                 <div class="w-full flex flex-col items-center">
-                    <div class="mb-6 flex space-x-4">
-                        <button onclick="appActions.toggleVQBView('heatmap')" class="px-6 py-2 bg-white border border-[#8ecae6] text-[#023047] font-semibold hover:border-[#219ebc] hover:text-[#219ebc] rounded-full shadow-sm transition-all">60-Day Heatmap</button>
-                        <button onclick="appActions.toggleVQBView('sankey')" class="px-6 py-2 bg-white border border-[#8ecae6] text-[#023047] font-semibold hover:border-[#219ebc] hover:text-[#219ebc] rounded-full shadow-sm transition-all">Data Flow</button>
+                    <div class="w-full max-w-6xl mb-4 p-4 bg-white border border-[#8ecae6]/50 rounded-lg shadow-sm flex items-center justify-between">
+                        <div class="flex space-x-4">
+                            <button onclick="appActions.toggleVQBView('heatmap')" id="btn-vqb-heatmap" class="px-6 py-2 bg-[#219ebc] text-white font-semibold border border-[#219ebc] rounded-full shadow-sm transition-all">Activity Heatmap</button>
+                            <button onclick="appActions.toggleVQBView('sankey')" id="btn-vqb-sankey" class="px-6 py-2 bg-white text-[#023047] font-semibold border border-[#8ecae6] hover:border-[#219ebc] hover:text-[#219ebc] rounded-full shadow-sm transition-all">Data Flow (Sankey)</button>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <select id="vqb-date-range" onchange="appActions.refreshVQB()" class="bg-slate-50 border border-[#8ecae6] text-[#023047] text-sm rounded-lg p-2 focus:ring-2 focus:ring-[#219ebc] outline-none">
+                                <option value="30">Last 30 Days</option>
+                                <option value="60" selected>Last 60 Days</option>
+                                <option value="90">Last 90 Days</option>
+                            </select>
+                            <select id="vqb-source" onchange="appActions.refreshVQB()" class="bg-slate-50 border border-[#8ecae6] text-[#023047] text-sm rounded-lg p-2 focus:ring-2 focus:ring-[#219ebc] outline-none">
+                                <option value="All">All Sources</option>
+                                <option value="Gmail">Gmail</option>
+                                <option value="Drive">Drive</option>
+                            </select>
+                            <select id="vqb-status" onchange="appActions.refreshVQB()" class="bg-slate-50 border border-[#8ecae6] text-[#023047] text-sm rounded-lg p-2 focus:ring-2 focus:ring-[#219ebc] outline-none">
+                                <option value="Active">Active</option>
+                                <option value="Quarantined">Quarantined</option>
+                            </select>
+                        </div>
                     </div>
                     
                     <div id="vqb-heatmap" class="grid gap-1 bg-transparent py-4 overflow-x-auto max-w-full px-4"></div>
@@ -138,40 +162,178 @@
 </div>
 
         <div id="tab-orchestrator" class="hidden h-full flex flex-col bg-slate-100">
-            <div class="p-4 border-b border-[#8ecae6]/50 bg-white shrink-0 flex justify-between items-center shadow-sm z-10">
-                <h2 class="text-xl font-bold text-[#023047]">Pipeline Orchestrator</h2>
-                <div class="flex gap-4 text-sm font-semibold text-[#023047]/70">
-                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Engine Online</span>
+            <!-- Top Bar -->
+            <div class="p-4 border-b border-[#8ecae6]/50 bg-white shrink-0 shadow-sm z-10">
+                <div class="flex items-center gap-4">
+                    <div class="flex-1 flex items-center bg-slate-50 border border-[#8ecae6] rounded-full p-2 focus-within:ring-2 focus-within:ring-[#219ebc] focus-within:border-[#219ebc] transition-all" id="omnibox-container">
+                        <span id="omnibox-chip" class="bg-[#219ebc] text-white px-3 py-1 rounded-full text-sm font-semibold ml-1">GMAIL</span>
+                        <input type="text" id="orchestrator-omnibox" placeholder="Enter Artifact ID (e.g. mail_12345)" class="flex-1 bg-transparent outline-none text-[#023047] px-3 placeholder-[#8ecae6]">
+                    </div>
+                    <button onclick="appActions.simulatePipeline()" class="px-6 py-2 bg-[#fb8500] hover:bg-[#ffb703] text-white font-bold rounded-full shadow transition-colors flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Simulate (Dry Run)
+                    </button>
+                </div>
+                
+                <!-- Horizontal Tabs -->
+                <div class="flex gap-6 mt-4 px-2 border-b border-[#8ecae6]/30">
+                    <button onclick="appActions.switchOrchestratorTab('gmail')" id="tab-btn-gmail" class="pb-2 border-b-2 border-[#219ebc] text-[#219ebc] font-bold flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg> Gmail Router</button>
+                    <button onclick="appActions.switchOrchestratorTab('drive')" id="tab-btn-drive" class="pb-2 border-b-2 border-transparent text-[#023047]/60 hover:text-[#219ebc] font-bold flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg> Drive Filer</button>
+                    <button onclick="appActions.switchOrchestratorTab('contacts')" id="tab-btn-contacts" class="pb-2 border-b-2 border-transparent text-[#023047]/60 hover:text-[#219ebc] font-bold flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg> Contacts Anchor</button>
                 </div>
             </div>
             
-            <div class="flex-1 flex overflow-hidden p-4 gap-4" id="swimlanes-container">
-                <div id="lane-contacts" class="swimlane expanded bg-white border border-[#8ecae6] rounded-lg shadow-sm flex flex-col" onclick="appActions.expandSwimlane('contacts')">
-                    <div class="p-4 border-b border-[#8ecae6]/30 bg-slate-50 flex justify-between items-center shrink-0">
-                        <h3 class="font-bold text-[#023047] flex items-center gap-2"><svg class="w-5 h-5 text-[#219ebc]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg> Identity Anchor (Contacts)</h3>
-                        <div class="swimlane-content text-xs text-[#023047]/60 font-mono">Next Poll: 2m 14s | Processed: 12</div>
-                    </div>
-                    <div class="swimlane-title-vertical hidden py-4 px-2 font-bold text-[#023047]/50 tracking-widest items-center justify-center flex-1">CONTACTS</div>
-                    <div class="swimlane-content flex-1 overflow-auto p-4 flex justify-center bg-slate-50/30" id="mermaid-contacts"></div>
+            <!-- Workspace: Flex Row -->
+            <div class="flex-1 flex overflow-hidden">
+                <!-- Left Column (60%) -->
+                <div class="w-[60%] border-r border-[#8ecae6]/50 bg-white p-6 overflow-auto flex justify-center items-start" id="orchestrator-mermaid">
+                    <!-- Mermaid diagram will be injected here -->
                 </div>
-            
-                <div id="lane-gmail" class="swimlane collapsed border border-[#8ecae6]/50 rounded-lg shadow-sm flex flex-col" onclick="appActions.expandSwimlane('gmail')">
-                    <div class="p-4 border-b border-[#8ecae6]/30 bg-slate-50 flex justify-between items-center shrink-0">
-                        <h3 class="font-bold text-[#023047] flex items-center gap-2"><svg class="w-5 h-5 text-[#fb8500]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg> The Router (Gmail)</h3>
-                        <div class="swimlane-content text-xs text-[#023047]/60 font-mono">Next Poll: 0m 45s | Processed: 142</div>
+                
+                <!-- Right Column (40%) -->
+                <div class="w-[40%] bg-slate-50 flex flex-col overflow-hidden" id="orchestrator-settings">
+                    
+                    <div class="flex-1 overflow-auto p-6">
+                        <!-- Settings Gmail -->
+                        <div id="settings-gmail" class="block">
+                            <div class="flex items-center justify-between bg-white p-4 border border-[#8ecae6] rounded-lg shadow-sm mb-6">
+                                <div>
+                                    <h4 class="font-bold text-[#023047]">Enable Pipeline Ingestion</h4>
+                                    <p class="text-xs text-[#023047]/60">Allow background sync worker to process Gmail.</p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" class="sr-only peer" id="toggle-ingest-gmail">
+                                    <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#27AE60]"></div>
+                                </label>
+                            </div>
+                            
+                            <h4 class="font-bold text-[#023047] mb-3">Bypass Rules <span class="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded ml-2">Future</span></h4>
+                            <div class="bg-white p-4 border border-slate-200 rounded-lg mb-6 opacity-70">
+                                <label class="flex items-center gap-2 mb-2"><input type="checkbox" disabled> Skip SPAM/TRASH labels</label>
+                                <label class="flex items-center gap-2"><input type="checkbox" disabled> Skip internal domains</label>
+                            </div>
+                            
+                            <h4 class="font-bold text-[#023047] mb-3">Master Prompt <span class="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded ml-2">Future</span></h4>
+                            <textarea class="w-full h-32 bg-white border border-slate-200 rounded-lg p-3 text-sm font-mono opacity-70" disabled>You are the Gmail Router...</textarea>
+                        </div>
+                        
+                        <!-- Settings Drive -->
+                        <div id="settings-drive" class="hidden">
+                            <div class="flex items-center justify-between bg-white p-4 border border-[#8ecae6] rounded-lg shadow-sm mb-6">
+                                <div>
+                                    <h4 class="font-bold text-[#023047]">Enable Pipeline Ingestion</h4>
+                                    <p class="text-xs text-[#023047]/60">Allow background sync worker to process Drive OCR.</p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" class="sr-only peer" id="toggle-ingest-drive">
+                                    <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#27AE60]"></div>
+                                </label>
+                            </div>
+                            
+                            <h4 class="font-bold text-[#023047] mb-3">Triage Settings <span class="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded ml-2">Future</span></h4>
+                            <div class="bg-white p-4 border border-slate-200 rounded-lg mb-6 opacity-70">
+                                <label class="flex items-center gap-2 mb-2"><input type="checkbox" disabled> Enable Two-Stage Processing</label>
+                            </div>
+                            
+                            <h4 class="font-bold text-[#023047] mb-3">Master Prompt (Stage 1) <span class="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded ml-2">Future</span></h4>
+                            <textarea class="w-full h-32 bg-white border border-slate-200 rounded-lg p-3 text-sm font-mono opacity-70" disabled>You are the Drive Triage...</textarea>
+                        </div>
+
+                        <!-- Settings Contacts -->
+                        <div id="settings-contacts" class="hidden">
+                            <div class="flex items-center justify-between bg-white p-4 border border-[#8ecae6] rounded-lg shadow-sm mb-6">
+                                <div>
+                                    <h4 class="font-bold text-[#023047]">Enable Pipeline Ingestion</h4>
+                                    <p class="text-xs text-[#023047]/60">Allow background sync worker to poll People API.</p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" class="sr-only peer" id="toggle-ingest-contacts">
+                                    <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#27AE60]"></div>
+                                </label>
+                            </div>
+                            
+                            <h4 class="font-bold text-[#023047] mb-3">Sync Rules <span class="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded ml-2">Future</span></h4>
+                            <div class="bg-white p-4 border border-slate-200 rounded-lg mb-6 opacity-70">
+                                <label class="flex items-center gap-2 mb-2"><input type="checkbox" disabled> Force Zero-Trust (Default Disabled)</label>
+                            </div>
+                        </div>
                     </div>
-                    <div class="swimlane-title-vertical hidden py-4 px-2 font-bold text-[#023047]/50 tracking-widest items-center justify-center flex-1">GMAIL</div>
-                    <div class="swimlane-content flex-1 overflow-auto p-4 flex justify-center bg-slate-50/30" id="mermaid-gmail"></div>
-                </div>
-            
-                <div id="lane-drive" class="swimlane collapsed border border-[#8ecae6]/50 rounded-lg shadow-sm flex flex-col" onclick="appActions.expandSwimlane('drive')">
-                    <div class="p-4 border-b border-[#8ecae6]/30 bg-slate-50 flex justify-between items-center shrink-0">
-                        <h3 class="font-bold text-[#023047] flex items-center gap-2"><svg class="w-5 h-5 text-[#27AE60]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg> The Filer (Drive)</h3>
-                        <div class="swimlane-content text-xs text-[#023047]/60 font-mono">Next Poll: 4m 10s | Processed: 8</div>
+                    
+                    <!-- Permanent Bottom Section -->
+                    <div class="p-6 border-t border-[#8ecae6]/50 bg-slate-100 shrink-0">
+                        <div class="flex items-center justify-between bg-white p-4 border border-red-200 rounded-lg shadow-sm">
+                            <div>
+                                <h4 class="font-bold text-red-700 flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg> Simulation & Debug Engine</h4>
+                                <p class="text-xs text-[#023047]/60">Intercept API requests and execute dry-runs.</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" class="sr-only peer" id="toggle-debug-mode" onchange="appActions.toggleDebugMode()">
+                                <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
+                            </label>
+                        </div>
                     </div>
-                    <div class="swimlane-title-vertical hidden py-4 px-2 font-bold text-[#023047]/50 tracking-widest items-center justify-center flex-1">DRIVE</div>
-                    <div class="swimlane-content flex-1 overflow-auto p-4 flex justify-center bg-slate-50/30" id="mermaid-drive"></div>
                 </div>
+            </div>
+        </div>
+        
+        <div id="tab-batch-ingestion" class="hidden h-full flex flex-col bg-slate-50">
+            <!-- Quota Dashboard (Top Panel) -->
+            <div class="p-6 border-b border-[#8ecae6]/50 bg-white shrink-0 shadow-sm flex items-center justify-between">
+                <div>
+                    <h2 class="text-xl font-bold text-[#023047] mb-1">Batch Ingestion Dashboard</h2>
+                    <p class="text-sm text-[#023047]/60">Bulk process historical data with cost control.</p>
+                </div>
+                <div class="flex gap-6">
+                    <div class="bg-slate-50 border border-[#8ecae6] rounded p-3 min-w-[150px]">
+                        <div class="text-xs text-[#023047]/70 font-bold uppercase mb-1">API Quota Remaining</div>
+                        <div class="text-2xl font-black text-[#219ebc]">14,250</div>
+                        <div class="w-full bg-slate-200 h-1.5 rounded-full mt-2">
+                            <div class="bg-[#219ebc] h-1.5 rounded-full w-[70%]"></div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50 border border-[#8ecae6] rounded p-3 min-w-[150px]">
+                        <div class="text-xs text-[#023047]/70 font-bold uppercase mb-1">Priority Reserve</div>
+                        <div class="text-2xl font-black text-[#fb8500]">2,000</div>
+                    </div>
+                    <div class="bg-slate-50 border border-[#8ecae6] rounded p-3 min-w-[150px]">
+                        <div class="text-xs text-[#023047]/70 font-bold uppercase mb-1">Est. Batch Cost</div>
+                        <div id="batch-est-cost" class="text-2xl font-black text-[#023047]">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Control Bar -->
+            <div class="p-4 bg-slate-100 border-b border-[#8ecae6]/30 flex items-center justify-between shrink-0">
+                <div class="flex gap-4 w-2/3">
+                    <select id="batch-source" class="bg-white border border-[#8ecae6] text-[#023047] rounded p-2 focus:ring-2 focus:ring-[#219ebc] outline-none">
+                        <option value="gmail">Gmail Search</option>
+                        <option value="drive">Drive Folder</option>
+                    </select>
+                    <input type="text" id="batch-query" placeholder="e.g. from:orders@amazon.com after:2023/01/01" class="flex-1 bg-white border border-[#8ecae6] rounded p-2 focus:ring-2 focus:ring-[#219ebc] outline-none text-[#023047]">
+                    <button onclick="appActions.previewBatch()" class="px-4 py-2 bg-white border border-[#219ebc] text-[#219ebc] font-bold rounded hover:bg-[#219ebc] hover:text-white transition-colors shadow-sm whitespace-nowrap">Preview Batch</button>
+                </div>
+                <button onclick="appActions.executeBatch()" class="px-6 py-2 bg-[#219ebc] text-white font-bold rounded shadow-sm hover:bg-[#023047] transition-colors flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    Execute Selected
+                </button>
+            </div>
+
+            <!-- Staging Table -->
+            <div class="flex-1 overflow-auto p-6 bg-white">
+                <table class="w-full text-left border-collapse" id="batch-table">
+                    <thead class="bg-slate-50 sticky top-0 z-10 shadow-sm border-b border-[#8ecae6]">
+                        <tr>
+                            <th class="p-3 w-10"><input type="checkbox" id="batch-select-all" class="rounded border-[#8ecae6]"></th>
+                            <th class="p-3 text-sm font-bold text-[#023047]">Sender / Alias</th>
+                            <th class="p-3 text-sm font-bold text-[#023047]">Artifact Count</th>
+                            <th class="p-3 text-sm font-bold text-[#023047]">Est. API Cost</th>
+                            <th class="p-3 text-sm font-bold text-[#023047]">Status / Output</th>
+                        </tr>
+                    </thead>
+                    <tbody id="batch-table-body" class="divide-y divide-[#8ecae6]/20">
+                        <tr><td colspan="5" class="p-6 text-center text-[#023047]/50 italic">Run a preview query to load batch data.</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 

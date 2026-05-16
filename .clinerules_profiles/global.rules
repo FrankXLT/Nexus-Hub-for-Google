@@ -1,0 +1,31 @@
+# Nexus for Google: AI Agent Governance & Seven-Layer Rules
+
+## 1. The Architectural Layer Enforcement
+You must evaluate every code alteration or prompt modification against the Seven-Layer Description Model. Never allow a single task to cross-contaminate logic layers.
+
+Layer 7: Presentation & Visualization (VQB UI Surfaces)
+Layer 6: Automation & Workflow Materialization (Downstream Actions)
+Layer 5: Taxonomy Classification (Contextual Array Purpose Assignment)
+Layer 4: Entity & Sub-Entity Profiling (Global Domain & Sender Identification)
+Layer 3: Ephemeral Staging & Quarantine Queue (Human-In-The-Loop Buffers)
+Layer 2: Ingestion, Token Economy & Array Batching (O(1) Payload Workers)
+Layer 1: Core Storage & Schema Integrity (SQLite STRICT & WAL Mode Engine)
+
+- Task-to-Layer Constraint: When asked to modify a file, explicitly declare which Layer you are targeting. For example, UI buttons/charts belong to Layer 7; SQLite operations belong to Layer 1.
+- Logic Isolation: Do not write database access strings inside Layer 7 frontend files, and do not include UI layout constraints inside Layer 2 ingestion workers.
+
+## 2. Unbending Database Mutation Laws
+To prevent database corruption and schema divergence across rapid AI development cycles, all database modifications must strictly follow these rules:
+
+1. Idempotency Over All: Every schema manipulation statement must be safe to execute infinitely (e.g., CREATE TABLE IF NOT EXISTS, INSERT OR IGNORE).
+2. Catch-All Exception Ban: You are strictly forbidden from placing broad try...except passes over raw SQL execution strings to hide schema mismatches. If a column or key query fails, halt execution immediately and trace the schema source in db_init.py.
+3. Re-Creation & Transactional Migration: Because SQLite does not support adding FOREIGN KEY constraints via simple ALTER TABLE statements, any table manipulation affecting relations must be written as a multi-stage transaction script:
+   - BEGIN TRANSACTION;
+   - Create a temporary staging table with the modified schema, explicit data types, and FOREIGN KEY definitions.
+   - Copy records from the old table: INSERT INTO temporary_table SELECT ... FROM old_table;
+   - Drop the old table completely.
+   - Rename the temporary staging table to the final production table name.
+   - COMMIT;
+
+## 3. Prompt Template Decoupling
+All master system prompts must be strictly maintained as decoupled text templates inside the DEFAULTS/ directory using the `.tmpl` notation. Never hardcode LLM prompts directly into Python logic blocks.
