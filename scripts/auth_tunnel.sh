@@ -34,4 +34,4 @@ echo -e "\n${YELLOW}An SSH tunnel is opening, please wait... When the link appea
 
 AUTH_CMD="sudo systemctl stop nexus.service ; sleep 2 ; cd \$HOME/nexus/current/backend && source venv/bin/activate && pip install google-auth-oauthlib google-api-python-client --quiet && python3 -u auth.py ; sudo systemctl start nexus.service"
 
-gcloud compute ssh $TARGET_VM --zone=$TARGET_ZONE --ssh-flag="-L 8080:localhost:8080" --command="$AUTH_CMD"
+gcloud compute ssh $TARGET_VM --zone=$TARGET_ZONE --ssh-flag="-L" --ssh-flag="8080:127.0.0.1:8080" --command="$AUTH_CMD"

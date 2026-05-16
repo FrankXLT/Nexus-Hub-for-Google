@@ -4,6 +4,10 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.1.16] - 2026-05-16
+### Fixed
+- **System:** Hardened authentication tunnels (`auth.py`, `auth_tunnel.ps1`, `auth_tunnel.sh`) to resolve OAuth headless flow hanging by explicitly routing `8080:127.0.0.1:8080` to avoid IPv4/IPv6 loopback mismatches, splitting SSH proxy flags for proper parsing, and suppressing verbose OAuthlib logger output.
+
 ## [v1.1.15] - 2026-05-16
 ### Changed
 - **Layer 7:** Refactored `JS_Actions.html` network logic, migrating all frontend VM data calls (`renderVQB`, `renderSankey`, `executeBatch`, `simulatePipeline`, `runPipelineNow`, `snapshotLegacyLabels`, `executeLegacyLabels`, `loadZeroTrustFlow`, and `renderLegacyLabelTable`) from raw `fetch()` to `google.script.run` RPC endpoints, properly unboxing envelope payloads and enforcing Google Apps Script iframe CORS compliance while preserving UI state logic.

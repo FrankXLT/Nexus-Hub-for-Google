@@ -13,6 +13,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+logging.getLogger('google_auth_oauthlib').setLevel(logging.WARNING)
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = [
@@ -65,7 +66,7 @@ def authenticate() -> Credentials:
             flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
             
             # Using port 8080 and disabling open_browser for headless VM compatibility
-            creds = flow.run_local_server(port=8080, open_browser=False)
+            creds = flow.run_local_server(host='127.0.0.1', port=8080, open_browser=False)
             
         # Save the credentials for the next run
         # Open the token file to store the newly obtained or refreshed credentials.
