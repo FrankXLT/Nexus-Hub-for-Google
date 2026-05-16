@@ -209,6 +209,12 @@
                                 </label>
                             </div>
                             
+                            <h4 class="font-bold text-[#023047] mb-3">AI Confidence Threshold (%)</h4>
+                            <div class="bg-white p-4 border border-[#8ecae6] rounded-lg mb-6">
+                                <p class="text-xs text-[#023047]/60 mb-2">Artifacts scoring below this will be routed to the Quarantine queue.</p>
+                                <input type="number" id="threshold-gmail" value="80" min="1" max="100" class="form-input w-full rounded-md border-gray-300 p-2 border">
+                            </div>
+
                             <h4 class="font-bold text-[#023047] mb-3">Bypass Rules</h4>
                             <div class="bg-white p-4 border border-[#8ecae6] rounded-lg mb-6">
                                 <label class="flex items-center gap-2 mb-2 text-sm"><input type="checkbox" id="gmail-bypass-promotions" checked> Skip CATEGORY_PROMOTIONS</label>
@@ -246,6 +252,12 @@
                                 </label>
                             </div>
                             
+                            <h4 class="font-bold text-[#023047] mb-3">AI Confidence Threshold (%)</h4>
+                            <div class="bg-white p-4 border border-[#8ecae6] rounded-lg mb-6">
+                                <p class="text-xs text-[#023047]/60 mb-2">Artifacts scoring below this will be routed to the Quarantine queue.</p>
+                                <input type="number" id="threshold-drive" value="80" min="1" max="100" class="form-input w-full rounded-md border-gray-300 p-2 border">
+                            </div>
+
                             <h4 class="font-bold text-[#023047] mb-3">Triage Settings <span class="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded ml-2">Future</span></h4>
                             <div class="bg-white p-4 border border-slate-200 rounded-lg mb-6 opacity-70">
                                 <label class="flex items-center gap-2 mb-2"><input type="checkbox" disabled> Enable Two-Stage Processing</label>

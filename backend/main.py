@@ -878,6 +878,23 @@ async def get_quarantine_queue():
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+@app.post("/api/batch/preview")
+async def batch_preview(request: Request):
+    try:
+        body = await request.json()
+        source = body.get("source")
+        query = body.get("query")
+        
+        if source == "gmail" and query:
+            from sync_engine import preview_gmail_batch
+            import asyncio
+            data = await asyncio.to_thread(preview_gmail_batch, query)
+            return JSONResponse(content=data)
+        else:
+            return JSONResponse(status_code=400, content={"error": "Invalid source or query"})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 class BatchPayload(BaseModel):
     sender_string: str
     artifacts: list
@@ -955,6 +972,25 @@ async def batch_process(payload: BatchPayload):
     conn.close()
     return {"status": "error", "message": "Bulk classifier failed."}
 
+
+class PipelineConfigPayload(BaseModel):
+    pipeline: str
+    settings_json: dict
+
+@app.post("/api/orchestrator/config")
+async def save_orchestrator_config(payload: PipelineConfigPayload):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO pipeline_config (pipeline_name, settings_json) VALUES (?, ?) ON CONFLICT(pipeline_name) DO UPDATE SET settings_json = excluded.settings_json",
+            (payload.pipeline, json.dumps(payload.settings_json))
+        )
+        conn.commit()
+        conn.close()
+        return JSONResponse(content={"status": "success", "message": "Config saved"})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 class SimulatePayload(BaseModel):
     artifact_id: str
@@ -1238,21 +1274,13 @@ async def get_prompts():
 
 @app.post("/api/orchestrator/run-now/{pipeline_name}")
 async def run_pipeline_now(pipeline_name: str, background_tasks: BackgroundTasks):
-    import sync_engine
-    if pipeline_name == 'gmail':
-        worker = getattr(sync_engine, 'sync_gmail', None)
-    elif pipeline_name == 'drive':
-        worker = getattr(sync_engine, 'sync_drive', None)
-    elif pipeline_name == 'contacts':
-        worker = getattr(sync_engine, 'sync_contacts', None)
-    else:
-        # Fallback or general sync
-        worker = getattr(sync_engine, f'sync_{pipeline_name}', None)
-        
-    if not worker:
+    from sync_engine import run_single_pipeline
+    
+    valid_pipelines = ['gmail', 'drive', 'contacts']
+    if pipeline_name not in valid_pipelines:
         return JSONResponse(status_code=400, content={"error": f"Unknown pipeline: {pipeline_name}"})
         
-    background_tasks.add_task(worker)
+    background_tasks.add_task(run_single_pipeline, pipeline_name)
     return JSONResponse(content={"status": "success", "message": f"{pipeline_name} pipeline initiated in background."})
 
 @app.get("/api/taxonomy/tree")

@@ -519,6 +519,68 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
         conn.commit()
         print(f"Updated Drive token to: {new_page_token}")
 
+def preview_gmail_batch(query: str) -> list:
+    """
+    Uses the Gmail API to search for messages based on the given query.
+    Extracts unique senders and counts them.
+    Returns a list of dicts: [{'sender': string, 'count': int}]
+    """
+    from auth import authenticate
+    from googleapiclient.discovery import build
+    import collections
+    
+    creds = authenticate()
+    if not creds or not creds.valid:
+        raise Exception("Failed to authenticate with Google Workspace.")
+        
+    service = build('gmail', 'v1', credentials=creds)
+    
+    message_ids = []
+    page_token = None
+    
+    # Limit to 500 messages to prevent long hangs during preview
+    while len(message_ids) < 500:
+        results = service.users().messages().list(
+            userId='me', q=query, pageToken=page_token, fields='messages(id),nextPageToken'
+        ).execute()
+        
+        messages = results.get('messages', [])
+        for msg in messages:
+            message_ids.append(msg['id'])
+            
+        page_token = results.get('nextPageToken')
+        if not page_token:
+            break
+            
+    sender_counts = collections.Counter()
+    
+    # Process up to 50 messages to extract senders efficiently
+    batch = service.new_batch_http_request()
+    
+    def callback(request_id, response, exception):
+        if exception is None:
+            headers = response.get('payload', {}).get('headers', [])
+            sender = next((h['value'] for h in headers if h['name'] == 'From'), "Unknown Sender")
+            sender_counts[sender] += 1
+
+    for msg_id in message_ids[:50]:
+        batch.add(service.users().messages().get(userId='me', id=msg_id, format='metadata', metadataHeaders=['From']), callback=callback)
+        
+    if message_ids[:50]:
+        batch.execute()
+        
+    # Scale counts proportionally if we didn't process all
+    if len(message_ids) > 50:
+        scale = len(message_ids) / 50.0
+        scaled_counts = {k: int(v * scale) for k, v in sender_counts.items()}
+    else:
+        scaled_counts = dict(sender_counts)
+        
+    results = [{"sender": k, "count": v} for k, v in scaled_counts.items()]
+    # Sort by count descending
+    results.sort(key=lambda x: x["count"], reverse=True)
+    return results
+
 def sync_gmail(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGovernor) -> None:
     """
     Synchronizes Gmail changes via history delta fetching.
@@ -788,6 +850,32 @@ def materialize_artifact(artifact_id: str):
         if 'conn' in locals():
             conn.close()
 
+def run_single_pipeline(pipeline_name: str) -> None:
+    """
+    Wrapper for executing a single sync pipeline synchronously with all required dependencies.
+    """
+    try:
+        creds = authenticate()
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL;")
+        
+        governor = QuotaGovernor(conn)
+        
+        if pipeline_name == 'contacts':
+            sync_contacts(creds, conn, governor)
+        elif pipeline_name == 'gmail':
+            sync_gmail(creds, conn, governor)
+        elif pipeline_name == 'drive':
+            sync_drive(creds, conn, governor)
+        else:
+            print(f"Unknown pipeline: {pipeline_name}")
+    except Exception as e:
+        print(f"Pipeline {pipeline_name} execution error: {e}")
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
 def run_sync() -> None:
     """
     Main entry point for the Delta Synchronization Engine.
@@ -886,10 +974,10 @@ def fetch_legacy_gmail_labels() -> list:
     Fetches all legacy custom user labels from Gmail.
     """
     from auth import authenticate
+    creds = authenticate()
     from googleapiclient.discovery import build
     from diagnostics import write_migration_trace
     
-    creds = authenticate()
     service = build('gmail', 'v1', credentials=creds)
     
     results = service.users().labels().list(userId='me').execute()
@@ -971,14 +1059,21 @@ def sync_contacts_pipeline(creds: Credentials, conn: sqlite3.Connection, governo
     except Exception as e:
         logger.error(f"Error in sync_contacts_pipeline: {e}")
 
+def route_to_quarantine(cursor: sqlite3.Cursor, source_app: str, artifact_id: str, result: dict) -> None:
+    cursor.execute("INSERT INTO quarantine_queue (source_app, source_id, raw_metadata) VALUES (?, ?, ?)", (source_app, artifact_id, json.dumps(result)))
+    logger.info(f"Artifact {artifact_id} routed to Quarantine Queue.")
+
+def route_to_zero_trust(cursor: sqlite3.Cursor, source_app: str, artifact_id: str, result: dict) -> None:
+    cursor.execute("INSERT INTO Workspace_Artifacts (artifact_id, raw_text, status) VALUES (?, ?, 'PROCESSED') ON CONFLICT DO NOTHING", (artifact_id, json.dumps(result)))
+    logger.info(f"Artifact {artifact_id} routed to Zero Trust Engine.")
+
 def sync_gmail_pipeline(artifact_id: str, email_context: Dict[str, Any], conn: sqlite3.Connection) -> None:
     """
     Zero Trust Gmail Swimlane
     """
     cursor = conn.cursor()
     # 1. Bypass Rules
-    # Assuming IGNORED_GMAIL_LABELS check happens before this is called
-    logger.debug(f"Bypassing artifact {artifact_id} due to native rule.") # Logging as requested, though logic is simplified
+    logger.debug(f"Bypassing artifact {artifact_id} due to native rule.")
     
     # 2. Extract Metadata
     sender = email_context.get('sender')
@@ -995,9 +1090,24 @@ def sync_gmail_pipeline(artifact_id: str, email_context: Dict[str, Any], conn: s
         profile = run_agent_profiler(sender, is_personal=False, context=json.dumps(email_context))
         result = run_agent_classifier(json.dumps(email_context))
         
-    # 5. Route to Quarantine
-    cursor.execute("INSERT INTO quarantine_queue (source_app, source_id, raw_metadata) VALUES (?, ?, ?)", ('gmail', artifact_id, json.dumps(result)))
-    logger.info(f"Artifact {artifact_id} routed to Quarantine Queue.")
+    # Fetch Configured Threshold
+    cursor.execute("SELECT settings_json FROM pipeline_config WHERE pipeline_name = 'gmail'")
+    row = cursor.fetchone()
+    threshold = 80
+    if row and row['settings_json']:
+        try:
+            settings = json.loads(row['settings_json'])
+            threshold = int(settings.get('ai_confidence_threshold', 80))
+        except (json.JSONDecodeError, ValueError, TypeError):
+            pass
+
+    item_confidence = result.get('confidence', 0) if isinstance(result, dict) else 0
+
+    if item_confidence < threshold:
+        route_to_quarantine(cursor, 'gmail', artifact_id, result)
+    else:
+        route_to_zero_trust(cursor, 'gmail', artifact_id, result)
+        
     conn.commit()
 
 def sync_drive_pipeline(artifact_id: str, ocr_text: str, conn: sqlite3.Connection) -> None:
@@ -1011,7 +1121,6 @@ def sync_drive_pipeline(artifact_id: str, ocr_text: str, conn: sqlite3.Connectio
     # 2. Extract Metadata
     
     # 3. Check entities
-    # Drive OCR text requires profiling to identify sender
     from llm_engine import run_agent_classifier, run_agent_profiler
     
     profile = run_agent_profiler(ocr_text, is_personal=False, context=ocr_text)
@@ -1026,7 +1135,22 @@ def sync_drive_pipeline(artifact_id: str, ocr_text: str, conn: sqlite3.Connectio
     else:
         result = run_agent_classifier(ocr_text)
         
-    # 5. Route to Quarantine
-    cursor.execute("INSERT INTO quarantine_queue (source_app, source_id, raw_metadata) VALUES (?, ?, ?)", ('drive', artifact_id, json.dumps(result)))
-    logger.info(f"Artifact {artifact_id} routed to Quarantine Queue.")
+    # Fetch Configured Threshold
+    cursor.execute("SELECT settings_json FROM pipeline_config WHERE pipeline_name = 'drive'")
+    row = cursor.fetchone()
+    threshold = 80
+    if row and row['settings_json']:
+        try:
+            settings = json.loads(row['settings_json'])
+            threshold = int(settings.get('ai_confidence_threshold', 80))
+        except (json.JSONDecodeError, ValueError, TypeError):
+            pass
+
+    item_confidence = result.get('confidence', 0) if isinstance(result, dict) else 0
+
+    if item_confidence < threshold:
+        route_to_quarantine(cursor, 'drive', artifact_id, result)
+    else:
+        route_to_zero_trust(cursor, 'drive', artifact_id, result)
+        
     conn.commit()

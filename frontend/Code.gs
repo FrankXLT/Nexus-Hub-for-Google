@@ -271,21 +271,53 @@ function getSankeyData(days, source, status) {
  * Expected Outputs: Object - The taxonomy tree data.
  */
 function getTaxonomyTree() {
-  const scriptProperties = PropertiesService.getScriptProperties();
-  const vmUrl = scriptProperties.getProperty('NEXUS_VM_URL') || "http://localhost:8000"; 
-  const targetUrl = vmUrl + "/api/taxonomy/tree";
-  
-  const options = { 'method': 'get', 'muteHttpExceptions': true };
   try {
-    const response = UrlFetchApp.fetch(targetUrl, options);
-    const responseCode = response.getResponseCode();
-    if (responseCode >= 200 && responseCode < 300) {
-      return JSON.parse(response.getContentText());
-    } else {
-      throw new Error("VM Error (" + responseCode + "): " + response.getContentText());
-    }
+    const result = sendToNexusVM("/api/taxonomy/tree", {}, 'get');
+    return { success: true, data: result };
   } catch (error) {
-    return { status: "error", detail: error.message };
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Purpose: Fetches prompt templates.
+ * Expected Inputs: None.
+ * Expected Outputs: Object - Prompt templates.
+ */
+function getPrompts() {
+  try {
+    const result = sendToNexusVM("/api/prompts", {}, 'get');
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Purpose: Saves Orchestrator configuration settings.
+ * Expected Inputs: payload (Object) - Settings JSON.
+ * Expected Outputs: Object - Success confirmation.
+ */
+function saveOrchestratorConfig(payload) {
+  try {
+    const result = sendToNexusVM("/api/orchestrator/config", payload, 'post');
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Purpose: Previews batch queries before execution.
+ * Expected Inputs: payload (Object) - e.g. {source: 'gmail', query: '...'}
+ * Expected Outputs: Object - Preview results containing sender counts.
+ */
+function previewBatchQuery(payload) {
+  try {
+    const result = sendToNexusVM("/api/batch/preview", payload);
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
   }
 }
 

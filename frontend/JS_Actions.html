@@ -40,27 +40,52 @@ var appActions = {
     },
 
     previewBatch: function() {
-        const query = document.getElementById('batch-query').value || 'Default Query';
+        const queryEl = document.getElementById('batch-query');
+        const query = queryEl ? queryEl.value : '';
         const tbody = document.getElementById('batch-table-body');
         
-        // Dummy Array Batching Data
-        const dummyData = [
-            { sender: 'orders@amazon.com', count: 50, cost: 1 },
-            { sender: 'receipts@homedepot.com', count: 12, cost: 1 },
-            { sender: 'newsletter@morningbrew.com', count: 140, cost: 3 }
-        ];
+        if (!query) {
+            alert("Please enter a search query.");
+            return;
+        }
         
+        tbody.innerHTML = '<tr><td colspan="5" class="p-3 text-center text-[#023047]/50 italic animate-pulse">Scanning Gmail for unique senders...</td></tr>';
+        
+        google.script.run
+            .withSuccessHandler(response => {
+                if (response && response.success && response.data) {
+                    appActions.renderBatchTable(response.data);
+                } else {
+                    const err = response ? (response.error || "Unknown Error") : "Failed";
+                    tbody.innerHTML = `<tr><td colspan="5" class="p-3 text-center text-red-500 italic">Error: ${err}</td></tr>`;
+                }
+            })
+            .withFailureHandler(err => {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-3 text-center text-red-500 italic">Fetch Failed: ${err.message || err}</td></tr>`;
+            })
+            .previewBatchQuery({ source: 'gmail', query: query });
+    },
+
+    renderBatchTable: function(data) {
+        const tbody = document.getElementById('batch-table-body');
         tbody.innerHTML = '';
         let totalCost = 0;
         
-        dummyData.forEach((row, i) => {
-            totalCost += row.cost;
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="p-3 text-center text-[#023047]/50 italic">No results found for this query.</td></tr>';
+            document.getElementById('batch-est-cost').innerText = '0';
+            return;
+        }
+        
+        data.forEach((row, i) => {
+            const cost = Math.max(1, Math.ceil(row.count / 50));
+            totalCost += cost;
             tbody.innerHTML += `
                 <tr class="hover:bg-slate-50 transition-colors">
                     <td class="p-3 border-b border-[#8ecae6]/20"><input type="checkbox" class="batch-checkbox rounded border-[#8ecae6]" data-index="${i}" data-sender="${row.sender}" checked></td>
                     <td class="p-3 border-b border-[#8ecae6]/20 text-[#023047] font-semibold">${row.sender}</td>
                     <td class="p-3 border-b border-[#8ecae6]/20 text-[#023047]">${row.count} items</td>
-                    <td class="p-3 border-b border-[#8ecae6]/20 text-[#219ebc] font-bold">${row.cost} API Call(s)</td>
+                    <td class="p-3 border-b border-[#8ecae6]/20 text-[#219ebc] font-bold">${cost} API Call(s)</td>
                     <td class="p-3 border-b border-[#8ecae6]/20 text-[#023047]/60" id="batch-status-${i}">Pending Preview</td>
                 </tr>
             `;
@@ -550,6 +575,25 @@ Object.assign(appActions, {
         appState.activePipeline = 'gmail';
         this.switchOrchestratorTab('gmail');
         this.renderQuarantineBanner();
+        this.loadPrompts();
+    },
+
+    loadPrompts: function() {
+        google.script.run
+            .withSuccessHandler(response => {
+                if (response && response.success && response.data) {
+                    if (document.getElementById('prompt-profiler-commercial')) {
+                        document.getElementById('prompt-profiler-commercial').value = response.data['agent_profiler_commercial'] || '';
+                    }
+                    if (document.getElementById('prompt-classifier')) {
+                        document.getElementById('prompt-classifier').value = response.data['agent_classifier'] || '';
+                    }
+                }
+            })
+            .withFailureHandler(err => {
+                console.error("Failed to load prompts: ", err);
+            })
+            .getPrompts();
     },
 
     switchOrchestratorTab: function(pipeline) {
@@ -670,6 +714,7 @@ Object.assign(appActions, {
 
         if (pipeline === 'gmail') {
             settings_json = {
+                ai_confidence_threshold: document.getElementById('threshold-gmail') ? parseInt(document.getElementById('threshold-gmail').value, 10) : 80,
                 ignore_calendar_invites: document.getElementById('gmail-bypass-ics') ? document.getElementById('gmail-bypass-ics').checked : false,
                 ignore_system_labels: document.getElementById('gmail-bypass-system') ? document.getElementById('gmail-bypass-system').checked : false,
                 domain_whitelist: document.getElementById('gmail-whitelist') ? document.getElementById('gmail-whitelist').value : "",
@@ -677,6 +722,7 @@ Object.assign(appActions, {
             };
         } else if (pipeline === 'drive') {
             settings_json = {
+                ai_confidence_threshold: document.getElementById('threshold-drive') ? parseInt(document.getElementById('threshold-drive').value, 10) : 80,
                 mime_type_blacklist: document.getElementById('drive-blacklist') ? document.getElementById('drive-blacklist').value : "",
                 max_file_size_mb: document.getElementById('drive-max-size') ? parseFloat(document.getElementById('drive-max-size').value) : 10
             };

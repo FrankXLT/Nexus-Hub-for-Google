@@ -4,6 +4,30 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.1.20] - 2026-05-16
+### Added
+- **Layer 7:** Added configurable `AI Confidence Threshold (%)` inputs to the Orchestrator UI for the Gmail and Drive pipelines, providing granular routing control.
+- **Layer 6:** Serialized `ai_confidence_threshold` via the `google.script.run` middleware inside `JS_Actions.html`, passing dynamic configurations securely.
+- **Layer 2:** Enforced the dynamic confidence thresholds in `sync_engine.py`, programmatically evaluating LLM classifier results and correctly routing sub-threshold artifacts directly into the `quarantine_queue` to satisfy Zero Trust requirements.
+
+## [v1.1.19] - 2026-05-16
+### Changed
+- **Layer 2:** Implemented `run_single_pipeline` wrapper in `sync_engine.py` to natively encapsulate explicit dependency instantiation (`creds`, `conn`, `governor`), preventing background threading crashes and database locks.
+- **Layer 2:** Patched `fetch_legacy_gmail_labels` in `sync_engine.py` to properly build `creds` prior to Google Workspace resource generation.
+- **Layer 3:** Refactored `run_pipeline_now` in `main.py` to invoke the newly encapsulated `run_single_pipeline` framework, restoring isolated UI pipeline triggers.
+
+## [v1.1.18] - 2026-05-16
+### Added
+- **Layer 2:** Added `preview_gmail_batch(query)` in `sync_engine.py` to hit the Gmail API dynamically and compile aggregated sender counts.
+- **Layer 3:** Added `POST /api/batch/preview` route in `main.py` mapping to the dynamic batch engine.
+### Changed
+- **Layer 7:** Overhauled `previewBatch` in `JS_Actions.html` to eliminate hardcoded dummy data and correctly call the new `previewBatchQuery` via `google.script.run` middleware, rendering live workspace statistics.
+
+## [v1.1.17] - 2026-05-16
+### Changed
+- **Layer 7:** Mechanized the Orchestrator UI by successfully executing `getPrompts()` via `google.script.run`, securely populating the commercial profiler and classifier `readonly` textareas.
+- **Layer 7:** Eradicated the final rogue `fetch('/api/orchestrator/config')` routing it through proper `google.script.run.saveOrchestratorConfig()` middleware, completing the full iframe CORS isolation effort.
+
 ## [v1.1.16] - 2026-05-16
 ### Fixed
 - **System:** Hardened authentication tunnels (`auth.py`, `auth_tunnel.ps1`, `auth_tunnel.sh`) to resolve OAuth headless flow hanging by explicitly routing `8080:127.0.0.1:8080` to avoid IPv4/IPv6 loopback mismatches, splitting SSH proxy flags for proper parsing, and suppressing verbose OAuthlib logger output.
