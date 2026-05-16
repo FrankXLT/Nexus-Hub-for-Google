@@ -887,6 +887,7 @@ def fetch_legacy_gmail_labels() -> list:
     """
     from auth import authenticate
     from googleapiclient.discovery import build
+    from diagnostics import write_migration_trace
     
     creds = authenticate()
     service = build('gmail', 'v1', credentials=creds)
@@ -902,6 +903,7 @@ def fetch_legacy_gmail_labels() -> list:
         if label.get('type') == 'user' and name.upper() not in system_labels:
             custom_labels.append(name)
             
+    write_migration_trace("1_RAW_GMAIL_LABELS", custom_labels)
     return custom_labels
 
 # ---------------------------------------------------------------------------

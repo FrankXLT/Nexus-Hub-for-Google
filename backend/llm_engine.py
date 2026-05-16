@@ -721,15 +721,20 @@ def deduplicate_legacy_labels(raw_labels: list) -> list:
     context = json.dumps(raw_labels)
     result, _ = call_gemini(prompt, context)
     
+    ret = []
     if isinstance(result, list):
-        return result
+        ret = result
     elif isinstance(result, dict) and 'labels' in result:
-        return result['labels']
+        ret = result['labels']
     elif isinstance(result, dict):
         for val in result.values():
             if isinstance(val, list):
-                return val
-    return []
+                ret = val
+                break
+                
+    from diagnostics import write_migration_trace
+    write_migration_trace("2_DEDUPLICATED_LABELS", ret)
+    return ret
 
 def profile_and_map_entities(cleaned_labels: list, current_categories: list) -> list:
     """
@@ -764,6 +769,8 @@ def profile_and_map_entities(cleaned_labels: list, current_categories: list) -> 
         except Exception as e:
             logger.error(f"Error in profile_and_map_entities batch: {e}")
             
+    from diagnostics import write_migration_trace
+    write_migration_trace("3_PROFILED_ENTITIES", all_results)
     return all_results
 
 # ---------------------------------------------------------------------------

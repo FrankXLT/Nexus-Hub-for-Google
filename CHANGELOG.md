@@ -4,6 +4,37 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.1.11] - 2026-05-16
+### Changed
+- **Layer 2:** Rewrote `/api/analytics/heatmap` and `/api/analytics/sankey` endpoints in `main.py` to use dynamic SQL telemetry targeting `Workspace_Artifacts`, effectively replacing the initial dummy data generators and adhering to VQB formatting specs.
+
+## [v1.1.10] - 2026-05-16
+### Added
+- **System:** Added `write_migration_trace` in `diagnostics.py` to heavily instrument the Legacy Label Migration Engine with physical logging.
+- **Layer 2:** Implemented `fetch_legacy_gmail_labels` in `sync_engine.py` to extract non-system Gmail labels and trace the output.
+- **Layer 4/5:** Implemented `deduplicate_legacy_labels` and `profile_and_map_entities` in `llm_engine.py` to perform search-grounded mapping and tracing.
+- **Layer 3:** Built orchestration endpoints `POST /api/ingestion/legacy-labels/preview` and `execute` in `main.py` applying strict Layer 1 transaction blocks.
+
+## [v1.1.9] - 2026-05-16
+### Changed
+- **Layer 7:** Updated the Orchestrator UI (`Index.html`) to replace generic bypass placeholders with explicit Google Workspace `CATEGORY_*` bypass checkboxes and domain whitelist textareas for the Gmail pipeline.
+- **Layer 7:** Deployed dynamic, labeled `readonly` textareas within the 'Master Prompt' sections of the Gmail and Drive panels to securely expose live Layer 4 and Layer 5 AI parameters.
+
+## [v1.1.8] - 2026-05-16
+### Changed
+- **Layer 7:** Updated `loadZeroTrustFlow` in `JS_Actions.html` to dynamically fetch the taxonomy tree from the live database. Implemented graceful empty state placeholders for initial 'Day 0' entity sets without crashing the UI.
+### Added
+- **Layer 2:** Added `GET /api/taxonomy/tree` endpoint in `main.py` that queries `categories` and `purposes`, explicitly attaching empty `entities: []` arrays to satisfy UI bindings while preserving strictly read-only Layer 1 database compliance.
+
+## [v1.1.7] - 2026-05-16
+### Changed
+- **Layer 7:** Implemented `loadPipelineSettings` dual-fetch logic in `JS_Actions.html` to dynamically fetch UI settings and `Config_Prompts` master templates from the backend, populating the new Orchestrator textareas.
+
+## [v1.1.6] - 2026-05-16
+### Added
+- **Layer 2:** Restored `GET /api/prompts` route in `main.py` to serve master templates from `Config_Prompts` to the Orchestrator UI.
+- **Layer 2:** Explicitly verified `GET /api/analytics/heatmap` and `GET /api/analytics/sankey` endpoints return the exact strict JSON schema required by VQB.
+
 ## [v1.1.5] - 2026-05-16
 ### Changed
 - **Layer 7:** Updated Mermaid.js flows in Orchestrator UI (`JS_Actions.html`) to accurately reflect the 7-Layer Array Batching architecture.

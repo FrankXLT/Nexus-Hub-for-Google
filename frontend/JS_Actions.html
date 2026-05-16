@@ -315,65 +315,61 @@ var appActions = {
         const container = document.getElementById('zt-taxonomy-flow');
         if (!container) return;
 
-        const graphDefinition = `flowchart LR
-    classDef default fill:#ffffff,stroke:#219ebc,stroke-width:2px,color:#023047,font-family:sans-serif,rx:6px,ry:6px
-    
-    E1("Entity #1") --- S11("Sub Entity #1")
-    S11 --- P11("Purpose")
-    
-    E2("Entity #2") --- S21("Sub Entity #1")
-    E2 --- S22("Sub Entity #2")
-    S21 --- P21("Purpose")
-    S22 --- P22("Purpose")
-    S22 --- P23("Purpose")
-    
-    E1 --> n1("None")
-    n1 --> n2("Purpose")
-    
-    E3("Entity #3") --- n3("None")
-    n3 --- P31("Purpose")
-    n3 --- P32("Purpose")`;
+        container.innerHTML = '<div class="text-[#023047]/50 italic p-4 text-center w-full">Loading Taxonomy Tree...</div>';
 
-        container.innerHTML = `
-            <details class="group bg-white border border-[#8ecae6] w-full mb-4 shadow-sm rounded-md overflow-hidden" open>
-                <summary class="p-4 cursor-pointer list-none flex items-center border-b border-[#8ecae6]/50 text-[#fb8500] font-sans text-xl font-bold select-none hover:bg-slate-50 transition-colors">
-                    <span class="mr-3 transition-transform group-open:rotate-90">▼</span> Entity Category #1
-                </summary>
-                <div class="p-6 overflow-x-auto bg-slate-50/50">
-                    <div id="mermaid-render-target" class="flex justify-start min-w-[800px] mb-6"></div>
+        fetch('/api/taxonomy/tree')
+            .then(res => res.json())
+            .then(data => {
+                if (!Array.isArray(data) || data.length === 0) {
+                    container.innerHTML = '<div class="text-[#023047]/50 italic p-4 text-center w-full">No taxonomy data available.</div>';
+                    return;
+                }
+
+                container.innerHTML = '';
+                
+                data.forEach(category => {
+                    let purposesHtml = '';
                     
-                    <div class="mt-4 pt-4 border-t border-[#8ecae6]/50 flex items-center gap-4">
-                        <span class="text-sm text-[#023047]/70 font-bold uppercase tracking-wider">Category Purposes:</span>
-                        <div class="px-4 py-1.5 bg-white border border-[#219ebc] text-[#219ebc] font-semibold rounded cursor-pointer hover:bg-[#219ebc] hover:text-white transition-colors text-sm shadow-sm" onclick="window.handleNodeClick('Category Purpose')">Category Purpose</div>
-                        <div class="px-4 py-1.5 bg-white border border-[#219ebc] text-[#219ebc] font-semibold rounded cursor-pointer hover:bg-[#219ebc] hover:text-white transition-colors text-sm shadow-sm" onclick="window.handleNodeClick('Universal Purpose')">Universal Purpose</div>
-                    </div>
-                </div>
-            </details>
-        `;
+                    if (category.purposes && category.purposes.length > 0) {
+                        category.purposes.forEach(purpose => {
+                            let entitiesHtml = '';
+                            
+                            if (purpose.entities && purpose.entities.length > 0) {
+                                entitiesHtml = '<ul class="list-disc pl-5 mt-2">';
+                                purpose.entities.forEach(entity => {
+                                    entitiesHtml += `<li><span class="text-[#023047]">${entity.name || 'Unknown'}</span></li>`;
+                                });
+                                entitiesHtml += '</ul>';
+                            } else {
+                                entitiesHtml = '<div class="mt-2"><span class="text-slate-400 italic text-sm">Awaiting Day 1 Ingestion...</span></div>';
+                            }
+                            
+                            purposesHtml += `
+                                <div class="mb-4 p-4 border border-[#8ecae6]/50 rounded bg-white shadow-sm">
+                                    <h5 class="font-bold text-[#fb8500] mb-2 cursor-pointer" onclick="window.handleNodeClick('${purpose.name}')">${purpose.name}</h5>
+                                    ${entitiesHtml}
+                                </div>
+                            `;
+                        });
+                    } else {
+                        purposesHtml = '<div class="text-slate-400 italic text-sm p-4">No purposes defined for this category.</div>';
+                    }
 
-        const target = document.getElementById('mermaid-render-target');
-        
-        if (window.mermaid) {
-            mermaid.initialize({
-                startOnLoad: false,
-                theme: 'default',
-                securityLevel: 'loose',
-                flowchart: { curve: 'linear' }
-            });
-
-            mermaid.render('preparedScheme', graphDefinition).then(({ svg }) => {
-                target.innerHTML = svg;
-                const nodes = target.querySelectorAll('.node');
-                nodes.forEach(node => {
-                    node.style.cursor = 'pointer';
-                    node.addEventListener('mouseenter', () => node.style.opacity = '0.8');
-                    node.addEventListener('mouseleave', () => node.style.opacity = '1');
-                    node.addEventListener('click', () => { window.handleNodeClick(node.id); });
+                    container.innerHTML += `
+                        <details class="group bg-white border border-[#8ecae6] w-full mb-4 shadow-sm rounded-md overflow-hidden" open>
+                            <summary class="p-4 cursor-pointer list-none flex items-center border-b border-[#8ecae6]/50 text-[#219ebc] font-sans text-xl font-bold select-none hover:bg-slate-50 transition-colors">
+                                <span class="mr-3 transition-transform group-open:rotate-90">▼</span> ${category.name}
+                            </summary>
+                            <div class="p-6 bg-slate-50/50">
+                                ${purposesHtml}
+                            </div>
+                        </details>
+                    `;
                 });
-            }).catch(err => {
-                target.innerHTML = `<div class="text-red-500 p-4">Render Failed: ${err.message}</div>`;
+            })
+            .catch(err => {
+                container.innerHTML = `<div class="text-red-500 italic p-4 text-center w-full">Error loading taxonomy: ${err.message}</div>`;
             });
-        }
     }
 };
 

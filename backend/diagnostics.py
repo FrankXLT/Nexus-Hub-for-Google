@@ -18,6 +18,19 @@ from notifier import NexusNotifier
 
 DB_PATH = 'nexus.db'
 
+def write_migration_trace(step_name: str, payload) -> None:
+    """
+    Purpose: Appends a timestamped JSON payload to a physical log file for the Legacy Label Migration Engine.
+    """
+    trace_path = os.path.join(os.path.dirname(__file__), "gmail_migration_trace.log")
+    with open(trace_path, "a", encoding="utf-8") as f:
+        log_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "step": step_name,
+            "payload": payload
+        }
+        f.write(json.dumps(log_entry) + "\n")
+
 def check_database() -> dict:
     """
     Purpose: Verifies SQLite database read/write access.

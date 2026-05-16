@@ -1022,71 +1022,129 @@ async def simulate_orchestrator(payload: SimulatePayload):
     return {"status": "success", "trace": trace_output}
 
 @app.get("/api/analytics/heatmap")
-async def get_analytics_heatmap(days: int = 60, source: str = "All", status: str = "Active"):
+async def get_analytics_heatmap(days: int = 30, source: str = "all", status: str = "all"):
     try:
         conn = get_db()
         cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT date(ah.timestamp, 'unixepoch') as day, COUNT(*) as count
-            FROM Artifact_History ah
-            JOIN Workspace_Artifacts wa ON ah.artifact_id = wa.artifact_id
-            GROUP BY day
-            ORDER BY day ASC
-        """)
+
+        where_clauses = ["json_extract(custom_data, '$.document_date') IS NOT NULL"]
+        params = []
+
+        if source != 'all':
+            where_clauses.append("(CASE WHEN artifact_id LIKE 'mail_%' THEN 'Gmail' WHEN artifact_id LIKE 'drive_%' THEN 'Drive' ELSE 'Other' END) = ?")
+            params.append(source)
+        if status != 'all':
+            where_clauses.append("status = ?")
+            params.append(status)
+
+        # Date filter
+        where_clauses.append(f"json_extract(custom_data, '$.document_date') >= date('now', '-{days} days')")
+
+        where_sql = ""
+        if where_clauses:
+            where_sql = "WHERE " + " AND ".join(where_clauses)
+
+        cursor.execute(f"""
+            SELECT 
+                date(json_extract(custom_data, '$.document_date')) as ingested_at,
+                CASE 
+                    WHEN artifact_id LIKE 'mail_%' THEN 'Gmail'
+                    WHEN artifact_id LIKE 'drive_%' THEN 'Drive'
+                    ELSE 'Other'
+                END as source_app,
+                COUNT(artifact_id) as count
+            FROM Workspace_Artifacts
+            {where_sql}
+            GROUP BY ingested_at, source_app
+            ORDER BY ingested_at ASC
+        """, params)
         rows = cursor.fetchall()
         conn.close()
-        
+
         if not rows:
             return JSONResponse(content=[])
-            
-        data = [{"date": row["day"], "count": row["count"]} for row in rows]
-        
+
+        data = [{"date": row["ingested_at"], "count": row["count"], "source": row["source_app"]} for row in rows if row["ingested_at"]]
+
         return JSONResponse(content=data)
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/analytics/sankey")
-async def get_analytics_sankey(days: int = 30, source: str = "All", status: str = "Active"):
+async def get_analytics_sankey(days: int = 30, source: str = "all", status: str = "all"):
     try:
         conn = get_db()
         cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT c.name as category, p.name as purpose, COUNT(wa.artifact_id) as val
+
+        where_clauses = []
+        params = []
+
+        if source != 'all':
+            where_clauses.append("(CASE WHEN wa.artifact_id LIKE 'mail_%' THEN 'Gmail' WHEN wa.artifact_id LIKE 'drive_%' THEN 'Drive' ELSE 'Other' END) = ?")
+            params.append(source)
+        if status != 'all':
+            where_clauses.append("wa.status = ?")
+            params.append(status)
+
+        where_clauses.append(f"json_extract(wa.custom_data, '$.document_date') >= date('now', '-{days} days')")
+
+        where_sql = ""
+        if where_clauses:
+            where_sql = "WHERE " + " AND ".join(where_clauses)
+
+        cursor.execute(f"""
+            SELECT 
+                CASE 
+                    WHEN wa.artifact_id LIKE 'mail_%' THEN 'Gmail'
+                    WHEN wa.artifact_id LIKE 'drive_%' THEN 'Drive'
+                    ELSE 'Other'
+                END as source_app,
+                c.name as category, 
+                p.name as purpose, 
+                COUNT(wa.artifact_id) as val
             FROM Workspace_Artifacts wa
             JOIN purposes p ON wa.purpose_id = p.id
             JOIN categories c ON p.category_id = c.id
-            GROUP BY c.name, p.name
-        """)
+            {where_sql}
+            GROUP BY source_app, c.name, p.name
+        """, params)
         rows = cursor.fetchall()
         conn.close()
-        
+
         if not rows:
             return JSONResponse(content={"nodes": [], "links": []})
-            
+
         nodes_set = set()
         links = []
+
         for row in rows:
+            src = row['source_app']
             cat = row['category']
             purp = row['purpose']
             val = row['val']
-            
+
+            if val <= 0: continue
+
+            nodes_set.add(src)
             nodes_set.add(cat)
             nodes_set.add(purp)
-            
-            links.append({
-                "source": cat,
-                "target": purp,
-                "value": val
-            })
-            
-        nodes = [{"id": n} for n in nodes_set]
-        
-        return JSONResponse(content={"nodes": nodes, "links": links})
+
+            links.append({"source": src, "target": cat, "value": val})
+            links.append({"source": cat, "target": purp, "value": val})
+
+        consolidated_links = {}
+        for link in links:
+            key = (link["source"], link["target"])
+            if key not in consolidated_links:
+                consolidated_links[key] = 0
+            consolidated_links[key] += link["value"]
+
+        final_links = [{"source": k[0], "target": k[1], "value": v} for k, v in consolidated_links.items()]
+        final_nodes = [{"id": n} for n in nodes_set]
+
+        return JSONResponse(content={"nodes": final_nodes, "links": final_links})
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
-
 class LegacyLabelExecutionPayload(BaseModel):
     approved_labels: list
 
@@ -1164,6 +1222,20 @@ async def execute_legacy_labels(payload: LegacyLabelExecutionPayload):
     finally:
         conn.close()
 
+@app.get("/api/prompts")
+async def get_prompts():
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT target_app, prompt_text FROM Config_Prompts")
+        rows = cursor.fetchall()
+        conn.close()
+        
+        data = {row["target_app"]: row["prompt_text"] for row in rows}
+        return JSONResponse(content=data)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 @app.post("/api/orchestrator/run-now/{pipeline_name}")
 async def run_pipeline_now(pipeline_name: str, background_tasks: BackgroundTasks):
     import sync_engine
@@ -1182,6 +1254,95 @@ async def run_pipeline_now(pipeline_name: str, background_tasks: BackgroundTasks
         
     background_tasks.add_task(worker)
     return JSONResponse(content={"status": "success", "message": f"{pipeline_name} pipeline initiated in background."})
+
+@app.get("/api/taxonomy/tree")
+async def get_taxonomy_tree():
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT id, name FROM categories")
+        categories = cursor.fetchall()
+        
+        tree = []
+        for cat in categories:
+            cat_dict = dict(cat)
+            cursor.execute("SELECT id, name FROM purposes WHERE category_id = ?", (cat["id"],))
+            purposes = cursor.fetchall()
+            
+            purps_list = []
+            for purp in purposes:
+                p_dict = dict(purp)
+                p_dict["entities"] = []
+                purps_list.append(p_dict)
+                
+            cat_dict["purposes"] = purps_list
+            tree.append(cat_dict)
+            
+        conn.close()
+        return JSONResponse(content=tree)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/api/ingestion/legacy-labels/preview")
+async def legacy_labels_preview():
+    try:
+        from sync_engine import fetch_legacy_gmail_labels
+        from llm_engine import deduplicate_legacy_labels, profile_and_map_entities
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM categories")
+        categories = [row[0] for row in cursor.fetchall()]
+        conn.close()
+
+        raw_labels = fetch_legacy_gmail_labels()
+        deduped = deduplicate_legacy_labels(raw_labels)
+        profiled = profile_and_map_entities(deduped, categories)
+        return JSONResponse(content={"status": "success", "results": profiled})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/api/ingestion/legacy-labels/execute")
+async def legacy_labels_execute(request: Request):
+    try:
+        body = await request.json()
+        payload = body.get("results", [])
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("BEGIN TRANSACTION;")
+        cursor = conn.cursor()
+        
+        cursor.execute("CREATE TABLE IF NOT EXISTS aliases (id INTEGER PRIMARY KEY, entity_id INTEGER, alias TEXT, FOREIGN KEY(entity_id) REFERENCES entities(id))")
+        
+        for item in payload:
+            category = item.get("proposed_category")
+            entity = item.get("canonical_entity_name")
+            alias = item.get("workspace_alias")
+            original_label = item.get("original_label")
+            
+            if not category or not entity:
+                continue
+
+            cursor.execute("INSERT OR IGNORE INTO categories (name) VALUES (?)", (category,))
+            cursor.execute("SELECT id FROM categories WHERE name = ?", (category,))
+            cat_row = cursor.fetchone()
+            if cat_row:
+                cat_id = cat_row[0]
+                cursor.execute("INSERT OR IGNORE INTO entities (category_id, name, workspace_alias, nexus_state) VALUES (?, ?, ?, 'pending')", (cat_id, entity, alias))
+                
+                cursor.execute("SELECT id FROM entities WHERE category_id = ? AND name = ?", (cat_id, entity))
+                ent_row = cursor.fetchone()
+                if ent_row:
+                    ent_id = ent_row[0]
+                    cursor.execute("INSERT INTO aliases (entity_id, alias) VALUES (?, ?)", (ent_id, original_label))
+                
+        conn.execute("COMMIT;")
+        conn.close()
+        return JSONResponse(content={"status": "success", "message": "Execution complete"})
+    except Exception as e:
+        if 'conn' in locals():
+            conn.execute("ROLLBACK;")
+            conn.close()
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 if __name__ == "__main__":
     import uvicorn

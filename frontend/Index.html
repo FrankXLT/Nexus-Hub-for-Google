@@ -207,14 +207,28 @@
                                 </label>
                             </div>
                             
-                            <h4 class="font-bold text-[#023047] mb-3">Bypass Rules <span class="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded ml-2">Future</span></h4>
-                            <div class="bg-white p-4 border border-slate-200 rounded-lg mb-6 opacity-70">
-                                <label class="flex items-center gap-2 mb-2"><input type="checkbox" disabled> Skip SPAM/TRASH labels</label>
-                                <label class="flex items-center gap-2"><input type="checkbox" disabled> Skip internal domains</label>
+                            <h4 class="font-bold text-[#023047] mb-3">Bypass Rules</h4>
+                            <div class="bg-white p-4 border border-[#8ecae6] rounded-lg mb-6">
+                                <label class="flex items-center gap-2 mb-2 text-sm"><input type="checkbox" id="gmail-bypass-promotions" checked> Skip CATEGORY_PROMOTIONS</label>
+                                <label class="flex items-center gap-2 mb-2 text-sm"><input type="checkbox" id="gmail-bypass-forums" checked> Skip CATEGORY_FORUMS</label>
+                                <label class="flex items-center gap-2 mb-2 text-sm"><input type="checkbox" id="gmail-bypass-social" checked> Skip CATEGORY_SOCIAL</label>
+                                <label class="flex items-center gap-2 mb-4 text-sm"><input type="checkbox" id="gmail-bypass-updates"> Skip CATEGORY_UPDATES</label>
+                                
+                                <label class="block text-sm font-bold mb-1">Domain Whitelist (Bypass AI)</label>
+                                <textarea id="gmail-whitelist" class="w-full bg-slate-50 border border-[#8ecae6] rounded p-2 mb-4 text-[#023047] text-sm outline-none focus:ring-2 focus:ring-[#219ebc]"></textarea>
                             </div>
                             
-                            <h4 class="font-bold text-[#023047] mb-3">Master Prompt <span class="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded ml-2">Future</span></h4>
-                            <textarea class="w-full h-32 bg-white border border-slate-200 rounded-lg p-3 text-sm font-mono opacity-70" disabled>You are the Gmail Router...</textarea>
+                            <h4 class="font-bold text-[#023047] mb-3">Master Prompt</h4>
+                            <div class="flex flex-col gap-4">
+                                <div>
+                                    <label class="block text-sm font-bold mb-1">Layer 4: Commercial Profiler</label>
+                                    <textarea id="prompt-profiler-commercial" class="w-full h-32 bg-slate-100 border border-[#8ecae6] rounded-lg p-3 text-sm font-mono outline-none" readonly></textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold mb-1">Layer 5: Taxonomy Classifier</label>
+                                    <textarea id="prompt-classifier" class="w-full h-32 bg-slate-100 border border-[#8ecae6] rounded-lg p-3 text-sm font-mono outline-none" readonly></textarea>
+                                </div>
+                            </div>
                         </div>
                         
                         <!-- Settings Drive -->
