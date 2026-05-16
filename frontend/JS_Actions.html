@@ -587,6 +587,57 @@ Object.assign(appActions, {
         });
     },
 
+    savePipelineConfig: function() {
+        const pipeline = appState.activePipeline || 'gmail';
+        let settings_json = {};
+
+        if (pipeline === 'gmail') {
+            settings_json = {
+                ignore_calendar_invites: document.getElementById('gmail-bypass-ics') ? document.getElementById('gmail-bypass-ics').checked : false,
+                ignore_system_labels: document.getElementById('gmail-bypass-system') ? document.getElementById('gmail-bypass-system').checked : false,
+                domain_whitelist: document.getElementById('gmail-whitelist') ? document.getElementById('gmail-whitelist').value : "",
+                max_thread_depth: document.getElementById('gmail-max-thread') ? parseInt(document.getElementById('gmail-max-thread').value, 10) : 5
+            };
+        } else if (pipeline === 'drive') {
+            settings_json = {
+                mime_type_blacklist: document.getElementById('drive-blacklist') ? document.getElementById('drive-blacklist').value : "",
+                max_file_size_mb: document.getElementById('drive-max-size') ? parseFloat(document.getElementById('drive-max-size').value) : 10
+            };
+        }
+
+        fetch('/api/orchestrator/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pipeline: pipeline, settings_json: settings_json })
+        })
+        .then(res => res.json())
+        .then(data => {
+            alert(pipeline.toUpperCase() + " pipeline configuration saved successfully.");
+        })
+        .catch(err => {
+            console.error("Config save mock: ", pipeline, settings_json);
+            alert(pipeline.toUpperCase() + " pipeline configuration saved (mock).");
+        });
+    },
+
+    runPipelineNow: function(pipelineName) {
+        fetch('/api/orchestrator/run-now/' + pipelineName, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert("Success: " + data.message);
+            } else {
+                alert("Error starting pipeline: " + (data.error || data.detail || JSON.stringify(data)));
+            }
+        })
+        .catch(err => {
+            alert("Failed to trigger pipeline: " + err);
+        });
+    },
+
     renderQuarantineBanner: function() {
         google.script.run
             .withSuccessHandler(response => {

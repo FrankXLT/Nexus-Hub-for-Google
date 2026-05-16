@@ -1055,6 +1055,102 @@ async def get_analytics_sankey(days: int = 30, source: str = "All", status: str 
         conn.close()
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+class LegacyLabelExecutionPayload(BaseModel):
+    approved_labels: list
+
+@app.post("/api/ingestion/legacy-labels/preview")
+async def preview_legacy_labels():
+    try:
+        from sync_engine import fetch_legacy_gmail_labels
+        from llm_engine import deduplicate_legacy_labels, profile_and_map_entities
+        
+        raw_labels = await asyncio.to_thread(fetch_legacy_gmail_labels)
+        deduped_labels = await asyncio.to_thread(deduplicate_legacy_labels, raw_labels)
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM categories")
+        current_categories = [row['name'] for row in cursor.fetchall()]
+        conn.close()
+        
+        final_profiles = await asyncio.to_thread(profile_and_map_entities, deduped_labels, current_categories)
+        
+        return JSONResponse(content={"status": "success", "data": final_profiles})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/api/ingestion/legacy-labels/execute")
+async def execute_legacy_labels(payload: LegacyLabelExecutionPayload):
+    conn = get_db()
+    try:
+        cursor = conn.cursor()
+        conn.execute("BEGIN TRANSACTION;")
+        
+        for item in payload.approved_labels:
+            if isinstance(item, dict):
+                original_label = item.get("original_label")
+                canonical_entity_name = item.get("canonical_entity_name")
+                workspace_alias = item.get("workspace_alias")
+                proposed_category = item.get("proposed_category")
+            else:
+                continue
+                
+            if not all([original_label, canonical_entity_name, proposed_category]):
+                continue
+                
+            # Insert or get category
+            cursor.execute("SELECT id FROM categories WHERE name = ?", (proposed_category,))
+            cat_row = cursor.fetchone()
+            if cat_row:
+                cat_id = cat_row['id']
+            else:
+                cursor.execute("INSERT INTO categories (name) VALUES (?)", (proposed_category,))
+                cat_id = cursor.lastrowid
+                
+            # Insert entity
+            cursor.execute("SELECT id FROM entities WHERE name = ?", (canonical_entity_name,))
+            ent_row = cursor.fetchone()
+            if ent_row:
+                ent_id = ent_row['id']
+            else:
+                cursor.execute(
+                    "INSERT INTO entities (category_id, name, workspace_alias, nexus_state) VALUES (?, ?, ?, 'active')", 
+                    (cat_id, canonical_entity_name, workspace_alias)
+                )
+                ent_id = cursor.lastrowid
+                
+            # Insert alias
+            cursor.execute("SELECT id FROM aliases WHERE alias_string = ?", (original_label,))
+            if not cursor.fetchone():
+                cursor.execute("INSERT INTO aliases (alias_string, entity_id) VALUES (?, ?)", (original_label, ent_id))
+                
+        conn.execute("COMMIT;")
+        return JSONResponse(content={"status": "success", "message": "Legacy labels migrated successfully."})
+    except Exception as e:
+        conn.execute("ROLLBACK;")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+    finally:
+        conn.close()
+
+@app.post("/api/orchestrator/run-now/{pipeline_name}")
+async def run_pipeline_now(pipeline_name: str, background_tasks: BackgroundTasks):
+    import sync_engine
+    if pipeline_name == 'gmail':
+        worker = getattr(sync_engine, 'sync_gmail', None)
+    elif pipeline_name == 'drive':
+        worker = getattr(sync_engine, 'sync_drive', None)
+    elif pipeline_name == 'contacts':
+        worker = getattr(sync_engine, 'sync_contacts', None)
+    else:
+        # Fallback or general sync
+        worker = getattr(sync_engine, f'sync_{pipeline_name}', None)
+        
+    if not worker:
+        return JSONResponse(status_code=400, content={"error": f"Unknown pipeline: {pipeline_name}"})
+        
+    background_tasks.add_task(worker)
+    return JSONResponse(content={"status": "success", "message": f"{pipeline_name} pipeline initiated in background."})
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

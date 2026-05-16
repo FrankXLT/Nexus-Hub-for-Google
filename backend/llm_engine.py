@@ -711,6 +711,61 @@ if __name__ == "__main__":
     print("Nexus LLM Engine initialized.")
 
 
+def deduplicate_legacy_labels(raw_labels: list) -> list:
+    """
+    Uses Gemini to lexically deduplicate a list of raw legacy labels.
+    """
+    with open(os.path.join("DEFAULTS", "deduplicate_legacy_labels.tmpl"), "r", encoding="utf-8") as f:
+        prompt = f.read()
+    
+    context = json.dumps(raw_labels)
+    result, _ = call_gemini(prompt, context)
+    
+    if isinstance(result, list):
+        return result
+    elif isinstance(result, dict) and 'labels' in result:
+        return result['labels']
+    elif isinstance(result, dict):
+        for val in result.values():
+            if isinstance(val, list):
+                return val
+    return []
+
+def profile_and_map_entities(cleaned_labels: list, current_categories: list) -> list:
+    """
+    Profiles deduplicated labels in batches using Search Grounding and maps them to categories.
+    """
+    client = get_genai_client()
+    with open(os.path.join("DEFAULTS", "profile_and_map_entities.tmpl"), "r", encoding="utf-8") as f:
+        prompt = f.read().replace("[CURRENT_CATEGORIES]", json.dumps(current_categories))
+
+    all_results = []
+    for i in range(0, len(cleaned_labels), 10):
+        batch = cleaned_labels[i:i+10]
+        context = json.dumps(batch)
+        
+        try:
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=[prompt, context],
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    tools=[{"google_search_retrieval": {}}]
+                ),
+            )
+            batch_result = json.loads(response.text)
+            if isinstance(batch_result, list):
+                all_results.extend(batch_result)
+            elif isinstance(batch_result, dict):
+                for k, v in batch_result.items():
+                    if isinstance(v, list):
+                        all_results.extend(v)
+                        break
+        except Exception as e:
+            logger.error(f"Error in profile_and_map_entities batch: {e}")
+            
+    return all_results
+
 # ---------------------------------------------------------------------------
 # Zero Trust AI Service Layer
 # ---------------------------------------------------------------------------

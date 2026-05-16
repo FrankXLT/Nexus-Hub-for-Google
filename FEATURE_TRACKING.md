@@ -11,8 +11,6 @@
   - *Core Objective:* Break the hard dependency on the Google Workspace API by implementing a standard IMAP client within the Python backend, allowing Nexus to ingest unstructured communications from any standard email provider.
 
 ## Epic: Data Migration & Archival
-- [ ] **Legacy Label Migration**
-  - *Concept:* Implement a pipeline to migrate and normalize legacy Gmail labels and Drive directory structures into the Nexus Zero Trust taxonomy.
 - [ ] **Hierarchical Archive Ingestion**
   - *Concept:* Securely ingest and process deeply nested archive structures (e.g., historical local backups, nested Drive folders) while preserving parent-child context and entity relationships.
 

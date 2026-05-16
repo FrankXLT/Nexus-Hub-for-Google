@@ -261,6 +261,10 @@
                     
                     <!-- Permanent Bottom Section -->
                     <div class="p-6 border-t border-[#8ecae6]/50 bg-slate-100 shrink-0">
+                        <div class="flex gap-4 mb-4">
+                            <button onclick="appActions.savePipelineConfig()" class="flex-1 py-2 bg-[#219ebc] hover:bg-[#023047] text-white font-bold rounded shadow transition-colors">Save Pipeline Config</button>
+                            <button onclick="appActions.runPipelineNow(appState.activePipeline || 'gmail')" class="flex-1 py-2 bg-white border border-[#219ebc] text-[#219ebc] hover:bg-[#219ebc] hover:text-white font-bold rounded shadow-sm transition-colors">Run Pipeline Now</button>
+                        </div>
                         <div class="flex items-center justify-between bg-white p-4 border border-red-200 rounded-lg shadow-sm">
                             <div>
                                 <h4 class="font-bold text-red-700 flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg> Simulation & Debug Engine</h4>
@@ -338,6 +342,16 @@
         </div>
 
         <div id="workspace-drawer" class="fixed top-0 right-0 w-80 h-full bg-white border-l border-[#8ecae6]/50 shadow-2xl transform translate-x-full transition-transform duration-300 z-50"></div>
+        <div id="zt-drawer" class="fixed top-0 right-0 w-80 h-full bg-white border-l border-[#8ecae6]/50 shadow-2xl transform translate-x-full transition-transform duration-300 z-50"></div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: false, theme: 'default' });</script>
+
+    <?!= HtmlService.createHtmlOutputFromFile('JS_State').getContent(); ?>
+    <?!= HtmlService.createHtmlOutputFromFile('JS_Actions').getContent(); ?>
+</body>
+</html>n-300 z-50"></div>
         <div id="zt-drawer" class="fixed top-0 right-0 w-80 h-full bg-white border-l border-[#8ecae6]/50 shadow-2xl transform translate-x-full transition-transform duration-300 z-50"></div>
     </main>
 

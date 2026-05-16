@@ -881,6 +881,29 @@ if __name__ == "__main__":
     run_sync()
 
 
+def fetch_legacy_gmail_labels() -> list:
+    """
+    Fetches all legacy custom user labels from Gmail.
+    """
+    from auth import authenticate
+    from googleapiclient.discovery import build
+    
+    creds = authenticate()
+    service = build('gmail', 'v1', credentials=creds)
+    
+    results = service.users().labels().list(userId='me').execute()
+    labels = results.get('labels', [])
+    
+    system_labels = {'CATEGORY_PROMOTIONS', 'CATEGORY_UPDATES', 'CATEGORY_SOCIAL', 'CATEGORY_FORUMS', 'CATEGORY_PERSONAL', 'SENT', 'INBOX', 'TRASH', 'SPAM', 'DRAFT', 'UNREAD', 'STARRED', 'IMPORTANT', 'CHAT'}
+    
+    custom_labels = []
+    for label in labels:
+        name = label.get('name', '')
+        if label.get('type') == 'user' and name.upper() not in system_labels:
+            custom_labels.append(name)
+            
+    return custom_labels
+
 # ---------------------------------------------------------------------------
 # Zero Trust Ingestion Pipelines
 # ---------------------------------------------------------------------------
