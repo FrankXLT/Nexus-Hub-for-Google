@@ -4,6 +4,18 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.1.5] - 2026-05-16
+### Changed
+- **Layer 7:** Updated Mermaid.js flows in Orchestrator UI (`JS_Actions.html`) to accurately reflect the 7-Layer Array Batching architecture.
+
+## [v1.1.4] - 2026-05-16
+### Changed
+- **Layer 7:** Fixed ES6 'const' redeclaration crash by changing `appState` and `appActions` to `var` in `JS_State.html` and `JS_Actions.html`.
+- **Layer 7:** Removed duplicate inclusions of script files from the bottom of `Index.html`.
+### Added
+- **Layer 2:** Implemented `GET /api/analytics/heatmap` telemetry route querying `Artifact_History` to return temporal data.
+- **Layer 2:** Implemented `GET /api/analytics/sankey` telemetry route mapping the flow from category to purpose across `Workspace_Artifacts`.
+
 ## [v1.1.3] - 2026-05-16
 ### Added
 - **Layer 2:** Added `POST /api/orchestrator/run-now/{pipeline_name}` endpoint in `main.py` utilizing `fastapi.BackgroundTasks` to manually trigger synchronous sync engine workers.

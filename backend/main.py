@@ -1021,38 +1021,70 @@ async def simulate_orchestrator(payload: SimulatePayload):
         
     return {"status": "success", "trace": trace_output}
 
+@app.get("/api/analytics/heatmap")
+async def get_analytics_heatmap(days: int = 60, source: str = "All", status: str = "Active"):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT date(ah.timestamp, 'unixepoch') as day, COUNT(*) as count
+            FROM Artifact_History ah
+            JOIN Workspace_Artifacts wa ON ah.artifact_id = wa.artifact_id
+            GROUP BY day
+            ORDER BY day ASC
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+        
+        if not rows:
+            return JSONResponse(content=[])
+            
+        data = [{"date": row["day"], "count": row["count"]} for row in rows]
+        
+        return JSONResponse(content=data)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 @app.get("/api/analytics/sankey")
 async def get_analytics_sankey(days: int = 30, source: str = "All", status: str = "Active"):
-    # Return standard nodes/links JSON. "Query the flow of artifacts from source_app -> category -> purpose."
-    # We will return dummy links for now if the join is too complex to write blindly, but the prompt says "Query the flow".
-    conn = get_db()
-    cursor = conn.cursor()
-    
-    # Assuming standard tables: Workspace_Artifacts, purposes, categories
-    # The flow is usually: Source App -> Category -> Purpose
     try:
-        # We need to construct the links.
-        links = []
+        conn = get_db()
+        cursor = conn.cursor()
         
-        # Mocking the query logic as we don't have the exact schema mapping guaranteed for source_app in the purposes join.
-        # Let's generate a realistic response.
-        links = [
-            {"source": "Gmail", "target": "Commercial", "value": 150},
-            {"source": "Gmail", "target": "Personal", "value": 45},
-            {"source": "Drive", "target": "System", "value": 20},
-            {"source": "Commercial", "target": "Receipt / Invoice", "value": 100},
-            {"source": "Commercial", "target": "Newsletter", "value": 50},
-            {"source": "Personal", "target": "Planning", "value": 45}
-        ]
+        cursor.execute("""
+            SELECT c.name as category, p.name as purpose, COUNT(wa.artifact_id) as val
+            FROM Workspace_Artifacts wa
+            JOIN purposes p ON wa.purpose_id = p.id
+            JOIN categories c ON p.category_id = c.id
+            GROUP BY c.name, p.name
+        """)
+        rows = cursor.fetchall()
+        conn.close()
         
-        # If filtering by source:
-        if source != "All":
-            links = [l for l in links if source.lower() in l['source'].lower() or source.lower() in l['target'].lower()]
+        if not rows:
+            return JSONResponse(content={"nodes": [], "links": []})
             
-        conn.close()
-        return JSONResponse(content=links)
+        nodes_set = set()
+        links = []
+        for row in rows:
+            cat = row['category']
+            purp = row['purpose']
+            val = row['val']
+            
+            nodes_set.add(cat)
+            nodes_set.add(purp)
+            
+            links.append({
+                "source": cat,
+                "target": purp,
+                "value": val
+            })
+            
+        nodes = [{"id": n} for n in nodes_set]
+        
+        return JSONResponse(content={"nodes": nodes, "links": links})
     except Exception as e:
-        conn.close()
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 class LegacyLabelExecutionPayload(BaseModel):

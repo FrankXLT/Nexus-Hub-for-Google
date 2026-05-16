@@ -1,5 +1,5 @@
 <script>
-const appActions = {
+var appActions = {
     init: function() {
         this.renderVQB();
         this.renderSankey();
@@ -438,32 +438,36 @@ Object.assign(appActions, {
             classDef check fill:#ffffff,stroke:#fb8500,stroke-width:2px,color:#023047,font-family:sans-serif,rx:6px,ry:6px
             classDef ai fill:#ffffff,stroke:#fb8500,stroke-width:3px,stroke-dasharray: 5 5,color:#023047,font-family:sans-serif,rx:6px,ry:6px
 
-            A(["Gmail API Polling Interval"]):::default --> B{"Bypass Labels?"}:::check
+            A(["Gmail API Polling"]):::default --> B{"Matches Bypass Rules?"}:::check
             B -- Yes --> C["Ignore/Skip"]:::default
-            B -- No --> D["Extract Domain & Metadata"]:::default
-            D --> E{"Domain Known?"}:::check
-            E -- No --> F["Agent Profiler\n(Search Grounded)"]:::ai
-            E -- Yes --> G["Agent Classifier\n(Purpose Only)"]:::ai
-            F --> H["Agent Classifier\n(Full Context)"]:::ai
-            G --> I["Write to Quarantine Queue"]:::default
-            H --> I
-            I --> J(["Flag as nexus-processed"]):::default`;
+            B -- No --> D["Layer 2: Array Batching"]:::default
+            D --> E["Group by Sender/Domain"]:::default
+            E --> F["Layer 4: Agent Profiler"]:::ai
+            F -.->|Search Grounded| F
+            F --> G["Layer 5: Agent Classifier"]:::ai
+            G --> H{"Confidence > Threshold?"}:::check
+            H -- Yes --> I["Layer 6: Apply Labels & Move"]:::default
+            H -- No --> J["Layer 3: Quarantine Queue"]:::default
+            I --> K(["Flag as nexus-processed"]):::default
+            J --> K`;
 
         this.driveGraphDef = `flowchart TB
             classDef default fill:#ffffff,stroke:#219ebc,stroke-width:2px,color:#023047,font-family:sans-serif,rx:6px,ry:6px
             classDef check fill:#ffffff,stroke:#fb8500,stroke-width:2px,color:#023047,font-family:sans-serif,rx:6px,ry:6px
             classDef ai fill:#ffffff,stroke:#fb8500,stroke-width:3px,stroke-dasharray: 5 5,color:#023047,font-family:sans-serif,rx:6px,ry:6px
 
-            A(["Drive API Polling Interval"]):::default --> B{"Bypass Folders?"}:::check
+            A(["Drive API Polling"]):::default --> B{"Matches Bypass Rules?"}:::check
             B -- Yes --> C["Ignore/Skip"]:::default
-            B -- No --> D["Extract OCR Text & Owner"]:::default
-            D --> E{"Owner Entity Known?"}:::check
-            E -- No --> F["Agent Profiler\n(Search Grounded)"]:::ai
-            E -- Yes --> G["Agent Classifier\n(Purpose Only)"]:::ai
-            F --> H["Agent Classifier\n(Full Context)"]:::ai
-            G --> I["Write to Quarantine Queue"]:::default
-            H --> I
-            I --> J(["Flag as nexus-processed"]):::default`;
+            B -- No --> D["Extract OCR & Owner"]:::default
+            D --> E["Layer 2: Array Batching"]:::default
+            E --> F["Layer 4: Agent Profiler"]:::ai
+            F -.->|Hierarchy Mapping| F
+            F --> G["Layer 5: Agent Classifier"]:::ai
+            G --> H{"Confidence > Threshold?"}:::check
+            H -- Yes --> I["Layer 6: Move to Folder"]:::default
+            H -- No --> J["Layer 3: Quarantine Queue"]:::default
+            I --> K(["Flag as nexus-processed"]):::default
+            J --> K`;
 
         appState.activePipeline = 'gmail';
         this.switchOrchestratorTab('gmail');
