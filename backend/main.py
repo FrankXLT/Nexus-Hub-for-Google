@@ -999,35 +999,31 @@ class SimulatePayload(BaseModel):
 @app.post("/api/orchestrator/simulate")
 async def simulate_orchestrator(payload: SimulatePayload):
     import io
-    import logging
+    from contextlib import redirect_stdout
     
     conn = get_db()
     conn.execute("BEGIN TRANSACTION")
     
-    log_stream = io.StringIO()
-    handler = logging.StreamHandler(log_stream)
-    
-    logger = logging.getLogger('sync_engine')
-    logger.addHandler(handler)
-    logger.setLevel(logging.DEBUG)
-    
+    f = io.StringIO()
     try:
         import sync_engine
-        if payload.pipeline == "gmail":
-            sync_engine.sync_gmail_pipeline(payload.artifact_id, {"sender": "Simulated", "subject": "Sim", "snippet": "Sim"}, conn)
-        elif payload.pipeline == "drive":
-            sync_engine.sync_drive_pipeline(payload.artifact_id, "Simulated OCR Text", conn)
+        with redirect_stdout(f):
+            if payload.pipeline == "gmail":
+                sync_engine.sync_gmail_pipeline(payload.artifact_id, {"sender": "Simulated", "subject": "Sim", "snippet": "Sim"}, conn)
+            elif payload.pipeline == "drive":
+                sync_engine.sync_drive_pipeline(payload.artifact_id, "Simulated OCR Text", conn)
         
         # Rollback to prevent actual changes
         conn.rollback()
     except Exception as e:
         conn.rollback()
-        log_stream.write(f"\\nError: {e}")
+        f.write(f"\nSimulation Error: {e}")
     finally:
-        logger.removeHandler(handler)
         conn.close()
     
-    trace_output = log_stream.getvalue()
+    trace_output = f.getvalue()
+>>>>+++ REPLACE
+
     
     # Save trace to Drive
     try:
@@ -1314,6 +1310,27 @@ async def get_taxonomy_tree():
 
 
 
+@app.get("/api/telemetry/pulse")
+async def get_pulse_telemetry():
+    """Returns fast counts from the local database for the sidebar ticker."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        stats = {
+            "emails": cursor.execute("SELECT COUNT(*) FROM entities WHERE category_id IN (SELECT id FROM categories)").fetchone()[0],
+            "docs": 0, # Placeholder for future Drive entities
+            "contacts": cursor.execute("SELECT COUNT(*) FROM aliases").fetchone()[0], 
+            "quarantine": cursor.execute("SELECT COUNT(*) FROM entities WHERE nexus_state = 'quarantine'").fetchone()[0]
+        }
+        
+        conn.close()
+        return JSONResponse(content=stats)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+>>>>+++ REPLACE
+

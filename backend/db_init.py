@@ -127,26 +127,21 @@ def init_db(db_path: str = DB_PATH) -> None:
             FOREIGN KEY (parent_entity_id) REFERENCES entities (id)
         );
     """)
-    try:
-        cursor.execute("ALTER TABLE entities ADD COLUMN nexus_state TEXT DEFAULT 'active';")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cursor.execute("ALTER TABLE entities ADD COLUMN workspace_alias TEXT DEFAULT NULL;")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cursor.execute("ALTER TABLE entities ADD COLUMN show_in_gmail_nav BOOLEAN DEFAULT 1;")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cursor.execute("ALTER TABLE entities ADD COLUMN show_in_gmail_msg BOOLEAN DEFAULT 1;")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cursor.execute("ALTER TABLE entities ADD COLUMN use_in_drive_structure BOOLEAN DEFAULT 1;")
-    except sqlite3.OperationalError:
-        pass
+    # Idempotent column additions for entities
+    cols_to_add = [
+        ("nexus_state", "TEXT DEFAULT 'active'"),
+        ("workspace_alias", "TEXT DEFAULT NULL"),
+        ("show_in_gmail_nav", "BOOLEAN DEFAULT 1"),
+        ("show_in_gmail_msg", "BOOLEAN DEFAULT 1"),
+        ("use_in_drive_structure", "BOOLEAN DEFAULT 1")
+    ]
+    for col_name, col_def in cols_to_add:
+        try:
+            cursor.execute(f"ALTER TABLE entities ADD COLUMN {col_name} {col_def};")
+        except sqlite3.OperationalError:
+            pass # Column already exists
+>>>>+++ REPLACE
+
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS aliases (

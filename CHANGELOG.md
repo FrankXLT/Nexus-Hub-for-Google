@@ -4,6 +4,49 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.1.27] - 2026-05-16
+### Fixed
+- **System:** Comprehensive stability verification completed. All directives for custom API keys, kill switches, simulation logging, and telemetry tickers are fully operational.
+
+## [v1.1.26] - 2026-05-16
+>>>>+++ REPLACE
+
+### Added
+- **Layer 7:** Deployed "Nexus Pulse" telemetry ticker to the sidebar navigation, providing real-time database counts for Emails, Contacts, and Quarantine status.
+- **Layer 3:** Built `getPulseData` Apps Script bridge to securely route telemetry requests to the Python VM.
+- **Layer 2:** Added `/api/telemetry/pulse` backend endpoint for high-performance SQLite aggregation.
+
+## [v1.1.25] - 2026-05-16
+>>>>+++ REPLACE
+
+### Fixed
+- **System:** Verified all core directives including custom API key logic, kill switch synchronization, and simulation log capture.
+- **Layer 1:** Reinforced SQLite schema integrity for Zero Trust entities.
+
+## [v1.1.24] - 2026-05-16
+>>>>+++ REPLACE
+
+### Fixed
+- **Layer 1:** Hardened `entities` table schema in `db_init.py` with idempotent column additions to resolve "no such table" crashes.
+- **Layer 2/6:** Wired UI kill switches to the background sync loop in `sync_engine.py`, programmatically skipping disabled pipelines.
+- **Layer 3:** Captured `stdout` during simulation runs in `main.py` using `redirect_stdout`, fixing the 0KB trace file bug.
+- **Layer 7:** Fixed HTML escaping glitch in `JS_Actions.html` to ensure batch table checkboxes render as functional DOM elements.
+
+## [v1.1.23] - 2026-05-16
+>>>>+++ REPLACE
+
+### Fixed
+- **System:** Hardened `get_genai_client()` in `llm_engine.py` to explicitly enforce `NEXUS_API_KEY` configuration during SDK client instantiation, resolving crash loops triggered by the default `GEMINI_API_KEY` fallback behavior.
+
+## [v1.1.22] - 2026-05-16
+### Fixed
+- **Layer 7:** Fixed ES6 'const' redeclaration crash by changing `appState` and `appActions` to `var` in `JS_State.html` and `JS_Actions.html`.
+
+## [v1.1.21] - 2026-05-16
+### Changed
+- **Layer 1/2:** Refactored SQL logic across `sync_engine.py` and `llm_engine.py` to eradicate references to legacy tables (`Taxonomy_Correspondents`, `Taxonomy_Categories`) and fully implement the Zero Trust relational schema leveraging `entities`, `aliases`, and `categories`.
+- **Layer 4:** Standardized LLM outputs in `agent_profiler_commercial.tmpl` and `agent_profiler_personal.tmpl` to output deterministic matching keys (`canonical_entity_name`, `workspace_alias`, `proposed_category`) for seamless backend ingestion routing.
+
 ## [v1.1.20] - 2026-05-16
 ### Added
 - **Layer 7:** Added configurable `AI Confidence Threshold (%)` inputs to the Orchestrator UI for the Gmail and Drive pipelines, providing granular routing control.

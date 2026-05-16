@@ -634,3 +634,18 @@ function getQuarantineQueue() {
     return { success: false, error: error.message };
   }
 }
+
+/**
+ * Purpose: Fetches lightning-fast counts for the sidebar "Nexus Pulse" ticker.
+ * Expected Outputs: Object - Counts for emails, contacts, and quarantine.
+ */
+function getPulseData() {
+  try {
+    const result = sendToNexusVM("/api/telemetry/pulse", {}, 'get');
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+>>>>+++ REPLACE
+

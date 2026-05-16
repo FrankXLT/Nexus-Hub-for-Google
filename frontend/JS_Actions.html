@@ -711,9 +711,12 @@ Object.assign(appActions, {
     savePipelineConfig: function() {
         const pipeline = appState.activePipeline || 'gmail';
         let settings_json = {};
+        let is_enabled = false;
 
         if (pipeline === 'gmail') {
+            is_enabled = document.getElementById('toggle-ingest-gmail') ? document.getElementById('toggle-ingest-gmail').checked : false;
             settings_json = {
+                enabled: is_enabled,
                 ai_confidence_threshold: document.getElementById('threshold-gmail') ? parseInt(document.getElementById('threshold-gmail').value, 10) : 80,
                 ignore_calendar_invites: document.getElementById('gmail-bypass-ics') ? document.getElementById('gmail-bypass-ics').checked : false,
                 ignore_system_labels: document.getElementById('gmail-bypass-system') ? document.getElementById('gmail-bypass-system').checked : false,
@@ -721,27 +724,34 @@ Object.assign(appActions, {
                 max_thread_depth: document.getElementById('gmail-max-thread') ? parseInt(document.getElementById('gmail-max-thread').value, 10) : 5
             };
         } else if (pipeline === 'drive') {
+            is_enabled = document.getElementById('toggle-ingest-drive') ? document.getElementById('toggle-ingest-drive').checked : false;
             settings_json = {
+                enabled: is_enabled,
                 ai_confidence_threshold: document.getElementById('threshold-drive') ? parseInt(document.getElementById('threshold-drive').value, 10) : 80,
                 mime_type_blacklist: document.getElementById('drive-blacklist') ? document.getElementById('drive-blacklist').value : "",
                 max_file_size_mb: document.getElementById('drive-max-size') ? parseFloat(document.getElementById('drive-max-size').value) : 10
             };
+        } else if (pipeline === 'contacts') {
+            is_enabled = document.getElementById('toggle-ingest-contacts') ? document.getElementById('toggle-ingest-contacts').checked : false;
+            settings_json = { enabled: is_enabled };
         }
 
-        fetch('/api/orchestrator/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pipeline: pipeline, settings_json: settings_json })
-        })
-        .then(res => res.json())
-        .then(data => {
-            alert(pipeline.toUpperCase() + " pipeline configuration saved successfully.");
-        })
-        .catch(err => {
-            console.error("Config save mock: ", pipeline, settings_json);
-            alert(pipeline.toUpperCase() + " pipeline configuration saved (mock).");
-        });
+        google.script.run
+            .withSuccessHandler(response => {
+                if (response && response.success) {
+                    alert(pipeline.toUpperCase() + " pipeline configuration saved successfully.");
+                } else {
+                    alert("Error saving " + pipeline.toUpperCase() + " config: " + (response ? response.error : "Unknown"));
+                }
+            })
+            .withFailureHandler(err => {
+                console.error("Failed to save config:", err);
+                alert("RPC Failed: " + (err.message || err));
+            })
+            .savePipelineConfig({ pipeline: pipeline, is_enabled: is_enabled, settings_json: JSON.stringify(settings_json) });
     },
+>>>>+++ REPLACE
+
 
     runPipelineNow: function(pipelineName) {
         google.script.run
@@ -842,8 +852,31 @@ Object.assign(appActions, {
         document.getElementById('taxonomy-mode-label').innerText = `(Global X-Ray)`;
         document.getElementById('btn-clear-filter').classList.add('hidden');
         this.loadZeroTrustFlow();
+    },
+
+    loadPulseTicker: function() {
+        const fetchPulse = () => {
+            google.script.run
+                .withSuccessHandler((response) => {
+                    if (response.success && response.data) {
+                        const elEmails = document.getElementById('pulse-emails');
+                        const elContacts = document.getElementById('pulse-contacts');
+                        const elQuar = document.getElementById('pulse-quarantine');
+                        
+                        if(elEmails) elEmails.innerText = response.data.emails.toLocaleString();
+                        if(elContacts) elContacts.innerText = response.data.contacts.toLocaleString();
+                        if(elQuar) elQuar.innerText = response.data.quarantine.toLocaleString();
+                    }
+                })
+                .getPulseData();
+        };
+        
+        fetchPulse(); // Initial load
+        setInterval(fetchPulse, 60000); // Refresh every 60 seconds
     }
 });
+>>>>+++ REPLACE
+
 
 document.addEventListener('DOMContentLoaded', () => {
     appActions.init();

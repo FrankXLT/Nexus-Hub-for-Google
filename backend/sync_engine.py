@@ -901,9 +901,32 @@ def run_sync() -> None:
         governor = QuotaGovernor(conn)
         
         ingest_taxonomy_seed(creds, conn, governor)
-        sync_contacts(creds, conn, governor)
-        sync_drive(creds, conn, governor)
-        sync_gmail(creds, conn, governor)
+        
+        cursor = conn.cursor()
+        
+        # Check Kill Switches
+        cursor.execute("SELECT is_enabled FROM pipeline_config WHERE pipeline_name = 'contacts'")
+        c_row = cursor.fetchone()
+        if not c_row or c_row['is_enabled']:
+            sync_contacts(creds, conn, governor)
+        else:
+            print("Kill Switch: Contacts pipeline is disabled.")
+
+        cursor.execute("SELECT is_enabled FROM pipeline_config WHERE pipeline_name = 'drive'")
+        d_row = cursor.fetchone()
+        if not d_row or d_row['is_enabled']:
+            sync_drive(creds, conn, governor)
+        else:
+            print("Kill Switch: Drive pipeline is disabled.")
+
+        cursor.execute("SELECT is_enabled FROM pipeline_config WHERE pipeline_name = 'gmail'")
+        g_row = cursor.fetchone()
+        if not g_row or g_row['is_enabled']:
+            sync_gmail(creds, conn, governor)
+        else:
+            print("Kill Switch: Gmail pipeline is disabled.")
+>>>>+++ REPLACE
+
         
         # Process historical ingestion queue
         cursor = conn.cursor()
@@ -1078,8 +1101,13 @@ def sync_gmail_pipeline(artifact_id: str, email_context: Dict[str, Any], conn: s
     # 2. Extract Metadata
     sender = email_context.get('sender')
     
-    # 3. Check entities table
-    cursor.execute("SELECT id, name FROM entities WHERE name = ?", (sender,))
+    # 3. Check entities table via aliases
+    cursor.execute("""
+        SELECT e.id, e.name, e.workspace_alias, e.nexus_state 
+        FROM aliases a 
+        JOIN entities e ON a.entity_id = e.id 
+        WHERE a.alias_string = ?
+    """, (sender,))
     entity = cursor.fetchone()
     
     from llm_engine import run_agent_classifier, run_agent_profiler
@@ -1088,6 +1116,30 @@ def sync_gmail_pipeline(artifact_id: str, email_context: Dict[str, Any], conn: s
         result = run_agent_classifier(json.dumps(email_context), entity_known=True)
     else:
         profile = run_agent_profiler(sender, is_personal=False, context=json.dumps(email_context))
+        if profile:
+            entity_name = profile.get('canonical_entity_name', sender)
+            workspace_alias = profile.get('workspace_alias')
+            proposed_category = profile.get('proposed_category', 'Uncategorized')
+            
+            cursor.execute("SELECT id FROM categories WHERE name = ?", (proposed_category,))
+            cat_row = cursor.fetchone()
+            if cat_row:
+                cat_id = cat_row['id']
+            else:
+                cursor.execute("INSERT INTO categories (name) VALUES (?)", (proposed_category,))
+                cat_id = cursor.lastrowid
+                
+            cursor.execute("""
+                INSERT INTO entities (category_id, name, workspace_alias, nexus_state) 
+                VALUES (?, ?, ?, 'pending')
+            """, (cat_id, entity_name, workspace_alias))
+            ent_id = cursor.lastrowid
+            
+            try:
+                cursor.execute("INSERT INTO aliases (alias_string, entity_id) VALUES (?, ?)", (sender, ent_id))
+            except sqlite3.IntegrityError:
+                pass
+
         result = run_agent_classifier(json.dumps(email_context))
         
     # Fetch Configured Threshold
@@ -1124,15 +1176,46 @@ def sync_drive_pipeline(artifact_id: str, ocr_text: str, conn: sqlite3.Connectio
     from llm_engine import run_agent_classifier, run_agent_profiler
     
     profile = run_agent_profiler(ocr_text, is_personal=False, context=ocr_text)
-    sender = profile.get('company_name') if profile else None
+    sender = profile.get('canonical_entity_name') if profile else None
     
-    cursor.execute("SELECT id, name FROM entities WHERE name = ?", (sender,))
-    entity = cursor.fetchone()
+    if sender:
+        cursor.execute("""
+            SELECT e.id, e.name, e.workspace_alias, e.nexus_state 
+            FROM aliases a 
+            JOIN entities e ON a.entity_id = e.id 
+            WHERE a.alias_string = ?
+        """, (sender,))
+        entity = cursor.fetchone()
+    else:
+        entity = None
     
     if entity:
         logger.info(f"Entity Known: {entity['name']}. Executing Purpose-Only AI Evaluation.")
         result = run_agent_classifier(ocr_text, entity_known=True)
     else:
+        if profile and sender:
+            workspace_alias = profile.get('workspace_alias')
+            proposed_category = profile.get('proposed_category', 'Uncategorized')
+            
+            cursor.execute("SELECT id FROM categories WHERE name = ?", (proposed_category,))
+            cat_row = cursor.fetchone()
+            if cat_row:
+                cat_id = cat_row['id']
+            else:
+                cursor.execute("INSERT INTO categories (name) VALUES (?)", (proposed_category,))
+                cat_id = cursor.lastrowid
+                
+            cursor.execute("""
+                INSERT INTO entities (category_id, name, workspace_alias, nexus_state) 
+                VALUES (?, ?, ?, 'pending')
+            """, (cat_id, sender, workspace_alias))
+            ent_id = cursor.lastrowid
+            
+            try:
+                cursor.execute("INSERT INTO aliases (alias_string, entity_id) VALUES (?, ?)", (sender, ent_id))
+            except sqlite3.IntegrityError:
+                pass
+
         result = run_agent_classifier(ocr_text)
         
     # Fetch Configured Threshold

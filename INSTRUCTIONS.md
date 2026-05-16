@@ -155,14 +155,14 @@ URL: https://script.google.com/macros/s/[REDACTED_DEPLOY_ID]/exec
 
 *** ACTION REQUIRED: shared/.env FILE MISSING ***
 NEXUS_HMAC_SECRET (type a highly unique, secure passphrase): [YOUR_SUPER_SECRET_PASSPHRASE]
-NEXUS_API_KEY (Your Gemini API Key): [YOUR_GEMINI_API_KEY]
+NEXUS_API_KEY (Your Primary Gemini API Key): [YOUR_GEMINI_API_KEY]
 shared/.env file generated successfully.
 ```
 
 ### 🛑 Action Required: Environment Variables
 The first time you deploy, you will be prompted to create your \`.env\` file. 
 * **NEXUS_HMAC_SECRET:** Create a long, secure passphrase. This acts as the password between your Apps Script frontend and your Linux backend.
-* **NEXUS_API_KEY:** Paste your Gemini API key here.
+* **NEXUS_API_KEY:** Paste your primary Gemini API key here. This custom key is used explicitly by the LLM Engine.
 
 ```powershell
 [VM] 1. Preparing directories...

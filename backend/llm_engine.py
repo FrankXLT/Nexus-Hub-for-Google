@@ -53,17 +53,21 @@ def fetch_active_prompt(prompt_key: str) -> str:
 
 def get_genai_client() -> genai.Client:
     """
-    Initializes the Gemini client, expecting GEMINI_API_KEY in the environment.
+    Initializes the Gemini client, explicitly using NEXUS_API_KEY from environment.
     
     Returns:
         genai.Client: An initialized Google GenAI SDK client.
         
     Raises:
-        ValueError: If the 'GEMINI_API_KEY' environment variable is not defined.
+        ValueError: If the 'NEXUS_API_KEY' environment variable is not defined or empty.
     """
-    if not os.environ.get("GEMINI_API_KEY"):
-        raise ValueError("GEMINI_API_KEY environment variable is not set.")
-    return genai.Client()
+    api_key = os.getenv("NEXUS_API_KEY")
+    if not api_key:
+        logger.error("CRITICAL: NEXUS_API_KEY environment variable is missing or empty. LLM Engine cannot proceed.")
+        raise ValueError("NEXUS_API_KEY environment variable is not set or empty.")
+    
+    # Explicitly pass api_key to ensure the SDK does not fall back to GEMINI_API_KEY
+    return genai.Client(api_key=api_key)
 
 @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3))
 def call_gemini(prompt: str, context: str) -> Tuple[Optional[Dict[str, Any]], Dict[str, int]]:
@@ -315,65 +319,66 @@ def process_gmail_thread(artifact_id: str, email_context: Dict[str, Any], dynami
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT tc.name as correspondent_name, tp.name as purpose_name, 
-               tc.sending_subdomains, tc.physical_addresses, tcat.name as category_name,
-               tc.custom_extraction_rules as c_rules, tp.custom_extraction_rules as p_rules,
-               tp.auto_archive as auto_archive
-        FROM Taxonomy_Purposes tp
-        JOIN Taxonomy_Correspondents tc ON tp.correspondent_id = tc.id
-        JOIN Taxonomy_Categories tcat ON tc.category_id = tcat.id
-        WHERE tp.is_gmail_enabled = 1 AND tc.is_gmail_enabled = 1 AND tcat.is_gmail_enabled = 1
+        SELECT e.name as correspondent_name, p.name as purpose_name, 
+               c.name as category_name, e.workspace_alias
+        FROM purposes p
+        JOIN categories c ON p.category_id = c.id
+        JOIN entities e ON e.category_id = c.id
+        WHERE p.scope = 'Categorical' AND e.nexus_state = 'active'
     """)
     rows = cursor.fetchall()
 
     cursor.execute("""
-        SELECT name as purpose_name, custom_extraction_rules as p_rules, auto_archive
-        FROM Taxonomy_Purposes
-        WHERE is_global = 1 AND is_gmail_enabled = 1
+        SELECT name as purpose_name
+        FROM purposes
+        WHERE scope = 'Universal'
     """)
     global_purposes = cursor.fetchall()
+    
+    # Pre-fetch aliases for entities to replicate "sending_subdomains" contextual info
+    cursor.execute("""
+        SELECT e.name as entity_name, a.alias_string 
+        FROM aliases a
+        JOIN entities e ON a.entity_id = e.id
+        WHERE e.nexus_state = 'active'
+    """)
+    alias_rows = cursor.fetchall()
+    aliases_by_entity = {}
+    for r in alias_rows:
+        ent = r['entity_name']
+        if ent not in aliases_by_entity:
+            aliases_by_entity[ent] = []
+        aliases_by_entity[ent].append(r['alias_string'])
+
     conn.close()
 
     entity_profiles = {}
     whitelist_paths = []
     auto_archive_map = {}
     
-    global_purps_list = [{'name': gp['purpose_name'], 'rules': gp['p_rules'], 'auto_archive': gp['auto_archive']} for gp in global_purposes]
+    global_purps_list = [{'name': gp['purpose_name']} for gp in global_purposes]
     
     for row in rows:
         corr_name = row['correspondent_name']
         purp_name = row['purpose_name']
         cat_name = row['category_name']
-        c_rules = row['c_rules']
         
         taxonomy_path = f"{cat_name} \\ {corr_name} \\ {purp_name}"
         whitelist_paths.append(taxonomy_path)
-        auto_archive_map[taxonomy_path] = bool(row['auto_archive'])
+        auto_archive_map[taxonomy_path] = False # Safe default since auto_archive is removed
         
         # Append global purposes to the current correspondent
         for gp in global_purps_list:
             global_path = f"{cat_name} \\ {corr_name} \\ {gp['name']}"
             if global_path not in whitelist_paths:
                 whitelist_paths.append(global_path)
-                auto_archive_map[global_path] = bool(gp['auto_archive'])
+                auto_archive_map[global_path] = False
         
         if corr_name not in entity_profiles:
-            try:
-                subdomains = json.loads(row['sending_subdomains']) if row['sending_subdomains'] else []
-            except Exception:
-                subdomains = []
-            try:
-                addresses = json.loads(row['physical_addresses']) if row['physical_addresses'] else []
-            except Exception:
-                addresses = []
-                
             profile = {
-                'subdomains': subdomains,
-                'addresses': addresses
+                'aliases': aliases_by_entity.get(corr_name, []),
+                'workspace_alias': row['workspace_alias'] or ''
             }
-            if c_rules:
-                profile['rules'] = c_rules
-            
             entity_profiles[corr_name] = profile
 
     whitelist_str = "\n".join(whitelist_paths)
@@ -438,31 +443,36 @@ def process_drive_document(artifact_id: str, ocr_text: str, dynamic_array_str: s
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT tc.name as correspondent_name, tc.sending_subdomains, tc.physical_addresses
-        FROM Taxonomy_Correspondents tc
-        JOIN Taxonomy_Categories tcat ON tc.category_id = tcat.id
-        WHERE tc.is_drive_enabled = 1 AND tcat.is_drive_enabled = 1
+        SELECT e.name as correspondent_name, e.workspace_alias
+        FROM entities e
+        JOIN categories c ON e.category_id = c.id
+        WHERE e.nexus_state = 'active' AND e.use_in_drive_structure = 1
     """)
     corr_rows = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT e.name as entity_name, a.alias_string 
+        FROM aliases a
+        JOIN entities e ON a.entity_id = e.id
+        WHERE e.nexus_state = 'active'
+    """)
+    alias_rows = cursor.fetchall()
+    aliases_by_entity = {}
+    for r in alias_rows:
+        ent = r['entity_name']
+        if ent not in aliases_by_entity:
+            aliases_by_entity[ent] = []
+        aliases_by_entity[ent].append(r['alias_string'])
 
     entity_profiles = {}
     correspondent_whitelist = []
     for row in corr_rows:
         corr_name = row['correspondent_name']
         correspondent_whitelist.append(corr_name)
-        
-        try:
-            subdomains = json.loads(row['sending_subdomains']) if row['sending_subdomains'] else []
-        except Exception:
-            subdomains = []
-        try:
-            addresses = json.loads(row['physical_addresses']) if row['physical_addresses'] else []
-        except Exception:
-            addresses = []
             
         entity_profiles[corr_name] = {
-            'subdomains': subdomains,
-            'addresses': addresses
+            'aliases': aliases_by_entity.get(corr_name, []),
+            'workspace_alias': row['workspace_alias'] or ''
         }
     
     profiles_str = json.dumps(entity_profiles, indent=2)
@@ -503,43 +513,24 @@ def process_drive_document(artifact_id: str, ocr_text: str, dynamic_array_str: s
     # Stage 2: Query Purposes for this Correspondent
     # Architectural Intent: We dynamically construct a tiny, hyper-focused prompt only containing
     # the valid Purposes for the successfully verified Stage 1 Correspondent.
-    cursor.execute("""
-        SELECT custom_extraction_rules 
-        FROM Taxonomy_Correspondents 
-        WHERE name = ?
-    """, (correspondent,))
-    c_row = cursor.fetchone()
-    c_rules = c_row['custom_extraction_rules'] if c_row and c_row['custom_extraction_rules'] else ""
 
     cursor.execute("""
-        SELECT tp.name as purpose_name, tp.custom_extraction_rules as p_rules
-        FROM Taxonomy_Purposes tp
-        LEFT JOIN Taxonomy_Correspondents tc ON tp.correspondent_id = tc.id
-        WHERE (tc.name = ? OR tp.is_global = 1) AND tp.is_drive_enabled = 1
+        SELECT p.name as purpose_name
+        FROM purposes p
+        LEFT JOIN entities e ON p.category_id = e.category_id
+        WHERE e.name = ? OR p.scope = 'Universal'
     """, (correspondent,))
     purp_rows = cursor.fetchall()
     conn.close()
     
     purpose_whitelist = []
-    p_rules_list = []
     for row in purp_rows:
         purpose_whitelist.append(row['purpose_name'])
-        if row['p_rules']:
-            p_rules_list.append(f"[{row['purpose_name']}]: {row['p_rules']}")
             
     purpose_whitelist_str = "\n".join(purpose_whitelist)
     
-    extra_rules = ""
-    if c_rules:
-        extra_rules += f"\n**Correspondent Rules ({correspondent}):**\n{c_rules}"
-    if p_rules_list:
-        extra_rules += "\n**Purpose-Specific Rules:**\n" + "\n".join(p_rules_list)
-
-    
     # Stage 2: Enforce & Extract
     prompt_s2 = fetch_active_prompt('DRIVE_STAGE_2').replace("[CORRESPONDENT]", correspondent).replace("[DYNAMIC_ARRAY]", dynamic_array_str)
-    if extra_rules:
-        prompt_s2 += f"\n\n{extra_rules}"
     context_s2 = f"Purpose Whitelist:\n{purpose_whitelist_str}\n\nOCR Text:\n{ocr_text}"
     try:
         result_s2, telemetry_s2 = call_gemini(prompt_s2, context_s2)
@@ -664,48 +655,9 @@ def evaluate_quarantine_clusters(conn: sqlite3.Connection) -> None:
 async def append_zero_shot_rule(artifact_ids: list[str], instruction: str) -> dict:
     """
     Appends a new extraction rule instruction to the purpose shared by the provided artifacts.
+    (Stubbed out in Zero Trust schema because custom_extraction_rules was removed from purposes table).
     """
-    import sqlite3
-    from db_init import DB_PATH
-    
-    if not artifact_ids or not instruction:
-        return {"status": "error", "message": "Missing artifact_ids or instruction"}
-        
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    try:
-        placeholders = ','.join(['?'] * len(artifact_ids))
-        cursor.execute(f"SELECT DISTINCT purpose_id FROM Workspace_Artifacts WHERE artifact_id IN ({placeholders}) AND purpose_id IS NOT NULL", artifact_ids)
-        rows = cursor.fetchall()
-        
-        if not rows:
-            return {"status": "error", "message": "No valid purpose_ids found for the provided artifacts."}
-            
-        if len(rows) > 1:
-            return {"status": "error", "message": "Artifacts belong to multiple different purposes. Batch must share the same purpose."}
-            
-        purpose_id = rows[0]['purpose_id']
-        
-        cursor.execute("SELECT custom_extraction_rules FROM Taxonomy_Purposes WHERE id = ?", (purpose_id,))
-        purpose_row = cursor.fetchone()
-        
-        if not purpose_row:
-            return {"status": "error", "message": "Purpose not found."}
-            
-        existing_rules = purpose_row['custom_extraction_rules'] or ""
-        new_rules = f"{existing_rules}\n- {instruction}".strip()
-        
-        cursor.execute("UPDATE Taxonomy_Purposes SET custom_extraction_rules = ? WHERE id = ?", (new_rules, purpose_id))
-        conn.commit()
-        return {"status": "success", "message": f"Successfully appended rule to purpose {purpose_id}."}
-    except Exception as e:
-        conn.rollback()
-        return {"status": "error", "message": str(e)}
-    finally:
-        conn.close()
+    return {"status": "error", "message": "Zero-shot rules are deprecated in the Zero Trust Schema architecture."}
 
 if __name__ == "__main__":
     print("Nexus LLM Engine initialized.")

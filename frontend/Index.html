@@ -96,7 +96,24 @@
                 </button>
             </li>
             <li class="mt-auto">
+                <div id="nexus-pulse-sidebar" class="mb-4 mx-4 p-3 bg-[#8ecae6]/10 rounded-lg border border-[#8ecae6]/30 flex flex-col space-y-3 sidebar-text transition-opacity duration-300">
+                    <div class="text-xs font-bold text-[#023047]/50 uppercase tracking-wider mb-1 border-b border-[#8ecae6]/20 pb-1">Nexus Pulse</div>
+                    <div class="flex items-center justify-between text-sm font-semibold text-[#023047]" title="Emails Ingested">
+                        <div class="flex items-center gap-2"><svg class="w-4 h-4 text-[#4A90E2]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg> Emails</div>
+                        <span id="pulse-emails">--</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm font-semibold text-[#023047]" title="Contacts Synced">
+                        <div class="flex items-center gap-2"><svg class="w-4 h-4 text-[#8ecae6]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg> Contacts</div>
+                        <span id="pulse-contacts">--</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm font-semibold text-[#E24A4A]" title="Quarantine Queue">
+                        <div class="flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg> Quarantine</div>
+                        <span id="pulse-quarantine">--</span>
+                    </div>
+                </div>
                 <button onclick="appActions.openSettingsModal()" class="w-full flex items-center px-4 py-3 text-sm font-semibold text-[#023047]/70 hover:text-[#219ebc] hover:bg-[#8ecae6]/10 transition-colors border-l-4 border-transparent hover:border-[#219ebc]">
+>>>>+++ REPLACE
+
                     <svg class="w-6 h-6 shrink-0 mx-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><circle cx="12" cy="12" r="3"></path></svg>
                     <span class="sidebar-text ml-4 whitespace-nowrap">Settings</span>
                 </button>

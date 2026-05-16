@@ -1,7 +1,7 @@
 {
   "system_config": {
     "NEXUS_HMAC_SECRET": "The cryptographic secret used to sign and verify payloads between Apps Script and the Python VM, ensuring requests are authentic.",
-    "GEMINI_API_KEY": "The API key required to authenticate with the Google GenAI SDK for LLM-based metadata extraction.",
+    "NEXUS_API_KEY": "The primary API key required to authenticate with the Google GenAI SDK for LLM-based metadata extraction. This system explicitly uses NEXUS_API_KEY to avoid environment conflicts.",
     "NEXUS_VM_URL": "The public HTTPS endpoint of your Python backend VM. This tells the Apps Script frontend where to send its webhook payloads.",
     "drive_sync_interval": "The frequency (in minutes) at which the background engine checks for new or modified files in Google Drive.",
     "gmail_sync_interval": "The frequency (in minutes) at which the background engine polls the Gmail API or Pub/Sub for new email threads.",
