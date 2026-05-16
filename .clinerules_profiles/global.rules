@@ -29,3 +29,19 @@ To prevent database corruption and schema divergence across rapid AI development
 
 ## 3. Prompt Template Decoupling
 All master system prompts must be strictly maintained as decoupled text templates inside the DEFAULTS/ directory using the `.tmpl` notation. Never hardcode LLM prompts directly into Python logic blocks.
+
+## 4. Autonomous Versioning & Changelog Protocol
+You are strictly responsible for maintaining Semantic Versioning (SemVer) and historical logging for the Nexus project. `FEATURE_TRACKING.md` is for future roadmap items only. `CHANGELOG.md` is the immutable record of executed work.
+
+Before concluding any coding task or architectural change, you MUST execute the following sequence:
+1. Read `CHANGELOG.md` to identify the current system version.
+2. Calculate the SemVer bump based on your actions:
+   - PATCH (x.x.1): Bug fixes, refactoring, or minor UI tweaks that do not break functionality.
+   - MINOR (x.1.x): Backwards-compatible new features (e.g., adding a new pipeline, new API route).
+   - MAJOR (1.x.x): Breaking changes to the Layer 1 Database schema or core Layer 2 ingestion architecture.
+3. Prepend a new entry to `CHANGELOG.md` using the exact format:
+   ## [vX.Y.Z] - YYYY-MM-DD
+   ### Added | Changed | Deprecated | Removed | Fixed | Security
+   - **Layer [X]:** [Brief description of the change and the AI model executing it].
+4. Remove the completed task from `FEATURE_TRACKING.md` if it existed there.
+
