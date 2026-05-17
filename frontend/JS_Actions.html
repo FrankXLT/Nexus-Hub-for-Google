@@ -80,11 +80,15 @@ var appActions = {
         data.forEach((row, i) => {
             const cost = Math.max(1, Math.ceil(row.count / 50));
             totalCost += cost;
+            
+            // Sanitize quotes and angle brackets to prevent HTML attribute breaking
+            const safeSender = row.sender.replace(/"/g, '"').replace(/</g, '<').replace(/>/g, '>');
+            
             const tr = document.createElement('tr');
             tr.className = "hover:bg-slate-50 transition-colors";
             tr.innerHTML = `
-                <td class="p-3 border-b border-[#8ecae6]/20"><input type="checkbox" class="batch-checkbox rounded border-[#8ecae6]" data-index="${i}" data-sender="${row.sender}" checked></td>
-                <td class="p-3 border-b border-[#8ecae6]/20 text-[#023047] font-semibold">${row.sender}</td>
+                <td class="p-3 border-b border-[#8ecae6]/20"><input type="checkbox" class="batch-checkbox rounded border-[#8ecae6]" data-index="${i}" data-sender="${safeSender}" checked></td>
+                <td class="p-3 border-b border-[#8ecae6]/20 text-[#023047] font-semibold">${safeSender}</td>
                 <td class="p-3 border-b border-[#8ecae6]/20 text-[#023047]">${row.count} items</td>
                 <td class="p-3 border-b border-[#8ecae6]/20 text-[#219ebc] font-bold">${cost} API Call(s)</td>
                 <td class="p-3 border-b border-[#8ecae6]/20 text-[#023047]/60" id="batch-status-${i}">Pending Preview</td>
@@ -426,15 +430,17 @@ var appActions = {
         container.innerHTML = '<div class="text-[#023047]/50 italic p-4 text-center w-full">Loading Taxonomy Tree...</div>';
 
         google.script.run
-            .withSuccessHandler(data => {
-                if (!Array.isArray(data) || data.length === 0) {
+            .withSuccessHandler(response => {
+                if (!response || !response.success || !Array.isArray(response.data) || response.data.length === 0) {
                     container.innerHTML = '<div class="text-[#023047]/50 italic p-4 text-center w-full">No taxonomy data available.</div>';
                     return;
                 }
 
+                const taxonomyData = response.data;
+                appState.zeroTrustTree = taxonomyData;
                 container.innerHTML = '';
                 
-                data.forEach(category => {
+                taxonomyData.forEach(category => {
                     let purposesHtml = '';
                     
                     if (category.purposes && category.purposes.length > 0) {

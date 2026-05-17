@@ -929,47 +929,53 @@ def run_sync() -> None:
         
         # Process historical ingestion queue
         cursor = conn.cursor()
-        cursor.execute("SELECT id, source_id FROM Ingestion_Queue WHERE status = 'PENDING' AND source = 'gmail' LIMIT 20")
-        pending_items = cursor.fetchall()
+        cursor.execute("SELECT is_enabled FROM pipeline_config WHERE pipeline_name = 'gmail'")
+        g_hist_row = cursor.fetchone()
         
-        if pending_items:
-            print(f"Processing {len(pending_items)} historical items from the queue...")
-            service = build('gmail', 'v1', credentials=creds)
+        if g_hist_row and not g_hist_row['is_enabled']:
+            print("Kill Switch: Gmail historical ingestion queue is disabled.")
+        else:
+            cursor.execute("SELECT id, source_id FROM Ingestion_Queue WHERE status = 'PENDING' AND source = 'gmail' LIMIT 20")
+            pending_items = cursor.fetchall()
             
-            for i, item in enumerate(pending_items):
-                queue_id = item['id']
-                msg_id = item['source_id']
+            if pending_items:
+                print(f"Processing {len(pending_items)} historical items from the queue...")
+                service = build('gmail', 'v1', credentials=creds)
                 
-                if not governor.can_process_historical():
-                    print("Governor: Historical quota limit reached. Pausing ingestion queue.")
-                    break
+                for i, item in enumerate(pending_items):
+                    queue_id = item['id']
+                    msg_id = item['source_id']
                     
-                cursor.execute("UPDATE Ingestion_Queue SET status = 'PROCESSING' WHERE id = ?", (queue_id,))
-                conn.commit()
-                
-                try:
-                    governor.record_api_call(cost=1)
-                    msg_detail = service.users().messages().get(userId='me', id=msg_id, format='metadata', metadataHeaders=['Subject', 'From']).execute()
+                    if not governor.can_process_historical():
+                        print("Governor: Historical quota limit reached. Pausing ingestion queue.")
+                        break
+                        
+                    cursor.execute("UPDATE Ingestion_Queue SET status = 'PROCESSING' WHERE id = ?", (queue_id,))
+                    conn.commit()
                     
-                    headers = msg_detail.get('payload', {}).get('headers', [])
-                    subject = next((h['value'] for h in headers if h['name'] == 'Subject'), "No Subject")
-                    sender = next((h['value'] for h in headers if h['name'] == 'From'), "Unknown Sender")
-                    snippet = msg_detail.get('snippet', '')
+                    try:
+                        governor.record_api_call(cost=1)
+                        msg_detail = service.users().messages().get(userId='me', id=msg_id, format='metadata', metadataHeaders=['Subject', 'From']).execute()
+                        
+                        headers = msg_detail.get('payload', {}).get('headers', [])
+                        subject = next((h['value'] for h in headers if h['name'] == 'Subject'), "No Subject")
+                        sender = next((h['value'] for h in headers if h['name'] == 'From'), "Unknown Sender")
+                        snippet = msg_detail.get('snippet', '')
+                        
+                        email_context = {
+                            "subject": subject,
+                            "sender": sender,
+                            "snippet": snippet
+                        }
+                        
+                        from llm_engine import process_gmail_thread
+                        process_gmail_thread(f"mail_{msg_id}", email_context, "[]")
+                        cursor.execute("UPDATE Ingestion_Queue SET status = 'COMPLETE' WHERE id = ?", (queue_id,))
+                    except Exception as e:
+                        print(f"Error processing historical message {msg_id}: {e}")
+                        cursor.execute("UPDATE Ingestion_Queue SET status = 'FAILED' WHERE id = ?", (queue_id,))
                     
-                    email_context = {
-                        "subject": subject,
-                        "sender": sender,
-                        "snippet": snippet
-                    }
-                    
-                    from llm_engine import process_gmail_thread
-                    process_gmail_thread(f"mail_{msg_id}", email_context, "[]")
-                    cursor.execute("UPDATE Ingestion_Queue SET status = 'COMPLETE' WHERE id = ?", (queue_id,))
-                except Exception as e:
-                    print(f"Error processing historical message {msg_id}: {e}")
-                    cursor.execute("UPDATE Ingestion_Queue SET status = 'FAILED' WHERE id = ?", (queue_id,))
-                
-                conn.commit()
+                    conn.commit()
     except sqlite3.OperationalError as e:
         error_msg = f"Database Lock or Operational Error: {e}"
         print(error_msg)

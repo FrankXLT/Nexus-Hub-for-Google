@@ -4,6 +4,19 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.1.32] - 2026-05-16
+### Fixed
+- **Layer 7:** Resolved a rendering bug in the Zero Trust Management page where the taxonomy tree would appear blank due to an unwrapped JSON payload. Updated `loadZeroTrustFlow()` in `JS_Actions.html` to correctly extract `response.data` from the secure RPC bridge.
+
+## [v1.1.31] - 2026-05-16
+### Fixed
+- **Layer 2/6:** Hardened the background synchronization engine in `sync_engine.py` to correctly respect the Gmail pipeline kill switch for historical ingestion queues.
+- **Layer 7:** Patched a critical XSS/HTML injection bug in `renderBatchTable()` within `JS_Actions.html` by sanitizing sender strings (escaping quotes and angle brackets) to prevent UI breakage during batch previews.
+
+## [v1.1.30] - 2026-05-16
+### Fixed
+- **Layer 2:** Updated Gemini API tool naming in `llm_engine.py` from `google_search_retrieval` to `google_search`, resolving 400 INVALID_ARGUMENT errors following API changes.
+
 ## [v1.1.29] - 2026-05-16
 ### Changed
 - **Layer 6:** Aligned `deploy.ps1` with bash deployment logic, implementing interactive deployment updates and persistent `DEPLOYMENT_ID` tracking in `.nexus_env`.

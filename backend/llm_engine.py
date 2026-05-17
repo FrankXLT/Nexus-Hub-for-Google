@@ -707,7 +707,7 @@ def profile_and_map_entities(cleaned_labels: list, current_categories: list) -> 
                 contents=[prompt, context],
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
-                    tools=[{"google_search_retrieval": {}}]
+                    tools=[{"google_search": {}}]
                 ),
             )
             batch_result = json.loads(response.text)
@@ -747,7 +747,7 @@ def run_agent_profiler(domain: str, is_personal: bool = False, context: str = No
             contents=[prompt, context or f"Evaluate domain/email: {domain}"],
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
-                tools=[{"google_search_retrieval": {}}]
+                tools=[{"google_search": {}}]
             ),
         )
         end_time = time.time()
@@ -817,7 +817,7 @@ def run_bulk_profiler(sender: str, bulk_context: str) -> Optional[Dict[str, Any]
             contents=[prompt, context],
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
-                tools=[{"google_search_retrieval": {}}]
+                tools=[{"google_search": {}}]
             ),
         )
         return json.loads(response.text)
