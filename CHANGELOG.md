@@ -4,6 +4,21 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.4.2] - 2026-05-17
+### Fixed
+- **Layer 1:** Fixed `Legacy_Label_Migration` table creation failure in `db_init.py` by changing the `last_evaluated` column datatype from `TIMESTAMP` to `TEXT` to comply with SQLite `STRICT` mode.
+
+## [v2.4.1] - 2026-05-17
+### Fixed
+- **Layer 6:** Fixed `health_check.ps1` and `health_check.sh` Master Control Panel menus to correctly display the "Prune Old Backend Releases" and "Exit" options.
+- **Layer 6:** Fixed `health_check.ps1` SSH execution by wrapping the bash payload in Base64 encoding to prevent argument splitting and escaping errors in `gcloud compute ssh`.
+
+## [v2.4.0] - 2026-05-17
+### Added
+- **Layer 6:** Added "Prune Old Backend Releases" function to the Master Control Panel in `health_check.ps1` and `health_check.sh` to automatically clean up orphaned deployment folders and save disk space.
+### Changed
+- **Layer 6:** Upgraded VM provisioning scripts (`provision.ps1`, `provision.sh`) to explicitly set `--boot-disk-size=30GB` to maximize the GCP Free Tier allowance.
+
 ## [v2.3.0] - 2026-05-17
 ### Added
 - **Layer 1:** Upgraded `Entities` schema in `db_init.py` with `is_profiled`, `ingestion_source`, and `is_favorite` columns for accurate lifecycle tracking and zero-trust evaluation.

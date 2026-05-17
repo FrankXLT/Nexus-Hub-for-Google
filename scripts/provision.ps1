@@ -165,6 +165,7 @@ gcloud compute instances create $INSTANCE_NAME `
     --project=$PROJECT_ID `
     --zone=$ZONE `
     --machine-type=e2-micro `
+    --boot-disk-size=30GB `
     --tags=nexus-api `
     --scopes=https://www.googleapis.com/auth/cloud-platform `
     --metadata-from-file="startup-script=$tempScriptPath"

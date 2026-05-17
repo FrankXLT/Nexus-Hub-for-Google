@@ -294,7 +294,7 @@ def init_db(db_path: str = DB_PATH) -> None:
             mapped_purpose_id INTEGER,
             ai_confidence REAL DEFAULT 0.0,
             status TEXT DEFAULT 'pending', -- Options: 'pending', 'accepted', 'rejected'
-            last_evaluated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_evaluated TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(mapped_category_id) REFERENCES categories(id),
             FOREIGN KEY(mapped_purpose_id) REFERENCES purposes(id)
         ) STRICT;

@@ -95,7 +95,8 @@ while true; do
     echo "3) Pull Latest 50 Logs (nexus_logs.txt)"
     echo "4) Restart Nexus Service"
     echo "5) Prune Old Apps Script Deployments"
-    echo "6) Exit"
+    echo "6) Prune Old Backend Releases"
+    echo "7) Exit"
     echo -e "${CYAN}====================================================${NC}"
     read -p "Select an option: " choice
 
@@ -156,11 +157,15 @@ while true; do
             fi
             ;;
         6)
+            echo -e "\n${CYAN}Pruning old backend releases on $NAME...${NC}"
+            gcloud compute ssh "$NAME" --zone="$ZONE" --command='current_rel=$(readlink -f "$HOME/nexus/current"); if [ -n "$current_rel" ]; then ls -d "$HOME/nexus/releases/"*/ 2>/dev/null | grep -v "$current_rel" | xargs -I {} rm -rf {}; echo "Backend pruning complete!"; else echo "Current release not found, aborting for safety."; fi' --strict-host-key-checking=no
+            ;;
+        7)
             echo -e "\n${CYAN}Exiting Master Control Panel.${NC}"
             break
             ;;
         *)
-            echo -e "${RED}Invalid option. Please select 1-6.${NC}"
+            echo -e "${RED}Invalid option. Please select 1-7.${NC}"
             ;;
     esac
 done

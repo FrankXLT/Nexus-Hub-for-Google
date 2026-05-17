@@ -122,7 +122,8 @@ while ($true) {
     Write-Host "[3] Pull Latest 50 Logs (nexus_logs.txt)"
     Write-Host "[4] Restart Nexus Service"
     Write-Host "[5] Prune Old Apps Script Deployments"
-    Write-Host "[6] Exit"
+    Write-Host "[6] Prune Old Backend Releases"
+    Write-Host "[7] Exit"
     Write-Host "====================================================" -ForegroundColor Cyan
     
     $choice = Read-Host "Select an option"
@@ -203,11 +204,18 @@ while ($true) {
             }
         }
         "6" {
+            Write-Host "`nPruning old backend releases on $NAME..." -ForegroundColor Cyan
+            $pruneBash = 'current_rel=$(readlink -f "$HOME/nexus/current"); if [ -n "$current_rel" ]; then ls -d "$HOME/nexus/releases/"*/ 2>/dev/null | grep -v "$current_rel" | xargs -I {} rm -rf {}; echo "Backend pruning complete!"; else echo "Current release not found, aborting for safety."; fi'
+            $b64Prune = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($pruneBash))
+            $pruneCmd = "echo $b64Prune | base64 -d | bash"
+            gcloud compute ssh $NAME --zone=$ZONE --command=$pruneCmd --strict-host-key-checking=no
+        }
+        "7" {
             Write-Host "`nExiting Master Control Panel." -ForegroundColor Cyan
             break
         }
         default {
-            Write-Host "Invalid option. Please select 1-6." -ForegroundColor Red
+            Write-Host "Invalid option. Please select 1-7." -ForegroundColor Red
         }
     }
 }
