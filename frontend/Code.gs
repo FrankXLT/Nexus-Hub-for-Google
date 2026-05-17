@@ -647,5 +647,3 @@ function getPulseData() {
     return { success: false, error: error.message };
   }
 }
->>>>+++ REPLACE
-
