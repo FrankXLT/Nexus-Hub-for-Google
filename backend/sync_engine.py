@@ -997,10 +997,8 @@ def fetch_legacy_gmail_labels() -> list:
     """
     from auth import authenticate
     creds = authenticate()
-    from googleapiclient.discovery import build
-    from diagnostics import write_migration_trace
-    
     service = build('gmail', 'v1', credentials=creds)
+    from diagnostics import write_migration_trace
     
     results = service.users().labels().list(userId='me').execute()
     labels = results.get('labels', [])

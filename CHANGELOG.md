@@ -4,28 +4,27 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.1.28] - 2026-05-16
+### Fixed
+- **Layer 2:** Patched `fetch_legacy_gmail_labels()` in `sync_engine.py` to properly build the Gmail service with authenticated credentials, resolving a crash during Day Zero ingestion.
+- **Layer 7:** Corrected a DOM injection glitch in `renderBatchTable()` within `JS_Actions.html` by switching to `document.createElement` and `.innerHTML` assignment, ensuring HTML checkboxes render as functional UI elements rather than raw text strings.
+
 ## [v1.1.27] - 2026-05-16
 ### Fixed
 - **System:** Comprehensive stability verification completed. All directives for custom API keys, kill switches, simulation logging, and telemetry tickers are fully operational.
 
 ## [v1.1.26] - 2026-05-16
->>>>+++ REPLACE
-
 ### Added
 - **Layer 7:** Deployed "Nexus Pulse" telemetry ticker to the sidebar navigation, providing real-time database counts for Emails, Contacts, and Quarantine status.
 - **Layer 3:** Built `getPulseData` Apps Script bridge to securely route telemetry requests to the Python VM.
 - **Layer 2:** Added `/api/telemetry/pulse` backend endpoint for high-performance SQLite aggregation.
 
 ## [v1.1.25] - 2026-05-16
->>>>+++ REPLACE
-
 ### Fixed
 - **System:** Verified all core directives including custom API key logic, kill switch synchronization, and simulation log capture.
 - **Layer 1:** Reinforced SQLite schema integrity for Zero Trust entities.
 
 ## [v1.1.24] - 2026-05-16
->>>>+++ REPLACE
-
 ### Fixed
 - **Layer 1:** Hardened `entities` table schema in `db_init.py` with idempotent column additions to resolve "no such table" crashes.
 - **Layer 2/6:** Wired UI kill switches to the background sync loop in `sync_engine.py`, programmatically skipping disabled pipelines.
@@ -33,8 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Layer 7:** Fixed HTML escaping glitch in `JS_Actions.html` to ensure batch table checkboxes render as functional DOM elements.
 
 ## [v1.1.23] - 2026-05-16
->>>>+++ REPLACE
-
 ### Fixed
 - **System:** Hardened `get_genai_client()` in `llm_engine.py` to explicitly enforce `NEXUS_API_KEY` configuration during SDK client instantiation, resolving crash loops triggered by the default `GEMINI_API_KEY` fallback behavior.
 

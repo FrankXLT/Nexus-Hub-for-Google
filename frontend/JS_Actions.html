@@ -80,15 +80,16 @@ var appActions = {
         data.forEach((row, i) => {
             const cost = Math.max(1, Math.ceil(row.count / 50));
             totalCost += cost;
-            tbody.innerHTML += `
-                <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="p-3 border-b border-[#8ecae6]/20"><input type="checkbox" class="batch-checkbox rounded border-[#8ecae6]" data-index="${i}" data-sender="${row.sender}" checked></td>
-                    <td class="p-3 border-b border-[#8ecae6]/20 text-[#023047] font-semibold">${row.sender}</td>
-                    <td class="p-3 border-b border-[#8ecae6]/20 text-[#023047]">${row.count} items</td>
-                    <td class="p-3 border-b border-[#8ecae6]/20 text-[#219ebc] font-bold">${cost} API Call(s)</td>
-                    <td class="p-3 border-b border-[#8ecae6]/20 text-[#023047]/60" id="batch-status-${i}">Pending Preview</td>
-                </tr>
+            const tr = document.createElement('tr');
+            tr.className = "hover:bg-slate-50 transition-colors";
+            tr.innerHTML = `
+                <td class="p-3 border-b border-[#8ecae6]/20"><input type="checkbox" class="batch-checkbox rounded border-[#8ecae6]" data-index="${i}" data-sender="${row.sender}" checked></td>
+                <td class="p-3 border-b border-[#8ecae6]/20 text-[#023047] font-semibold">${row.sender}</td>
+                <td class="p-3 border-b border-[#8ecae6]/20 text-[#023047]">${row.count} items</td>
+                <td class="p-3 border-b border-[#8ecae6]/20 text-[#219ebc] font-bold">${cost} API Call(s)</td>
+                <td class="p-3 border-b border-[#8ecae6]/20 text-[#023047]/60" id="batch-status-${i}">Pending Preview</td>
             `;
+            tbody.appendChild(tr);
         });
         
         document.getElementById('batch-est-cost').innerText = totalCost;
