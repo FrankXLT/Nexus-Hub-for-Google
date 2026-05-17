@@ -1,6 +1,5 @@
 # Nexus - Security & State Exclusions
-nexus.db
-nexus_backup_*.db
+*.db*
 .env
 .clasprc.json
 credentials.json

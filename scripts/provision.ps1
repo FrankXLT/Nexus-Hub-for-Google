@@ -147,6 +147,13 @@ $startupScript = @"
 echo ">>> Starting Nexus Bootstrap..."
 apt-get update
 apt-get install -y python3 python3-pip python3-venv sqlite3 git curl
+
+echo ">>> Configuring 2GB Swap Space..."
+fallocate -l 2G /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
 "@
 
 # Write to a temporary file to bypass PowerShell string parsing issues

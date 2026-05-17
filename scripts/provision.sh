@@ -173,6 +173,13 @@ gcloud compute instances create $INSTANCE_NAME \
 echo ">>> Starting Nexus Bootstrap..."
 apt-get update
 apt-get install -y python3 python3-pip python3-venv sqlite3 git curl
+
+echo ">>> Configuring 2GB Swap Space..."
+fallocate -l 2G /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+echo "/swapfile none swap sw 0 0" >> /etc/fstab
 '
 
 echo -e "${CYAN}Waiting 30 seconds for the VM's SSH daemon to initialize...${NC}"
@@ -230,9 +237,6 @@ echo -e "${GREEN}             Provisioning Complete!                 ${NC}"
 echo -e "${GREEN}====================================================${NC}"
 echo -e "Your server is ready."
 echo -e "Next steps (See INSTRUCTIONS.md):"
-echo -e "1. Run scripts/deploy.sh to push the code and start the backend."
-echo -e "2. Run scripts/auth_tunnel.sh to authenticate the server."
-echo ""TIONS.md):"
 echo -e "1. Run scripts/deploy.sh to push the code and start the backend."
 echo -e "2. Run scripts/auth_tunnel.sh to authenticate the server."
 echo ""

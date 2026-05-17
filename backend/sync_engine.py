@@ -242,6 +242,36 @@ def update_sync_state(cursor: sqlite3.Cursor, app_name: str, sync_token: str) ->
             last_updated = excluded.last_updated
     """, (app_name, sync_token, now))
 
+def resolve_folder_path(drive_service, path_string):
+    """
+    Resolves a string path (e.g., 'Nexus Root/Ingest Dropbox') into a Google Drive folder ID.
+    Idempotently creates folders if they do not exist.
+    """
+    parts = [p for p in path_string.split('/') if p.strip()]
+    parent_id = 'root'
+    
+    for part in parts:
+        q = f"name='{part}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
+        if parent_id != 'root':
+            q += f" and '{parent_id}' in parents"
+            
+        results = drive_service.files().list(q=q, spaces='drive', fields='files(id, name)').execute()
+        items = results.get('files', [])
+        
+        if items:
+            parent_id = items[0]['id']
+        else:
+            metadata = {
+                'name': part,
+                'mimeType': 'application/vnd.google-apps.folder'
+            }
+            if parent_id != 'root':
+                metadata['parents'] = [parent_id]
+            folder = drive_service.files().create(body=metadata, fields='id').execute()
+            parent_id = folder.get('id')
+            
+    return parent_id
+
 def initialize_drive_structure(drive_service):
     """
     Idempotent function to ensure Nexus Google Drive folder scaffolding exists.
@@ -398,20 +428,32 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
         governor (QuotaGovernor): The active QuotaGovernor instance tracking API calls.
     """
     cursor = conn.cursor()
-    cursor.execute("SELECT is_enabled FROM pipeline_config WHERE pipeline_name = 'drive'")
-    row = cursor.fetchone()
-    if row and not row['is_enabled']:
+    cursor.execute("SELECT is_enabled, settings_json FROM pipeline_config WHERE pipeline_name = 'drive'")
+    config_row = cursor.fetchone()
+    
+    if config_row and not config_row['is_enabled']:
         print("Drive pipeline disabled. Halting.")
         return
 
+    # Parse custom paths from settings
+    ingest_path = "Nexus Root/Ingest Dropbox"
+    archive_path = "Nexus Root/Document Archive"
+    if config_row and config_row['settings_json']:
+        try:
+            settings = json.loads(config_row['settings_json'])
+            ingest_path = settings.get('ingest_path', ingest_path)
+            archive_path = settings.get('archive_path', archive_path)
+        except:
+            pass
+
     service = build('drive', 'v3', credentials=creds)
+    
+    # Resolve dynamic folder IDs
+    inbox_id = resolve_folder_path(service, ingest_path)
+    permanent_archive_id = resolve_folder_path(service, archive_path)
     
     page_token = get_sync_state(cursor, 'drive')
     
-    cursor.execute("SELECT value FROM Config_System WHERE key = 'drive_inbox_id'")
-    dropbox_row = cursor.fetchone()
-    inbox_id = dropbox_row['value'].strip('"') if dropbox_row and dropbox_row['value'] and dropbox_row['value'] != '""' else None
-
     if not page_token:
         print("No Drive pageToken found in DB. Initializing new token...")
         governor.record_api_call()
@@ -493,26 +535,23 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
             
             # Drive Relocation Engine
             if is_feature_enabled(cursor, 'feature_drive_relocator'):
-                cursor.execute("SELECT value FROM Config_System WHERE key = 'drive_permanent_archive_id'")
-                archive_row = cursor.fetchone()
-                if archive_row and archive_row['value'] and archive_row['value'] != '""':
-                    archive_id = archive_row['value'].strip('"')
-                    if archive_id:
-                        try:
-                            file_obj = service.files().get(fileId=file_id, fields='parents').execute()
-                            governor.record_api_call(cost=1)
-                            current_parents = ",".join(file_obj.get('parents', []))
-                            
-                            service.files().update(
-                                fileId=file_id,
-                                addParents=archive_id,
-                                removeParents=current_parents,
-                                fields='id, parents'
-                            ).execute()
-                            governor.record_api_call(cost=1)
-                            print(f"   -> Relocated File {file_id} to Permanent Archive ({archive_id})")
-                        except Exception as e:
-                            print(f"   -> Relocation failed for {file_id}: {e}")
+                archive_id = permanent_archive_id
+                if archive_id:
+                    try:
+                        file_obj = service.files().get(fileId=file_id, fields='parents').execute()
+                        governor.record_api_call(cost=1)
+                        current_parents = ",".join(file_obj.get('parents', []))
+                        
+                        service.files().update(
+                            fileId=file_id,
+                            addParents=archive_id,
+                            removeParents=current_parents,
+                            fields='id, parents'
+                        ).execute()
+                        governor.record_api_call(cost=1)
+                        print(f"   -> Relocated File {file_id} to Permanent Archive ({archive_id})")
+                    except Exception as e:
+                        print(f"   -> Relocation failed for {file_id}: {e}")
             else:
                 print(f"Safe Mode Bypass: Drive Relocator is disabled. Skipping relocation for {file_id}.")
     else:
@@ -651,7 +690,11 @@ def sync_gmail(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
                         msg_detail = service.users().messages().get(userId='me', id=msg_id, format='metadata', metadataHeaders=['Subject', 'From']).execute()
                         governor.record_api_call(cost=1)
                         
-                        # Extract basic context
+                        # Extract labels and basic context
+                        label_ids = set(msg_detail.get('labelIds', []))
+                        gmail_important = 1 if 'IMPORTANT' in label_ids else 0
+                        gmail_starred = 1 if 'STARRED' in label_ids else 0
+
                         headers = msg_detail.get('payload', {}).get('headers', [])
                         subject = "No Subject"
                         for header in headers:
@@ -662,7 +705,6 @@ def sync_gmail(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
                         
                         logger.info(f"Processing Gmail thread: '{subject}' (ID: mail_{msg_id})...")
 
-                        label_ids = set(msg_detail.get('labelIds', []))
                         if IGNORED_GMAIL_LABELS.intersection(label_ids):
                             logger.info(f"Skipping Gmail thread '{subject}' due to ignored labels.")
                             continue
@@ -672,7 +714,9 @@ def sync_gmail(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
                         email_context = {
                             "subject": subject,
                             "sender": sender,
-                            "snippet": snippet
+                            "snippet": snippet,
+                            "gmail_important": gmail_important,
+                            "gmail_starred": gmail_starred
                         }
                         
                         # Autonomous Profiling for Unknown Senders
@@ -693,10 +737,10 @@ def sync_gmail(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
                                     if p_row:
                                         parent_id = p_row['id']
                                     else:
-                                        cursor.execute("INSERT INTO entities (name, nexus_state) VALUES (?, 'pending')", (parent_org,))
+                                        cursor.execute("INSERT INTO entities (name, nexus_state, is_profiled, ingestion_source) VALUES (?, 'pending', 1, 'gmail')", (parent_org,))
                                         parent_id = cursor.lastrowid
                                 
-                                cursor.execute("INSERT INTO entities (name, parent_entity_id, workspace_alias, nexus_state) VALUES (?, ?, ?, 'pending')", (entity_name, parent_id, workspace_alias))
+                                cursor.execute("INSERT INTO entities (name, parent_entity_id, workspace_alias, nexus_state, is_profiled, ingestion_source) VALUES (?, ?, ?, 'pending', 1, 'gmail')", (entity_name, parent_id, workspace_alias))
                                 conn.commit()
                         
                         # Process the thread
@@ -755,7 +799,7 @@ def sync_contacts(creds: Credentials, conn: sqlite3.Connection, governor: QuotaG
         results = service.people().connections().list(
             resourceName='people/me',
             pageSize=1000,
-            personFields='names,emailAddresses,addresses'
+            personFields='names,emailAddresses,addresses,memberships'
         ).execute()
         
         connections = results.get('connections', [])
@@ -764,12 +808,6 @@ def sync_contacts(creds: Credentials, conn: sqlite3.Connection, governor: QuotaG
             return
             
         cursor = conn.cursor()
-        
-        # Ensure 'Personal Network' category exists
-        cat_name = 'Personal Network'
-        cursor.execute("INSERT OR IGNORE INTO categories (name) VALUES (?)", (cat_name,))
-        cursor.execute("SELECT id FROM categories WHERE name = ?", (cat_name,))
-        cat_id = cursor.fetchone()['id']
         
         for person in connections:
             names = person.get('names', [])
@@ -786,19 +824,30 @@ def sync_contacts(creds: Credentials, conn: sqlite3.Connection, governor: QuotaG
             addresses = person.get('addresses', [])
             physical_addresses = [addr.get('formattedValue') for addr in addresses if addr.get('formattedValue')]
             
-            # Architectural Intent: Zero-Trust Quarantine Enforcement
-            # We explicitly force `is_gmail_enabled = 0` and `is_drive_enabled = 0` 
-            # to ensure the active taxonomy engine is not polluted by massive personal address books
-            # without human intervention.
+            memberships = person.get('memberships', [])
+            is_favorite = 0
+            for membership in memberships:
+                contact_group_membership = membership.get('contactGroupMembership', {})
+                if 'starred' in contact_group_membership.get('contactGroupId', '').lower():
+                    is_favorite = 1
+                    break
             
+            # Architectural Intent: Zero-Trust Quarantine Enforcement
             # Check if exists
-            cursor.execute("SELECT id FROM entities WHERE category_id = ? AND name = ?", (cat_id, corr_name))
+            cursor.execute("SELECT id, ingestion_source FROM entities WHERE name = ?", (corr_name,))
             row = cursor.fetchone()
             if not row:
                 cursor.execute("""
-                    INSERT INTO entities (category_id, name, nexus_state)
-                    VALUES (?, ?, 'disabled')
-                """, (cat_id, corr_name))
+                    INSERT INTO entities (name, nexus_state, is_profiled, ingestion_source, is_favorite)
+                    VALUES (?, 'disabled', 0, 'people_api', ?)
+                """, (corr_name, is_favorite))
+            else:
+                # Upsert strategy: preserve 'people_api' source if existing
+                cursor.execute("""
+                    UPDATE entities 
+                    SET is_favorite = ?, ingestion_source = 'people_api' 
+                    WHERE name = ? AND ingestion_source != 'people_api'
+                """, (is_favorite, corr_name))
             
         conn.commit()
         print(f"Ingested {len(connections)} Google Contacts.")
@@ -1015,9 +1064,19 @@ def fetch_legacy_gmail_labels() -> list:
     Fetches all legacy custom user labels from Gmail.
     """
     from auth import authenticate
+    from googleapiclient.discovery import build
+    import sqlite3
+    import json
+    from db_init import DB_PATH
+    from llm_engine import get_taxonomy_tree_json, call_gemini, fetch_active_prompt
+    
     creds = authenticate()
     service = build('gmail', 'v1', credentials=creds)
     from diagnostics import write_migration_trace
+    
+    conn = sqlite3.connect(DB_PATH)
+    taxonomy_tree = get_taxonomy_tree_json(conn)
+    prompt = fetch_active_prompt('MIGRATE_LEGACY_LABEL')
     
     results = service.users().labels().list(userId='me').execute()
     labels = results.get('labels', [])
@@ -1025,10 +1084,68 @@ def fetch_legacy_gmail_labels() -> list:
     system_labels = {'CATEGORY_PROMOTIONS', 'CATEGORY_UPDATES', 'CATEGORY_SOCIAL', 'CATEGORY_FORUMS', 'CATEGORY_PERSONAL', 'SENT', 'INBOX', 'TRASH', 'SPAM', 'DRAFT', 'UNREAD', 'STARRED', 'IMPORTANT', 'CHAT'}
     
     custom_labels = []
+    cursor = conn.cursor()
+    
     for label in labels:
         name = label.get('name', '')
         if label.get('type') == 'user' and name.upper() not in system_labels:
             custom_labels.append(name)
+            
+            cursor.execute("SELECT status FROM Legacy_Label_Migration WHERE label_id = ?", (label['id'],))
+            row = cursor.fetchone()
+            if row and row[0] == 'accepted':
+                continue
+            
+            context = f"Legacy Label: {name}\nTaxonomy Tree: {json.dumps(taxonomy_tree)}"
+            result, _ = call_gemini(prompt, context)
+            
+            if result:
+                cat_id = result.get('mapped_category_id')
+                purp_id = result.get('mapped_purpose_id')
+                conf = result.get('confidence_score', 0.0)
+                
+                cursor.execute("SELECT min_confidence_threshold FROM purposes WHERE id = ?", (purp_id,))
+                p_row = cursor.fetchone()
+                if p_row:
+                    threshold = p_row[0]
+                else:
+                    cursor.execute("SELECT min_confidence_threshold FROM categories WHERE id = ?", (cat_id,))
+                    c_row = cursor.fetchone()
+                    threshold = c_row[0] if c_row else 0.95
+                
+                status = 'accepted' if conf >= threshold else 'pending'
+                
+                cursor.execute("""
+                    INSERT INTO Legacy_Label_Migration (label_id, label_name, mapped_category_id, mapped_purpose_id, ai_confidence, status)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(label_id) DO UPDATE SET
+                        mapped_category_id = excluded.mapped_category_id,
+                        mapped_purpose_id = excluded.mapped_purpose_id,
+                        ai_confidence = excluded.ai_confidence,
+                        status = excluded.status,
+                        last_evaluated = CURRENT_TIMESTAMP
+                """, (label['id'], name, cat_id, purp_id, conf, status))
+                
+                if status == 'accepted':
+                    try:
+                        msg_results = service.users().messages().list(userId='me', labelIds=[label['id']]).execute()
+                        messages = msg_results.get('messages', [])
+                        for msg in messages:
+                            artifact_id = f"mail_{msg['id']}"
+                            custom_data = json.dumps({"legacy_category_id": cat_id})
+                            cursor.execute("""
+                                INSERT INTO Workspace_Artifacts (artifact_id, purpose_id, ai_confidence, custom_data, status)
+                                VALUES (?, ?, ?, ?, 'PROCESSED')
+                                ON CONFLICT(artifact_id) DO UPDATE SET
+                                    purpose_id = excluded.purpose_id,
+                                    ai_confidence = excluded.ai_confidence,
+                                    custom_data = excluded.custom_data
+                            """, (artifact_id, purp_id, conf, custom_data))
+                    except Exception as e:
+                        print(f"Error migrating artifacts for label {name}: {e}")
+                    
+    conn.commit()
+    conn.close()
             
     write_migration_trace("1_RAW_GMAIL_LABELS", custom_labels)
     return custom_labels
@@ -1145,11 +1262,16 @@ def sync_gmail_pipeline(artifact_id: str, email_context: Dict[str, Any], conn: s
                 cursor.execute("INSERT INTO categories (name) VALUES (?)", (proposed_category,))
                 cat_id = cursor.lastrowid
                 
-            cursor.execute("""
-                INSERT INTO entities (category_id, name, workspace_alias, nexus_state) 
-                VALUES (?, ?, ?, 'pending')
-            """, (cat_id, entity_name, workspace_alias))
-            ent_id = cursor.lastrowid
+            cursor.execute("SELECT id FROM entities WHERE name = ?", (entity_name,))
+            existing_ent = cursor.fetchone()
+            if existing_ent:
+                ent_id = existing_ent['id']
+            else:
+                cursor.execute("""
+                    INSERT INTO entities (category_id, name, workspace_alias, nexus_state, is_profiled, ingestion_source) 
+                    VALUES (?, ?, ?, 'pending', 1, 'gmail')
+                """, (cat_id, entity_name, workspace_alias))
+                ent_id = cursor.lastrowid
             
             try:
                 cursor.execute("INSERT INTO aliases (alias_string, entity_id) VALUES (?, ?)", (sender, ent_id))
@@ -1221,11 +1343,16 @@ def sync_drive_pipeline(artifact_id: str, ocr_text: str, conn: sqlite3.Connectio
                 cursor.execute("INSERT INTO categories (name) VALUES (?)", (proposed_category,))
                 cat_id = cursor.lastrowid
                 
-            cursor.execute("""
-                INSERT INTO entities (category_id, name, workspace_alias, nexus_state) 
-                VALUES (?, ?, ?, 'pending')
-            """, (cat_id, sender, workspace_alias))
-            ent_id = cursor.lastrowid
+            cursor.execute("SELECT id FROM entities WHERE name = ?", (sender,))
+            existing_ent = cursor.fetchone()
+            if existing_ent:
+                ent_id = existing_ent['id']
+            else:
+                cursor.execute("""
+                    INSERT INTO entities (category_id, name, workspace_alias, nexus_state, is_profiled, ingestion_source) 
+                    VALUES (?, ?, ?, 'pending', 1, 'drive')
+                """, (cat_id, sender, workspace_alias))
+                ent_id = cursor.lastrowid
             
             try:
                 cursor.execute("INSERT INTO aliases (alias_string, entity_id) VALUES (?, ?)", (sender, ent_id))

@@ -4,6 +4,43 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.3.0] - 2026-05-17
+### Added
+- **Layer 1:** Upgraded `Entities` schema in `db_init.py` with `is_profiled`, `ingestion_source`, and `is_favorite` columns for accurate lifecycle tracking and zero-trust evaluation.
+### Changed
+- **Layer 2:** Updated Contact Ingestion Logic (`sync_engine.py`) to properly set `ingestion_source` to 'people_api', extract favorite statuses as `is_favorite`, and bypass default categorization assignments. Implemented intelligent Upsert Logic to preserve 'people_api' as a higher-trust origin than passive Gmail/Drive extraction.
+
+## [v2.2.0] - 2026-05-17
+### Added
+- **Layer 1:** Added `Legacy_Label_Migration` table in `db_init.py` for staging legacy Gmail labels.
+- **Layer 3:** Added `/api/migration/labels` and `/api/migration/labels/status` endpoints in `main.py` for dynamic sorting and bulk updating.
+### Changed
+- **Layer 2:** Upgraded `fetch_legacy_gmail_labels` in `sync_engine.py` to evaluate LLM results against dynamic confidence thresholds, support iterative staging, and prevent reprocessing of accepted labels.
+
+## [v2.1.0] - 2026-05-17
+### Added
+- **Layer 2:** Created `get_taxonomy_tree_json` helper in `llm_engine.py` to construct a strict JSON representation of the active Zero Trust taxonomy for AI prompts.
+- **Layer 3:** Added `MIGRATE_LEGACY_LABEL` prompt template to map user's legacy Gmail labels to the strict Zero Trust taxonomy with confidence scoring.
+### Changed
+- **Layer 2:** Upgraded `fetch_legacy_gmail_labels` in `sync_engine.py` to utilize the new prompt and taxonomy helper, autonomously mapping imported custom labels and dynamically saving the `category_id`, `purpose_id`, and `ai_confidence` metadata against Workspace Artifacts in the database.
+
+## [v2.0.0] - 2026-05-17
+### Added
+- **Layer 1:** Implemented V2 Database Schema in `db_init.py` adding granular UI state management, a deterministic dual-state importance system, configurable actions/stars, and risk-adjusted AI confidence quarantines to `categories`, `purposes`, and `Workspace_Artifacts` tables.
+### Changed
+- **Layer 2:** Implemented Unified Routing Logic in `llm_engine.py` for both Gmail threads and Drive documents. The system now cascades `nexus_important` natively from the purpose node, maps state assignments, and evaluates `ai_confidence` against database-driven `min_confidence_thresholds` to enforce Zero Trust quarantines.
+
+## [v1.1.40] - 2026-05-17
+### Added
+- **Layer 6:** Incorporated persistent 2GB swap space creation into the automated startup scripts for both PowerShell and Bash provisioners, resolving OOM errors on `e2-micro` instances during heavy deployment tasks.
+
+## [v1.1.39] - 2026-05-17
+### Added
+- **Layer 7:** Deployed "Folder Scaffolding" configuration inputs to the Orchestrator UI, allowing users to define custom paths for Drive ingestion and archival.
+### Changed
+- **Layer 6:** Implemented `loadPipelineSettings()` in `JS_Actions.html` to synchronize UI pipeline toggles and Drive paths with the SQLite database on startup.
+- **Layer 2:** Upgraded `sync_drive()` in `sync_engine.py` to dynamically resolve Google Drive folder IDs from user-defined string paths, supporting custom hierarchical scaffolding.
+
 ## [v1.1.38] - 2026-05-17
 ### Added
 - **Layer 2:** Deployed a dedicated Comparative Label Engine (`evaluate_legacy_labels`) to analyze Gmail labels against the live Nexus taxonomy.

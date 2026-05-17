@@ -4,6 +4,7 @@ var appActions = {
         this.renderVQB();
         this.renderSankey();
         this.loadZeroTrustFlow();
+        this.loadPipelineSettings();
     },
 
     toggleSidebar: function() {
@@ -736,7 +737,9 @@ Object.assign(appActions, {
                 enabled: is_enabled,
                 ai_confidence_threshold: document.getElementById('threshold-drive') ? parseInt(document.getElementById('threshold-drive').value, 10) : 80,
                 mime_type_blacklist: document.getElementById('drive-blacklist') ? document.getElementById('drive-blacklist').value : "",
-                max_file_size_mb: document.getElementById('drive-max-size') ? parseFloat(document.getElementById('drive-max-size').value) : 10
+                max_file_size_mb: document.getElementById('drive-max-size') ? parseFloat(document.getElementById('drive-max-size').value) : 10,
+                ingest_path: document.getElementById('drive-ingest-path') ? document.getElementById('drive-ingest-path').value : "Nexus Root/Ingest Dropbox",
+                archive_path: document.getElementById('drive-archive-path') ? document.getElementById('drive-archive-path').value : "Nexus Root/Document Archive"
             };
         } else if (pipeline === 'contacts') {
             is_enabled = document.getElementById('toggle-ingest-contacts') ? document.getElementById('toggle-ingest-contacts').checked : false;
@@ -759,6 +762,37 @@ Object.assign(appActions, {
     },
 
 
+
+    loadPipelineSettings: function() {
+        google.script.run
+            .withSuccessHandler(response => {
+                if (response && response.success && response.settings) {
+                    const s = response.settings;
+                    
+                    // Gmail
+                    if (s.gmail && document.getElementById('toggle-ingest-gmail')) {
+                        document.getElementById('toggle-ingest-gmail').checked = s.gmail.enabled || false;
+                        if (document.getElementById('threshold-gmail')) document.getElementById('threshold-gmail').value = s.gmail.ai_confidence_threshold || 80;
+                        if (document.getElementById('gmail-whitelist')) document.getElementById('gmail-whitelist').value = s.gmail.domain_whitelist || "";
+                    }
+                    
+                    // Drive
+                    if (s.drive && document.getElementById('toggle-ingest-drive')) {
+                        document.getElementById('toggle-ingest-drive').checked = s.drive.enabled || false;
+                        if (document.getElementById('threshold-drive')) document.getElementById('threshold-drive').value = s.drive.ai_confidence_threshold || 80;
+                        if (document.getElementById('drive-ingest-path')) document.getElementById('drive-ingest-path').value = s.drive.ingest_path || "Nexus Root/Ingest Dropbox";
+                        if (document.getElementById('drive-archive-path')) document.getElementById('drive-archive-path').value = s.drive.archive_path || "Nexus Root/Document Archive";
+                    }
+                    
+                    // Contacts
+                    if (s.contacts && document.getElementById('toggle-ingest-contacts')) {
+                        document.getElementById('toggle-ingest-contacts').checked = s.contacts.enabled || false;
+                    }
+                }
+            })
+            .withFailureHandler(err => console.error("Failed to load pipeline settings:", err))
+            .getPipelineSettings();
+    },
 
     runPipelineNow: function(pipelineName) {
         google.script.run

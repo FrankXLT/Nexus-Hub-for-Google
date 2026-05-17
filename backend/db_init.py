@@ -95,8 +95,15 @@ def init_db(db_path: str = DB_PATH) -> None:
         CREATE TABLE IF NOT EXISTS categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT UNIQUE NOT NULL,
-            description TEXT
-        );
+            description TEXT,
+            show_in_nav INTEGER DEFAULT 1,
+            show_in_msglist INTEGER DEFAULT 1,
+            nav_condition TEXT DEFAULT 'always', -- Options: 'always', 'has_unread', 'recent_activity'
+            top_entities_limit INTEGER DEFAULT 5,
+            top_entities_sort TEXT DEFAULT 'received', -- Options: 'received', 'read', 'replied'
+            top_entities_importance_filter TEXT DEFAULT 'nexus', -- Options: 'nexus', 'gmail', 'both', 'none'
+            min_confidence_threshold REAL DEFAULT 0.95
+        ) STRICT;
     """)
 
     # 4c. Taxonomy_Purposes
@@ -108,11 +115,17 @@ def init_db(db_path: str = DB_PATH) -> None:
             name TEXT NOT NULL,
             description TEXT,
             scope TEXT NOT NULL, -- 'Universal' or 'Categorical'
+            show_in_nav INTEGER DEFAULT 1,
+            show_in_msglist INTEGER DEFAULT 1,
+            nexus_importance_rule TEXT DEFAULT 'inherit_gmail', -- Options: 'force_true', 'force_false', 'inherit_gmail'
+            default_action TEXT DEFAULT 'none', -- Options: 'none', 'review', 'reply', 'pay', 'urgent'
+            default_star_color TEXT DEFAULT NULL,
+            min_confidence_threshold REAL DEFAULT 0.95,
             risk_level TEXT DEFAULT 'Medium',
             retention_days INTEGER DEFAULT 365,
             category_id INTEGER,
             FOREIGN KEY (category_id) REFERENCES categories (id)
-        );
+        ) STRICT;
     """)
 
     cursor.execute("""
@@ -126,6 +139,9 @@ def init_db(db_path: str = DB_PATH) -> None:
             show_in_gmail_msg BOOLEAN DEFAULT 1,
             use_in_drive_structure BOOLEAN DEFAULT 1,
             nexus_state TEXT DEFAULT 'active',
+            is_profiled INTEGER DEFAULT 0, -- 0 = Unprofiled holding bucket, 1 = Profiled by AI/User
+            ingestion_source TEXT DEFAULT 'unknown', -- Options: 'people_api', 'gmail', 'drive', 'user'
+            is_favorite INTEGER DEFAULT 0, -- Maps to Google Contacts 'starred' or 'favorite' status
             FOREIGN KEY (category_id) REFERENCES categories (id),
             FOREIGN KEY (parent_entity_id) REFERENCES entities (id)
         );
@@ -136,7 +152,10 @@ def init_db(db_path: str = DB_PATH) -> None:
         ("workspace_alias", "TEXT DEFAULT NULL"),
         ("show_in_gmail_nav", "BOOLEAN DEFAULT 1"),
         ("show_in_gmail_msg", "BOOLEAN DEFAULT 1"),
-        ("use_in_drive_structure", "BOOLEAN DEFAULT 1")
+        ("use_in_drive_structure", "BOOLEAN DEFAULT 1"),
+        ("is_profiled", "INTEGER DEFAULT 0"),
+        ("ingestion_source", "TEXT DEFAULT 'unknown'"),
+        ("is_favorite", "INTEGER DEFAULT 0")
     ]
     for col_name, col_def in cols_to_add:
         try:
@@ -187,6 +206,17 @@ def init_db(db_path: str = DB_PATH) -> None:
             parent_artifact_id TEXT,
             lifecycle_status TEXT DEFAULT 'ACTIVE',
             google_task_id TEXT,
+            -- Importance & States
+            gmail_important INTEGER DEFAULT 0,
+            nexus_important INTEGER DEFAULT 0,
+            gmail_starred INTEGER DEFAULT 0,
+            nexus_action_state TEXT DEFAULT 'none',
+            nexus_star_color TEXT DEFAULT NULL,
+            
+            -- AI Telemetry & Lifecycle
+            ai_confidence REAL DEFAULT 0.0,
+            is_quarantined INTEGER DEFAULT 0,
+            needs_reprocessing INTEGER DEFAULT 0,
             FOREIGN KEY (purpose_id) REFERENCES purposes (id) ON DELETE CASCADE,
             FOREIGN KEY (parent_artifact_id) REFERENCES Workspace_Artifacts (artifact_id) ON DELETE SET NULL
         ) STRICT;
@@ -253,6 +283,23 @@ def init_db(db_path: str = DB_PATH) -> None:
         );
     """)
     logger.info("Verified Zero Trust tables (quarantine_queue) are initialized.")
+
+    # 10. Legacy_Label_Migration
+    # -- Iterative migration staging system for legacy Gmail labels
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Legacy_Label_Migration (
+            label_id TEXT PRIMARY KEY,
+            label_name TEXT NOT NULL,
+            mapped_category_id INTEGER,
+            mapped_purpose_id INTEGER,
+            ai_confidence REAL DEFAULT 0.0,
+            status TEXT DEFAULT 'pending', -- Options: 'pending', 'accepted', 'rejected'
+            last_evaluated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(mapped_category_id) REFERENCES categories(id),
+            FOREIGN KEY(mapped_purpose_id) REFERENCES purposes(id)
+        ) STRICT;
+    """)
+    logger.info("Verified Legacy_Label_Migration table is initialized.")
     cursor.execute("COMMIT;")
     
     seed_default_configs(conn)
@@ -333,7 +380,8 @@ def seed_default_prompts(conn: sqlite3.Connection) -> None:
         'agent_classifier': 'agent_classifier.tmpl',
         'QUARANTINE_CONSOLIDATION': 'quarantine_consolidation.tmpl',
         'DEDUPLICATE_LEGACY': 'deduplicate_legacy.tmpl',
-        'PROFILE_AND_MAP': 'profile_and_map_entities.tmpl'
+        'PROFILE_AND_MAP': 'profile_and_map_entities.tmpl',
+        'MIGRATE_LEGACY_LABEL': 'migrate_legacy_label.tmpl'
     }
     
     for target_app, filename in prompts_to_seed.items():
@@ -381,7 +429,7 @@ def seed_taxonomy_from_json(conn: sqlite3.Connection) -> None:
         all_purposes = set(universal_purposes + cat.get("categorical_purposes", []))
         
         for purp_name in all_purposes:
-            # Defaulting risk_level to 'Medium' and retention to 365 
+            # Defaulting description, risk_level and scope
             scope = 'Universal' if purp_name in universal_purposes else 'Categorical'
             cursor.execute("""
                 INSERT INTO purposes (category_id, name, description, scope, risk_level, retention_days)

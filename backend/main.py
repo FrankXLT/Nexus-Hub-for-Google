@@ -1175,6 +1175,58 @@ async def get_analytics_sankey(days: int = 30, source: str = "all", status: str 
         return JSONResponse(content={"nodes": final_nodes, "links": final_links})
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
+@app.get("/api/migration/labels")
+async def get_migration_labels(sort_by: str = "confidence"):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        order_clause = "m.ai_confidence DESC"
+        if sort_by == "category":
+            order_clause = "c.name ASC"
+            
+        query = f"""
+            SELECT m.label_id, m.label_name, m.mapped_category_id, m.mapped_purpose_id, 
+                   m.ai_confidence, m.status, m.last_evaluated,
+                   c.name as category_name, p.name as purpose_name
+            FROM Legacy_Label_Migration m
+            LEFT JOIN categories c ON m.mapped_category_id = c.id
+            LEFT JOIN purposes p ON m.mapped_purpose_id = p.id
+            ORDER BY {order_clause}
+        """
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        conn.close()
+        
+        return JSONResponse(content=[dict(row) for row in rows])
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+class LabelStatusUpdate(BaseModel):
+    label_ids: list
+    status: str
+
+@app.post("/api/migration/labels/status")
+async def update_migration_label_status(payload: LabelStatusUpdate):
+    if payload.status not in ('accepted', 'rejected', 'pending'):
+        return JSONResponse(status_code=400, content={"error": "Invalid status"})
+        
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        placeholders = ",".join(["?"] * len(payload.label_ids))
+        query = f"UPDATE Legacy_Label_Migration SET status = ? WHERE label_id IN ({placeholders})"
+        params = [payload.status] + payload.label_ids
+        
+        cursor.execute(query, params)
+        conn.commit()
+        conn.close()
+        
+        return JSONResponse(content={"status": "success", "message": f"Updated {len(payload.label_ids)} labels to {payload.status}"})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 class LegacyLabelExecutionPayload(BaseModel):
     approved_labels: list
 
