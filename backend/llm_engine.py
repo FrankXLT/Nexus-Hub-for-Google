@@ -40,15 +40,7 @@ def strip_markdown_json(text: str) -> str:
 def fetch_active_prompt(prompt_key: str) -> str:
     """
     Fetches the active prompt from the Config_Prompts table in the database.
-    
-    Args:
-        prompt_key (str): The unique identifier for the target application (e.g., 'GMAIL', 'DRIVE_STAGE_1').
-        
-    Returns:
-        str: The raw prompt text stored in the SQLite database.
-        
-    Raises:
-        ValueError: If the requested prompt_key does not exist.
+    Gracefully falls back to the absolute path of the default file if the DB is out of sync.
     """
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -56,9 +48,34 @@ def fetch_active_prompt(prompt_key: str) -> str:
     cursor.execute("SELECT prompt_text FROM Config_Prompts WHERE target_app = ?", (prompt_key,))
     row = cursor.fetchone()
     conn.close()
-    if not row:
-        raise ValueError(f"Prompt {prompt_key} not found in database.")
-    return row['prompt_text']
+    
+    if row and row['prompt_text']:
+        return row['prompt_text']
+        
+    logger.error(f"Prompt '{prompt_key}' missing from database! Falling back to absolute file path.")
+    
+    # Absolute path fallback
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    defaults_dir = os.path.join(base_dir, "..", "DEFAULTS")
+    
+    fallback_map = {
+        'GMAIL': 'gmail_extraction.tmpl',
+        'DRIVE_STAGE_1': 'drive_extraction_stage1.tmpl',
+        'DRIVE_STAGE_2': 'drive_extraction_stage2.tmpl',
+        'agent_profiler_personal': 'agent_profiler_personal.tmpl',
+        'agent_profiler_commercial': 'agent_profiler_commercial.tmpl',
+        'agent_classifier': 'agent_classifier.tmpl',
+        'QUARANTINE_CONSOLIDATION': 'quarantine_consolidation.tmpl',
+        'DEDUPLICATE_LEGACY': 'deduplicate_legacy_labels.tmpl',
+        'PROFILE_AND_MAP': 'profile_and_map_entities.tmpl'
+    }
+    
+    filename = fallback_map.get(prompt_key)
+    if not filename:
+        raise ValueError(f"Unknown prompt key: {prompt_key}")
+        
+    with open(os.path.join(defaults_dir, filename), "r", encoding="utf-8") as f:
+        return f.read()
 
 # ---------------------------------------------------------------------------
 # API Interaction
@@ -397,8 +414,7 @@ def process_gmail_thread(artifact_id: str, email_context: Dict[str, Any], dynami
     whitelist_str = "\n".join(whitelist_paths)
     profiles_str = json.dumps(entity_profiles, indent=2)
 
-    with open(os.path.join("DEFAULTS", "gmail_extraction.tmpl"), "r", encoding="utf-8") as f:
-        prompt = f.read().replace("[DYNAMIC_ARRAY]", dynamic_array_str)
+    prompt = fetch_active_prompt('GMAIL').replace("[DYNAMIC_ARRAY]", dynamic_array_str)
     prompt = prompt.replace("[ENTITY_PROFILES]", profiles_str)
     
     full_context = f"Entity Profiles:\n{profiles_str}\n\nEmail Context:\n{json.dumps(email_context, indent=2)}"
@@ -680,8 +696,7 @@ def deduplicate_legacy_labels(raw_labels: list) -> list:
     """
     Uses Gemini to lexically deduplicate a list of raw legacy labels.
     """
-    with open(os.path.join("DEFAULTS", "deduplicate_legacy_labels.tmpl"), "r", encoding="utf-8") as f:
-        prompt = f.read()
+    prompt = fetch_active_prompt('DEDUPLICATE_LEGACY')
     
     context = json.dumps(raw_labels)
     result, _ = call_gemini(prompt, context)
@@ -706,8 +721,7 @@ def profile_and_map_entities(cleaned_labels: list, current_categories: list) -> 
     Profiles deduplicated labels in batches using Search Grounding and maps them to categories.
     """
     client = get_genai_client()
-    with open(os.path.join("DEFAULTS", "profile_and_map_entities.tmpl"), "r", encoding="utf-8") as f:
-        prompt = f.read().replace("[CURRENT_CATEGORIES]", json.dumps(current_categories))
+    prompt = fetch_active_prompt('PROFILE_AND_MAP').replace("[CURRENT_CATEGORIES]", json.dumps(current_categories))
 
     all_results = []
     for i in range(0, len(cleaned_labels), 10):

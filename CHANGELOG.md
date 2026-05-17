@@ -4,6 +4,11 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.1.35] - 2026-05-17
+### Changed
+- **Layer 2:** Hardened the LLM engine in `llm_engine.py` to strictly enforce database-driven prompt execution via the `Config_Prompts` table.
+- **Layer 3:** Bulletproofed `fetch_active_prompt()` with an absolute file path fallback mechanism and enhanced error logging to resolve pathing issues and ensure UI-driven prompt overrides are respected during live operations.
+
 ## [v1.1.34] - 2026-05-16
 ### Added
 - **Layer 1/2:** Implemented a dynamic JSON Taxonomy Seeder in `db_init.py` that populates the `categories` and `purposes` tables from `zero_trust_defaults.json`. Ensures that global `universal_purposes` are mapped to every category node during initial database provisioning.
