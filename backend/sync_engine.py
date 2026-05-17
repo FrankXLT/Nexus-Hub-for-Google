@@ -925,7 +925,6 @@ def run_sync() -> None:
             sync_gmail(creds, conn, governor)
         else:
             print("Kill Switch: Gmail pipeline is disabled.")
->>>>+++ REPLACE
 
         
         # Process historical ingestion queue

@@ -140,7 +140,6 @@ def init_db(db_path: str = DB_PATH) -> None:
             cursor.execute(f"ALTER TABLE entities ADD COLUMN {col_name} {col_def};")
         except sqlite3.OperationalError:
             pass # Column already exists
->>>>+++ REPLACE
 
 
     cursor.execute("""
