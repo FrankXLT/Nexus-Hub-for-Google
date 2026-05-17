@@ -20,6 +20,19 @@ from tenacity import retry, wait_exponential, stop_after_attempt
 
 from db_init import DB_PATH
 
+def strip_markdown_json(text: str) -> str:
+    """
+    Strips markdown code blocks from a string to prepare it for JSON parsing.
+    """
+    raw_text = text.strip()
+    if raw_text.startswith("```json"):
+        raw_text = raw_text[7:]
+    elif raw_text.startswith("```"):
+        raw_text = raw_text[3:]
+    if raw_text.endswith("```"):
+        raw_text = raw_text[:-3]
+    return raw_text.strip()
+
 # ---------------------------------------------------------------------------
 # Master AI Prompts (Section 9.3)
 # ---------------------------------------------------------------------------
@@ -706,11 +719,10 @@ def profile_and_map_entities(cleaned_labels: list, current_categories: list) -> 
                 model='gemini-2.5-flash',
                 contents=[prompt, context],
                 config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
                     tools=[{"google_search": {}}]
                 ),
             )
-            batch_result = json.loads(response.text)
+            batch_result = json.loads(strip_markdown_json(response.text))
             if isinstance(batch_result, list):
                 all_results.extend(batch_result)
             elif isinstance(batch_result, dict):
@@ -746,7 +758,6 @@ def run_agent_profiler(domain: str, is_personal: bool = False, context: str = No
             model='gemini-2.5-flash',
             contents=[prompt, context or f"Evaluate domain/email: {domain}"],
             config=types.GenerateContentConfig(
-                response_mime_type="application/json",
                 tools=[{"google_search": {}}]
             ),
         )
@@ -756,7 +767,7 @@ def run_agent_profiler(domain: str, is_personal: bool = False, context: str = No
         logger.debug(f"Raw Gemini response: {response.text}")
         logger.info(f"Profiler completed in {elapsed:.2f} seconds.")
         
-        return json.loads(response.text)
+        return json.loads(strip_markdown_json(response.text))
     except (json.JSONDecodeError, ValueError) as e:
         logger.warning(f"Parsing Error or Safety Block in Profiler. Details: {e}")
         return None
@@ -816,11 +827,10 @@ def run_bulk_profiler(sender: str, bulk_context: str) -> Optional[Dict[str, Any]
             model='gemini-2.5-flash',
             contents=[prompt, context],
             config=types.GenerateContentConfig(
-                response_mime_type="application/json",
                 tools=[{"google_search": {}}]
             ),
         )
-        return json.loads(response.text)
+        return json.loads(strip_markdown_json(response.text))
     except Exception as e:
         logger.error(f"Error in Bulk Profiler for {sender}: {e}")
         return None

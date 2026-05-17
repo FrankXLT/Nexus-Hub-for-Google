@@ -4,6 +4,14 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.1.34] - 2026-05-16
+### Added
+- **Layer 1/2:** Implemented a dynamic JSON Taxonomy Seeder in `db_init.py` that populates the `categories` and `purposes` tables from `zero_trust_defaults.json`. Ensures that global `universal_purposes` are mapped to every category node during initial database provisioning.
+
+## [v1.1.33] - 2026-05-16
+### Fixed
+- **Layer 2:** Resolved a 400 INVALID_ARGUMENT error in `llm_engine.py` by removing the `response_mime_type="application/json"` constraint when using Gemini tools (Google Search). Implemented a robust `strip_markdown_json()` helper to safely parse raw text responses into valid JSON.
+
 ## [v1.1.32] - 2026-05-16
 ### Fixed
 - **Layer 7:** Resolved a rendering bug in the Zero Trust Management page where the taxonomy tree would appear blank due to an unwrapped JSON payload. Updated `loadZeroTrustFlow()` in `JS_Actions.html` to correctly extract `response.data` from the secure RPC bridge.

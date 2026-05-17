@@ -106,7 +106,10 @@ def init_db(db_path: str = DB_PATH) -> None:
         CREATE TABLE IF NOT EXISTS purposes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
+            description TEXT,
             scope TEXT NOT NULL, -- 'Universal' or 'Categorical'
+            risk_level TEXT DEFAULT 'Medium',
+            retention_days INTEGER DEFAULT 365,
             category_id INTEGER,
             FOREIGN KEY (category_id) REFERENCES categories (id)
         );
@@ -252,32 +255,9 @@ def init_db(db_path: str = DB_PATH) -> None:
     logger.info("Verified Zero Trust tables (quarantine_queue) are initialized.")
     cursor.execute("COMMIT;")
     
-    # Bootstrap check
-    cursor.execute("SELECT COUNT(*) FROM categories")
-    if cursor.fetchone()[0] == 0:
-        print("Bootstrapping Zero Trust Scaffolding...")
-        # Since zero_trust_defaults.json is in the root directory
-        json_path = os.path.join(DEFAULTS_DIR, "zero_trust_defaults.json")
-        with open(json_path, 'r') as f:
-            data = json.load(f)
-            
-        for p in data.get("universal_purposes", []):
-            cursor.execute("INSERT INTO purposes (name, scope) VALUES (?, 'Universal')", (p,))
-            
-        blacklist = data.get("blacklist", {})
-        for d in blacklist.get("domains", []):
-            cursor.execute("INSERT INTO blacklist (type, pattern) VALUES ('domain', ?)", (d,))
-        for p in blacklist.get("purposes", []):
-            cursor.execute("INSERT INTO blacklist (type, pattern) VALUES ('purpose', ?)", (p,))
-            
-        for cat in data.get("categories", []):
-            cursor.execute("INSERT INTO categories (name, description) VALUES (?, ?)", (cat["name"], cat.get("description", "")))
-            cat_id = cursor.lastrowid
-            for cp in cat.get("categorical_purposes", []):
-                cursor.execute("INSERT INTO purposes (name, scope, category_id) VALUES (?, 'Categorical', ?)", (cp, cat_id))
-
     seed_default_configs(conn)
     seed_default_prompts(conn)
+    seed_taxonomy_from_json(conn)
     
     conn.commit()
     conn.close()
@@ -362,6 +342,52 @@ def seed_default_prompts(conn: sqlite3.Connection) -> None:
                 cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", (target_app, prompt_text))
         except Exception as e:
             print(f"Failed to seed {target_app} prompt: {e}")
+
+def seed_taxonomy_from_json(conn: sqlite3.Connection) -> None:
+    """
+    Seeds the categories and purposes tables using DEFAULTS/zero_trust_defaults.json.
+    Ensures that universal_purposes are applied to every category.
+    """
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM categories")
+    if cursor.fetchone()[0] > 0:
+        return  # Taxonomy already seeded
+
+    json_path = os.path.join(DEFAULTS_DIR, "zero_trust_defaults.json")
+    if not os.path.exists(json_path):
+        logger.warning(f"{json_path} not found. Skipping taxonomy seeding.")
+        return
+
+    with open(json_path, "r", encoding="utf-8") as f:
+        defaults = json.load(f)
+
+    universal_purposes = defaults.get("universal_purposes", [])
+    
+    # Handle Blacklist
+    blacklist = defaults.get("blacklist", {})
+    for d in blacklist.get("domains", []):
+        cursor.execute("INSERT INTO blacklist (type, pattern) VALUES ('domain', ?)", (d,))
+    for p in blacklist.get("purposes", []):
+        cursor.execute("INSERT INTO blacklist (type, pattern) VALUES ('purpose', ?)", (p,))
+
+    for cat in defaults.get("categories", []):
+        cursor.execute("INSERT INTO categories (name, description) VALUES (?, ?)", 
+                       (cat["name"], cat.get("description", "")))
+        cat_id = cursor.lastrowid
+        
+        # Combine universal purposes with this category's specific purposes
+        all_purposes = set(universal_purposes + cat.get("categorical_purposes", []))
+        
+        for purp_name in all_purposes:
+            # Defaulting risk_level to 'Medium' and retention to 365 
+            scope = 'Universal' if purp_name in universal_purposes else 'Categorical'
+            cursor.execute("""
+                INSERT INTO purposes (category_id, name, description, scope, risk_level, retention_days)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (cat_id, purp_name, f"Standard {purp_name} documents", scope, "Medium", 365))
+    
+    conn.commit()
+    logger.info("Zero Trust Taxonomy seeded successfully from zero_trust_defaults.json.")
 
 # Execute the initialization if the script is run directly.
 if __name__ == "__main__":
