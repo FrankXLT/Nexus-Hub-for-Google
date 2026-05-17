@@ -434,7 +434,10 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
                 continue
             
             file_id = change.get('fileId')
-            print(f" - Drive Change: File ID {file_id}")
+            file_metadata = change.get('file', {})
+            file_name = file_metadata.get('name', 'Unknown/Deleted File')
+            
+            logger.info(f"  - Drive Change: '{file_name}' (ID: {file_id})")
             governor.record_api_call(cost=1)
             
             try:
@@ -456,7 +459,7 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
                         file_content = request.execute().decode('utf-8')
                     except HttpError as e:
                         if e.resp.status == 400 and "conversion is not supported" in str(e):
-                            print(f"File {file_id} cannot be exported as text (likely binary/PDF). Passing metadata only.")
+                            print(f"File '{file_name}' (ID: {file_id}) cannot be exported as text. Passing metadata only.")
                             file_content = "[Binary File - No Text Extracted]"
                         else:
                             raise e
@@ -470,6 +473,7 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
                         governor.record_api_call(cost=1)
                     file_content = fh.getvalue().decode('utf-8', errors='ignore')
                 from llm_engine import process_drive_document
+                print(f"Processing Drive document '{file_name}' (Stage 1)...")
                 process_drive_document(f"drive_{file_id}", file_content, "[]")
                 
                 # Check for actionable tasks
@@ -647,15 +651,22 @@ def sync_gmail(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
                         msg_detail = service.users().messages().get(userId='me', id=msg_id, format='metadata', metadataHeaders=['Subject', 'From']).execute()
                         governor.record_api_call(cost=1)
                         
-                        label_ids = set(msg_detail.get('labelIds', []))
-                        if IGNORED_GMAIL_LABELS.intersection(label_ids):
-                            print(f"Skipping message {msg_id} due to ignored labels.")
-                            continue
-                            
                         # Extract basic context
                         headers = msg_detail.get('payload', {}).get('headers', [])
-                        subject = next((h['value'] for h in headers if h['name'] == 'Subject'), "No Subject")
+                        subject = "No Subject"
+                        for header in headers:
+                            if header['name'].lower() == 'subject':
+                                subject = header['value']
+                                break
                         sender = next((h['value'] for h in headers if h['name'] == 'From'), "Unknown Sender")
+                        
+                        logger.info(f"Processing Gmail thread: '{subject}' (ID: mail_{msg_id})...")
+
+                        label_ids = set(msg_detail.get('labelIds', []))
+                        if IGNORED_GMAIL_LABELS.intersection(label_ids):
+                            logger.info(f"Skipping Gmail thread '{subject}' due to ignored labels.")
+                            continue
+                            
                         snippet = msg_detail.get('snippet', '')
                         
                         email_context = {
@@ -667,7 +678,7 @@ def sync_gmail(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
                         # Autonomous Profiling for Unknown Senders
                         cursor.execute("SELECT id FROM entities WHERE name = ?", (sender,))
                         if not cursor.fetchone():
-                            print(f"Unknown sender {sender}. Profiling...")
+                            logger.info(f"Unknown sender '{sender}' for thread '{subject}'. Profiling...")
                             from llm_engine import run_agent_profiler
                             profile_data = run_agent_profiler(sender, is_personal=False, context=snippet)
                             if profile_data:
@@ -706,9 +717,11 @@ def sync_gmail(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
                                     body={'removeLabelIds': ['INBOX']}
                                 ).execute()
                                 governor.record_api_call(cost=1)
-                                print(f"Auto-archived thread {thread_id} for message {msg_id}.")
+                                logger.info(f"Auto-archived thread '{subject}' (ID: {thread_id}).")
+                        
+                        logger.info(f"Successfully processed Gmail thread '{subject}'.")
                     except Exception as e:
-                        print(f"Error fetching message {msg_id}: {e}")
+                        logger.error(f"Error processing Gmail thread '{subject}' (ID: {msg_id}): {e}")
     else:
         print("No new Gmail history.")
             

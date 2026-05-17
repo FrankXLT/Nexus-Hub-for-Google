@@ -1182,18 +1182,25 @@ class LegacyLabelExecutionPayload(BaseModel):
 async def preview_legacy_labels():
     try:
         from sync_engine import fetch_legacy_gmail_labels
-        from llm_engine import deduplicate_legacy_labels, profile_and_map_entities
+        from llm_engine import evaluate_legacy_labels
         
         raw_labels = await asyncio.to_thread(fetch_legacy_gmail_labels)
-        deduped_labels = await asyncio.to_thread(deduplicate_legacy_labels, raw_labels)
         
+        # Fetch current taxonomy tree
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute("SELECT name FROM categories")
-        current_categories = [row['name'] for row in cursor.fetchall()]
+        cursor.execute("SELECT id, name FROM categories")
+        categories = cursor.fetchall()
+        
+        taxonomy_tree = []
+        for cat in categories:
+            cat_dict = dict(cat)
+            cursor.execute("SELECT name FROM purposes WHERE category_id = ?", (cat["id"],))
+            cat_dict["purposes"] = [r["name"] for r in cursor.fetchall()]
+            taxonomy_tree.append(cat_dict)
         conn.close()
         
-        final_profiles = await asyncio.to_thread(profile_and_map_entities, deduped_labels, current_categories)
+        final_profiles = await asyncio.to_thread(evaluate_legacy_labels, raw_labels, taxonomy_tree)
         
         return JSONResponse(content={"status": "success", "data": final_profiles})
     except Exception as e:

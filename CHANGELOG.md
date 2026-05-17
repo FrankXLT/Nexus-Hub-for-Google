@@ -4,6 +4,23 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.1.38] - 2026-05-17
+### Added
+- **Layer 2:** Deployed a dedicated Comparative Label Engine (`evaluate_legacy_labels`) to analyze Gmail labels against the live Nexus taxonomy.
+### Changed
+- **Layer 3:** Rewired the legacy label preview route in `main.py` to utilize the new comparative engine, improving recommendation accuracy and duplicate detection.
+- **Layer 3:** Refined the `deduplicate_legacy.tmpl` prompt to enforce structural comparisons between legacy data and established taxonomy nodes.
+
+## [v1.1.37] - 2026-05-17
+### Fixed
+- **Layer 2:** Registered the missing `DEDUPLICATE_LEGACY` prompt key in the `db_init.py` seeder and `llm_engine.py` fallback map.
+- **Layer 2:** Created the baseline `DEFAULTS/deduplicate_legacy.tmpl` template to resolve errors during legacy Gmail label migration.
+
+## [v1.1.36] - 2026-05-17
+### Changed
+- **Layer 2:** Upgraded `sync_engine.py` to provide human-readable logs for Drive and Gmail, displaying file names and email subjects alongside raw IDs.
+- **Layer 2:** Hardened the LLM JSON parser in `llm_engine.py` with non-greedy regex extraction to resolve "Extra data" warnings and prevent cross-block parsing contamination.
+
 ## [v1.1.35] - 2026-05-17
 ### Changed
 - **Layer 2:** Hardened the LLM engine in `llm_engine.py` to strictly enforce database-driven prompt execution via the `Config_Prompts` table.

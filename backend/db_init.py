@@ -331,7 +331,9 @@ def seed_default_prompts(conn: sqlite3.Connection) -> None:
         'agent_profiler_personal': 'agent_profiler_personal.tmpl',
         'agent_profiler_commercial': 'agent_profiler_commercial.tmpl',
         'agent_classifier': 'agent_classifier.tmpl',
-        'QUARANTINE_CONSOLIDATION': 'quarantine_consolidation.tmpl'
+        'QUARANTINE_CONSOLIDATION': 'quarantine_consolidation.tmpl',
+        'DEDUPLICATE_LEGACY': 'deduplicate_legacy.tmpl',
+        'PROFILE_AND_MAP': 'profile_and_map_entities.tmpl'
     }
     
     for target_app, filename in prompts_to_seed.items():

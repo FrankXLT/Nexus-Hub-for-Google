@@ -6,6 +6,7 @@ Implements Two-Stage Triage for Drive documents and Single-Pass extraction for G
 
 import json
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -22,15 +23,21 @@ from db_init import DB_PATH
 
 def strip_markdown_json(text: str) -> str:
     """
-    Strips markdown code blocks from a string to prepare it for JSON parsing.
+    Strips markdown code blocks from a string and uses regex to extract the first valid JSON block.
     """
     raw_text = text.strip()
+    # Remove markdown delimiters if present
     if raw_text.startswith("```json"):
         raw_text = raw_text[7:]
     elif raw_text.startswith("```"):
         raw_text = raw_text[3:]
     if raw_text.endswith("```"):
         raw_text = raw_text[:-3]
+    
+    # Non-greedy regex extraction to prevent capturing extra data
+    match = re.search(r'(\{.*?\}|\[.*?\])', raw_text.strip(), re.DOTALL)
+    if match:
+        return match.group(1)
     return raw_text.strip()
 
 # ---------------------------------------------------------------------------
@@ -66,7 +73,7 @@ def fetch_active_prompt(prompt_key: str) -> str:
         'agent_profiler_commercial': 'agent_profiler_commercial.tmpl',
         'agent_classifier': 'agent_classifier.tmpl',
         'QUARANTINE_CONSOLIDATION': 'quarantine_consolidation.tmpl',
-        'DEDUPLICATE_LEGACY': 'deduplicate_legacy_labels.tmpl',
+        'DEDUPLICATE_LEGACY': 'deduplicate_legacy.tmpl',
         'PROFILE_AND_MAP': 'profile_and_map_entities.tmpl'
     }
     
@@ -690,6 +697,42 @@ async def append_zero_shot_rule(artifact_ids: list[str], instruction: str) -> di
 
 if __name__ == "__main__":
     print("Nexus LLM Engine initialized.")
+
+
+def evaluate_legacy_labels(legacy_labels: list, taxonomy_tree: list) -> list:
+    """
+    Decoupled comparative engine that analyzes legacy Gmail labels against the Nexus taxonomy.
+    """
+    client = get_genai_client()
+    prompt_template = fetch_active_prompt('DEDUPLICATE_LEGACY')
+    
+    payload = f"{prompt_template}\n\n=== NEXUS ZERO TRUST TAXONOMY ===\n{json.dumps(taxonomy_tree, indent=2)}\n\n=== GMAIL LEGACY LABELS ===\n{json.dumps(legacy_labels, indent=2)}"
+    
+    logger.info("Initiating Comparative Engine for Legacy Label Migration...")
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=payload,
+            config=types.GenerateContentConfig(
+                tools=[{"google_search": {}}],
+                temperature=0.1
+            )
+        )
+        
+        import re
+        raw_text = response.text
+        if not raw_text:
+            return []
+            
+        match = re.search(r'(\[.*?\])', raw_text, re.DOTALL)
+        if match:
+            return json.loads(match.group(1))
+        else:
+            logger.error("No JSON array found in Label Engine response.")
+            return []
+    except Exception as e:
+        logger.error(f"Error in evaluate_legacy_labels: {e}")
+        return []
 
 
 def deduplicate_legacy_labels(raw_labels: list) -> list:
