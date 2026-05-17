@@ -4,6 +4,12 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.1.29] - 2026-05-16
+### Changed
+- **Layer 6:** Aligned `deploy.ps1` with bash deployment logic, implementing interactive deployment updates and persistent `DEPLOYMENT_ID` tracking in `.nexus_env`.
+### Added
+- **Layer 6:** Integrated Apps Script pruning tool into both `health_check.ps1` and `health_check.sh` dashboards, allowing automated undeployment of legacy versions to stay within Google’s 20-deployment limit.
+
 ## [v1.1.28] - 2026-05-16
 ### Fixed
 - **Layer 2:** Patched `fetch_legacy_gmail_labels()` in `sync_engine.py` to properly build the Gmail service with authenticated credentials, resolving a crash during Day Zero ingestion.

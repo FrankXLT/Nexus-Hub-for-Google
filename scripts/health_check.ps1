@@ -121,7 +121,8 @@ while ($true) {
     Write-Host "[2] Pull Database Taxonomy (db_report.md)"
     Write-Host "[3] Pull Latest 50 Logs (nexus_logs.txt)"
     Write-Host "[4] Restart Nexus Service"
-    Write-Host "[5] Exit"
+    Write-Host "[5] Prune Old Apps Script Deployments"
+    Write-Host "[6] Exit"
     Write-Host "====================================================" -ForegroundColor Cyan
     
     $choice = Read-Host "Select an option"
@@ -181,11 +182,32 @@ while ($true) {
             }
         }
         "5" {
+            Write-Host "`nScanning Apps Script deployments..." -ForegroundColor Cyan
+            $claspOut = clasp deployments 2>&1
+            $depLines = $claspOut -split "`n" | Where-Object { $_ -match "^- ([A-Za-z0-9_-]+) @" }
+            Write-Host "Found $($depLines.Count) versioned deployments." -ForegroundColor Yellow
+            
+            if ($depLines.Count -gt 5) {
+                Write-Host "Pruning older deployments (keeping the 5 most recent)..." -ForegroundColor Cyan
+                $toDelete = $depLines.Count - 5
+                for ($i = 0; $i -lt $toDelete; $i++) {
+                    if ($depLines[$i] -match "^- ([A-Za-z0-9_-]+) @") {
+                        $delId = $Matches[1]
+                        Write-Host "   -> Undeploying $delId..."
+                        clasp undeploy $delId 2>&1 | Out-Null
+                    }
+                }
+                Write-Host "Pruning complete!" -ForegroundColor Green
+            } else {
+                Write-Host "Deployment count is healthy. No pruning needed." -ForegroundColor Green
+            }
+        }
+        "6" {
             Write-Host "`nExiting Master Control Panel." -ForegroundColor Cyan
             break
         }
         default {
-            Write-Host "Invalid option. Please select 1-5." -ForegroundColor Red
+            Write-Host "Invalid option. Please select 1-6." -ForegroundColor Red
         }
     }
 }

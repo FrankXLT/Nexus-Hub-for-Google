@@ -94,7 +94,8 @@ while true; do
     echo "2) Pull Database Taxonomy (db_report.md)"
     echo "3) Pull Latest 50 Logs (nexus_logs.txt)"
     echo "4) Restart Nexus Service"
-    echo "5) Exit"
+    echo "5) Prune Old Apps Script Deployments"
+    echo "6) Exit"
     echo -e "${CYAN}====================================================${NC}"
     read -p "Select an option: " choice
 
@@ -132,11 +133,34 @@ while true; do
             done
             ;;
         5)
+            echo -e "\n${CYAN}Scanning Apps Script deployments...${NC}"
+            dep_out=$(clasp deployments 2>&1)
+            dep_lines=$(echo "$dep_out" | grep -oP '^- \K[A-Za-z0-9_-]+(?= @[0-9]+)')
+            count=$(echo "$dep_lines" | wc -w)
+            
+            echo -e "${YELLOW}Found $count versioned deployments.${NC}"
+            if [ "$count" -gt 5 ]; then
+                echo -e "${CYAN}Pruning older deployments (keeping the 5 most recent)...${NC}"
+                to_delete=$((count - 5))
+                IFS=$'\n' read -rd '' -a deps <<<"$dep_lines" || true
+                for ((i=0; i<to_delete; i++)); do
+                    del_id="${deps[$i]}"
+                    if [ -n "$del_id" ]; then
+                        echo "   -> Undeploying $del_id..."
+                        clasp undeploy "$del_id" &>/dev/null || true
+                    fi
+                done
+                echo -e "${GREEN}Pruning complete!${NC}"
+            else
+                echo -e "${GREEN}Deployment count is healthy. No pruning needed.${NC}"
+            fi
+            ;;
+        6)
             echo -e "\n${CYAN}Exiting Master Control Panel.${NC}"
             break
             ;;
         *)
-            echo -e "${RED}Invalid option. Please select 1-5.${NC}"
+            echo -e "${RED}Invalid option. Please select 1-6.${NC}"
             ;;
     esac
 done
