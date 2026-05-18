@@ -322,6 +322,20 @@ function previewBatchQuery(payload) {
 }
 
 /**
+ * Purpose: Updates an entity's metadata (e.g. workspace_alias, flatten_gmail_label).
+ * Expected Inputs: entityId (int), payload (Object)
+ * Expected Outputs: Object - Success confirmation.
+ */
+function updateEntity(entityId, payload) {
+  try {
+    const result = sendToNexusVM("/api/entities/" + entityId, payload, 'patch');
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * Purpose: Previews legacy label migration.
  * Expected Inputs: None.
  * Expected Outputs: Object - Preview results.

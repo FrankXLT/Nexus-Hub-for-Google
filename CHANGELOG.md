@@ -4,6 +4,29 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.7.0] - 2026-05-17
+### Added
+- **Layer 1:** Added `flatten_gmail_label` (INTEGER DEFAULT 0) to the `entities` table in `db_init.py` to support dynamic label nesting control.
+- **Layer 3:** Built `PATCH /api/entities/{entity_id}` endpoint in `main.py` allowing fast edits to `workspace_alias` and `flatten_gmail_label`. The route executes physical Gmail API renames in the background to ensure consistency.
+- **Layer 7:** Upgraded Frontend Taxonomy Explorer (`JS_Actions.html`) to support direct `workspace_alias` and `flatten_gmail_label` edits via an interactive Context Menu Drawer.
+
+## [v2.6.0] - 2026-05-17
+### Added
+- **Layer 1:** Added `gmail_label_id` (TEXT DEFAULT NULL) to the `categories`, `purposes`, and `entities` tables in `db_init.py` for stateful label tracking.
+- **Layer 2:** Implemented `sync_gmail_labels()` in `sync_engine.py` to autonomously create and track Google Workspace label IDs.
+### Changed
+- **Layer 2:** Upgraded label sync logic to perform stateful `labels().patch()` rename operations via the Gmail API when a `workspace_alias` or taxonomy name is changed in Nexus, preventing legacy label duplication and avoiding orphaned artifacts.
+
+## [v2.5.0] - 2026-05-17
+### Added
+- **Layer 7:** Upgraded Frontend Taxonomy Explorer (`JS_Actions.html`) to render the new `min_confidence_threshold` and Zero Trust configuration parameters. Added rich visual badges to distinguish `Universal` and `Categorical` purposes, explicit AI confidence levels, and deterministic behavior mappings.
+### Changed
+- **Layer 7:** Implemented robust defensive parsing in `loadZeroTrustFlow` JavaScript logic to prevent UI crashes if backend payload data is missing or incomplete during Day 1 schema migrations.
+
+## [v2.4.3] - 2026-05-17
+### Fixed
+- **Layer 2:** Fixed a `500 Internal Server Error` in `/api/ingestion/legacy-labels/preview` by assigning `sqlite3.Row` to `conn.row_factory` inside `sync_engine.py`, resolving a TypeError during the execution of `get_taxonomy_tree_json()`.
+
 ## [v2.4.2] - 2026-05-17
 ### Fixed
 - **Layer 1:** Fixed `Legacy_Label_Migration` table creation failure in `db_init.py` by changing the `last_evaluated` column datatype from `TIMESTAMP` to `TEXT` to comply with SQLite `STRICT` mode.

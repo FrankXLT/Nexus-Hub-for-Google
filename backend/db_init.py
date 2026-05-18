@@ -102,14 +102,15 @@ def init_db(db_path: str = DB_PATH) -> None:
             top_entities_limit INTEGER DEFAULT 5,
             top_entities_sort TEXT DEFAULT 'received', -- Options: 'received', 'read', 'replied'
             top_entities_importance_filter TEXT DEFAULT 'nexus', -- Options: 'nexus', 'gmail', 'both', 'none'
-            min_confidence_threshold REAL DEFAULT 0.95
+            min_confidence_threshold REAL DEFAULT 0.95,
+            gmail_label_id TEXT DEFAULT NULL
         ) STRICT;
-    """)
+        """)
 
-    # 4c. Taxonomy_Purposes
-    # -- Tier 3 of the hierarchy determining the document's intent. 
-    # -- operation_cost tracks execution impact for the Quota Governor.
-    cursor.execute("""
+        # 4c. Taxonomy_Purposes
+        # -- Tier 3 of the hierarchy determining the document's intent.
+        # -- operation_cost tracks execution impact for the Quota Governor.
+        cursor.execute("""
         CREATE TABLE IF NOT EXISTS purposes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -124,11 +125,12 @@ def init_db(db_path: str = DB_PATH) -> None:
             risk_level TEXT DEFAULT 'Medium',
             retention_days INTEGER DEFAULT 365,
             category_id INTEGER,
+            gmail_label_id TEXT DEFAULT NULL,
             FOREIGN KEY (category_id) REFERENCES categories (id)
         ) STRICT;
-    """)
+        """)
 
-    cursor.execute("""
+        cursor.execute("""
         CREATE TABLE IF NOT EXISTS entities (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -142,12 +144,13 @@ def init_db(db_path: str = DB_PATH) -> None:
             is_profiled INTEGER DEFAULT 0, -- 0 = Unprofiled holding bucket, 1 = Profiled by AI/User
             ingestion_source TEXT DEFAULT 'unknown', -- Options: 'people_api', 'gmail', 'drive', 'user'
             is_favorite INTEGER DEFAULT 0, -- Maps to Google Contacts 'starred' or 'favorite' status
+            gmail_label_id TEXT DEFAULT NULL,
             FOREIGN KEY (category_id) REFERENCES categories (id),
             FOREIGN KEY (parent_entity_id) REFERENCES entities (id)
         );
-    """)
-    # Idempotent column additions for entities
-    cols_to_add = [
+        """)
+        # Idempotent column additions for entities
+        cols_to_add = [
         ("nexus_state", "TEXT DEFAULT 'active'"),
         ("workspace_alias", "TEXT DEFAULT NULL"),
         ("show_in_gmail_nav", "BOOLEAN DEFAULT 1"),
@@ -155,14 +158,32 @@ def init_db(db_path: str = DB_PATH) -> None:
         ("use_in_drive_structure", "BOOLEAN DEFAULT 1"),
         ("is_profiled", "INTEGER DEFAULT 0"),
         ("ingestion_source", "TEXT DEFAULT 'unknown'"),
-        ("is_favorite", "INTEGER DEFAULT 0")
-    ]
-    for col_name, col_def in cols_to_add:
+        ("is_favorite", "INTEGER DEFAULT 0"),
+        ("gmail_label_id", "TEXT DEFAULT NULL")
+        ]
+        for col_name, col_def in cols_to_add:
         try:
             cursor.execute(f"ALTER TABLE entities ADD COLUMN {col_name} {col_def};")
         except sqlite3.OperationalError:
             pass # Column already exists
 
+        cols_to_add_cat = [
+        ("gmail_label_id", "TEXT DEFAULT NULL")
+        ]
+        for col_name, col_def in cols_to_add_cat:
+        try:
+            cursor.execute(f"ALTER TABLE categories ADD COLUMN {col_name} {col_def};")
+        except sqlite3.OperationalError:
+            pass
+
+        cols_to_add_purp = [
+        ("gmail_label_id", "TEXT DEFAULT NULL")
+        ]
+        for col_name, col_def in cols_to_add_purp:
+        try:
+            cursor.execute(f"ALTER TABLE purposes ADD COLUMN {col_name} {col_def};")
+        except sqlite3.OperationalError:
+            pass
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS aliases (

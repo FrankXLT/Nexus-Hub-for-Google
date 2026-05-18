@@ -984,6 +984,7 @@ def run_sync() -> None:
         cursor.execute("SELECT is_enabled FROM pipeline_config WHERE pipeline_name = 'gmail'")
         g_row = cursor.fetchone()
         if not g_row or g_row['is_enabled']:
+            sync_gmail_labels(creds, conn)
             sync_gmail(creds, conn, governor)
         else:
             print("Kill Switch: Gmail pipeline is disabled.")
@@ -1075,6 +1076,7 @@ def fetch_legacy_gmail_labels() -> list:
     from diagnostics import write_migration_trace
     
     conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row # CRITICAL: Prevents dict(row) TypeError in taxonomy builder
     taxonomy_tree = get_taxonomy_tree_json(conn)
     prompt = fetch_active_prompt('MIGRATE_LEGACY_LABEL')
     
@@ -1380,3 +1382,112 @@ def sync_drive_pipeline(artifact_id: str, ocr_text: str, conn: sqlite3.Connectio
         route_to_zero_trust(cursor, 'drive', artifact_id, result)
         
     conn.commit()
+
+
+def sync_gmail_labels(creds: Credentials, conn: sqlite3.Connection) -> None:
+    """
+    Stateful Gmail Label Syncing.
+    Extracts physical gmail_label_id for Categories, Purposes, and Entities.
+    Renames labels via Gmail API if the name/alias changes in Nexus to prevent orphaning.
+    """
+    service = build('gmail', 'v1', credentials=creds)
+    cursor = conn.cursor()
+    
+    try:
+        # Fetch all current labels from Gmail
+        results = service.users().labels().list(userId='me').execute()
+        gmail_labels = {lbl['name']: lbl for lbl in results.get('labels', [])}
+        gmail_labels_by_id = {lbl['id']: lbl for lbl in results.get('labels', [])}
+        
+        # 1. Sync Categories
+        cursor.execute("SELECT id, name, gmail_label_id FROM categories")
+        categories = cursor.fetchall()
+        for cat in categories:
+            cat_name = cat['name']
+            label_id = cat['gmail_label_id']
+            
+            if label_id and label_id in gmail_labels_by_id:
+                current_gmail_name = gmail_labels_by_id[label_id]['name']
+                if current_gmail_name != cat_name:
+                    # Rename the label in Gmail
+                    label_body = {'name': cat_name}
+                    service.users().labels().patch(userId='me', id=label_id, body=label_body).execute()
+                    print(f"Renamed Category label in Gmail: {current_gmail_name} -> {cat_name}")
+            else:
+                # Create the label
+                if cat_name not in gmail_labels:
+                    label_body = {'name': cat_name, 'labelListVisibility': 'labelShow', 'messageListVisibility': 'show'}
+                    new_label = service.users().labels().create(userId='me', body=label_body).execute()
+                    cursor.execute("UPDATE categories SET gmail_label_id = ? WHERE id = ?", (new_label['id'], cat['id']))
+                    print(f"Created new Category label in Gmail: {cat_name}")
+                else:
+                    # Sync existing ID
+                    cursor.execute("UPDATE categories SET gmail_label_id = ? WHERE id = ?", (gmail_labels[cat_name]['id'], cat['id']))
+        
+        # 2. Sync Entities
+        cursor.execute("""
+            SELECT e.id, e.name, e.workspace_alias, e.flatten_gmail_label, e.gmail_label_id, c.name as cat_name 
+            FROM entities e
+            JOIN categories c ON e.category_id = c.id
+        """)
+        entities = cursor.fetchall()
+        for ent in entities:
+            display_name = ent['workspace_alias'] if ent['workspace_alias'] else ent['name']
+            
+            if ent['flatten_gmail_label'] == 1 or not ent['cat_name']:
+                full_label_name = display_name
+            else:
+                full_label_name = f"{ent['cat_name']}/{display_name}"
+                
+            label_id = ent['gmail_label_id']
+            
+            if label_id and label_id in gmail_labels_by_id:
+                current_gmail_name = gmail_labels_by_id[label_id]['name']
+                if current_gmail_name != full_label_name:
+                    label_body = {'name': full_label_name}
+                    service.users().labels().patch(userId='me', id=label_id, body=label_body).execute()
+                    print(f"Renamed Entity label in Gmail: {current_gmail_name} -> {full_label_name}")
+            else:
+                if full_label_name not in gmail_labels:
+                    label_body = {'name': full_label_name, 'labelListVisibility': 'labelShow', 'messageListVisibility': 'show'}
+                    try:
+                        new_label = service.users().labels().create(userId='me', body=label_body).execute()
+                        cursor.execute("UPDATE entities SET gmail_label_id = ? WHERE id = ?", (new_label['id'], ent['id']))
+                        print(f"Created new Entity label in Gmail: {full_label_name}")
+                    except HttpError as e:
+                        print(f"Failed to create Entity label {full_label_name}: {e}")
+                else:
+                    cursor.execute("UPDATE entities SET gmail_label_id = ? WHERE id = ?", (gmail_labels[full_label_name]['id'], ent['id']))
+
+        # 3. Sync Purposes
+        cursor.execute("""
+            SELECT p.id, p.name, p.gmail_label_id, c.name as cat_name 
+            FROM purposes p
+            JOIN categories c ON p.category_id = c.id
+        """)
+        purposes = cursor.fetchall()
+        for purp in purposes:
+            full_label_name = f"{purp['cat_name']}/{purp['name']}"
+            label_id = purp['gmail_label_id']
+            
+            if label_id and label_id in gmail_labels_by_id:
+                current_gmail_name = gmail_labels_by_id[label_id]['name']
+                if current_gmail_name != full_label_name:
+                    label_body = {'name': full_label_name}
+                    service.users().labels().patch(userId='me', id=label_id, body=label_body).execute()
+                    print(f"Renamed Purpose label in Gmail: {current_gmail_name} -> {full_label_name}")
+            else:
+                if full_label_name not in gmail_labels:
+                    label_body = {'name': full_label_name, 'labelListVisibility': 'labelShow', 'messageListVisibility': 'show'}
+                    try:
+                        new_label = service.users().labels().create(userId='me', body=label_body).execute()
+                        cursor.execute("UPDATE purposes SET gmail_label_id = ? WHERE id = ?", (new_label['id'], purp['id']))
+                        print(f"Created new Purpose label in Gmail: {full_label_name}")
+                    except HttpError as e:
+                        print(f"Failed to create Purpose label {full_label_name}: {e}")
+                else:
+                    cursor.execute("UPDATE purposes SET gmail_label_id = ? WHERE id = ?", (gmail_labels[full_label_name]['id'], purp['id']))
+                    
+        conn.commit()
+    except Exception as e:
+        print(f"Error during stateful Gmail label sync: {e}")

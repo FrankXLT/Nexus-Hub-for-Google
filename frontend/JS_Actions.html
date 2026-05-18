@@ -458,10 +458,30 @@ var appActions = {
                                 entitiesHtml = '<div class="mt-2"><span class="text-slate-400 italic text-sm">Awaiting Day 1 Ingestion...</span></div>';
                             }
                             
+                            const importanceRule = purpose.nexus_importance_rule || 'N/A';
+                            const defaultAction = purpose.default_action || 'N/A';
+                            const purpConfidence = purpose.min_confidence_threshold ? Math.round(purpose.min_confidence_threshold * 100) : 95;
+                            const scope = purpose.scope || 'Categorical';
+                            
+                            const scopeColor = scope.toLowerCase() === 'universal' ? 'bg-[#ffb703]/20 text-[#fb8500] font-semibold border-[#fb8500]/30' : 'bg-[#8ecae6]/20 text-[#023047]/70 border-[#8ecae6]/30';
+
+                            const purposeBadges = `
+                                <div class="flex gap-2 mt-2 mb-3 text-xs">
+                                    <span class="${scopeColor} px-2 py-1 rounded border">Scope: ${scope}</span>
+                                    <span class="bg-slate-100 text-slate-600 px-2 py-1 rounded border border-slate-200">Action: ${defaultAction}</span>
+                                    <span class="bg-slate-100 text-slate-600 px-2 py-1 rounded border border-slate-200">Importance: ${importanceRule}</span>
+                                    <span class="bg-slate-100 text-slate-600 px-2 py-1 rounded border border-slate-200">AI Threshold: ${purpConfidence}%</span>
+                                </div>
+                            `;
+                            
                             purposesHtml += `
-                                <div class="mb-4 p-4 border border-[#8ecae6]/50 rounded bg-white shadow-sm">
-                                    <h5 class="font-bold text-[#fb8500] mb-2 cursor-pointer" onclick="window.handleNodeClick('${purpose.name}')">${purpose.name}</h5>
-                                    ${entitiesHtml}
+                                <div class="mb-4 p-4 border border-[#8ecae6]/50 rounded bg-white shadow-sm hover:border-[#fb8500] transition-colors">
+                                    <h5 class="font-bold text-[#fb8500] mb-1 cursor-pointer inline-block" onclick="window.handleNodeClick('${purpose.name}')">${purpose.name}</h5>
+                                    ${purposeBadges}
+                                    <div class="mt-2 border-t border-slate-100 pt-2">
+                                        <div class="text-xs font-semibold text-[#023047]/70 mb-1 uppercase tracking-wider">Assigned Entities</div>
+                                        ${entitiesHtml}
+                                    </div>
                                 </div>
                             `;
                         });
@@ -469,12 +489,25 @@ var appActions = {
                         purposesHtml = '<div class="text-slate-400 italic text-sm p-4">No purposes defined for this category.</div>';
                     }
 
+                    const navCondition = category.nav_condition || 'N/A';
+                    const topEntitiesLimit = category.top_entities_limit || 'N/A';
+                    const catConfidence = category.min_confidence_threshold ? Math.round(category.min_confidence_threshold * 100) : 95;
+
+                    const categoryBadges = `
+                        <div class="flex gap-2 mb-4 text-xs text-[#023047]/80">
+                            <span class="bg-[#8ecae6]/20 px-2 py-1 rounded border border-[#8ecae6]/30 font-medium">Nav Condition: ${navCondition}</span>
+                            <span class="bg-[#8ecae6]/20 px-2 py-1 rounded border border-[#8ecae6]/30 font-medium">Top Entities Limit: ${topEntitiesLimit}</span>
+                            <span class="bg-[#8ecae6]/20 px-2 py-1 rounded border border-[#8ecae6]/30 font-medium">AI Threshold: ${catConfidence}%</span>
+                        </div>
+                    `;
+
                     container.innerHTML += `
                         <details class="group bg-white border border-[#8ecae6] w-full mb-4 shadow-sm rounded-md overflow-hidden" open>
                             <summary class="p-4 cursor-pointer list-none flex items-center border-b border-[#8ecae6]/50 text-[#219ebc] font-sans text-xl font-bold select-none hover:bg-slate-50 transition-colors">
                                 <span class="mr-3 transition-transform group-open:rotate-90">▼</span> ${category.name}
                             </summary>
                             <div class="p-6 bg-slate-50/50">
+                                ${categoryBadges}
                                 ${purposesHtml}
                             </div>
                         </details>
@@ -495,14 +528,14 @@ window.handleNodeClick = function(nodeId) {
     drawer.innerHTML = `
         <div class="h-full flex flex-col bg-white text-[#023047]">
             <div class="p-4 border-b border-[#8ecae6]/50 flex justify-between items-center bg-slate-50">
-                <h2 class="text-xl font-bold text-[#fb8500]">Edit Node Settings</h2>
+                <h2 class="text-xl font-bold text-[#fb8500]">Edit Purpose Settings</h2>
                 <button onclick="document.getElementById('zt-drawer').classList.add('translate-x-full')" class="text-[#8ecae6] hover:text-[#fb8500]">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
             </div>
             <div class="p-6 flex-1 overflow-y-auto">
-                <label class="block text-sm font-bold mb-2">Entity Name</label>
-                <input type="text" class="w-full bg-slate-50 border border-[#8ecae6] rounded p-2 mb-4 text-[#023047] focus:ring-2 focus:ring-[#219ebc] outline-none" value="${nodeId}">
+                <label class="block text-sm font-bold mb-2">Purpose Name</label>
+                <input type="text" class="w-full bg-slate-50 border border-[#8ecae6] rounded p-2 mb-4 text-[#023047] focus:ring-2 focus:ring-[#219ebc] outline-none" value="${nodeId}" readonly>
                 
                 <label class="block text-sm font-bold mb-2 mt-4">Gmail Navigation Visibility</label>
                 <select class="w-full bg-slate-50 border border-[#8ecae6] rounded p-2 mb-6 text-[#023047] focus:ring-2 focus:ring-[#219ebc] outline-none">
@@ -515,6 +548,65 @@ window.handleNodeClick = function(nodeId) {
             </div>
         </div>
     `;
+};
+
+window.handleEntityClick = function(entityId, name, alias, flattenLabel) {
+    const drawer = document.getElementById('zt-drawer');
+    if (!drawer) return;
+    drawer.classList.remove('translate-x-full');
+    
+    const isChecked = flattenLabel === 1 ? 'checked' : '';
+    
+    drawer.innerHTML = `
+        <div class="h-full flex flex-col bg-white text-[#023047]">
+            <div class="p-4 border-b border-[#8ecae6]/50 flex justify-between items-center bg-slate-50">
+                <h2 class="text-xl font-bold text-[#219ebc]">Edit Entity Settings</h2>
+                <button onclick="document.getElementById('zt-drawer').classList.add('translate-x-full')" class="text-[#8ecae6] hover:text-[#fb8500]">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="p-6 flex-1 overflow-y-auto">
+                <label class="block text-sm font-bold mb-2">Entity Name</label>
+                <input type="text" class="w-full bg-slate-100 border border-slate-300 rounded p-2 mb-4 text-[#023047] outline-none" value="${name}" readonly>
+                
+                <label class="block text-sm font-bold mb-2 mt-4">Workspace Alias (Nickname)</label>
+                <input type="text" id="entity-alias-${entityId}" class="w-full bg-slate-50 border border-[#8ecae6] rounded p-2 mb-4 text-[#023047] focus:ring-2 focus:ring-[#219ebc] outline-none" value="${alias}" placeholder="e.g. Acme Corp">
+                
+                <label class="flex items-center space-x-2 mt-4 mb-6 cursor-pointer">
+                    <input type="checkbox" id="entity-flatten-${entityId}" class="rounded border-[#8ecae6] text-[#219ebc] focus:ring-[#219ebc]" ${isChecked}>
+                    <span class="text-sm font-bold">Flatten Gmail Label (Hide Category)</span>
+                </label>
+
+                <button onclick="appActions.saveEntityChanges(${entityId})" class="w-full bg-[#fb8500] hover:bg-[#ea580c] text-white font-bold py-2 px-4 rounded transition-colors shadow-sm mt-4">Save Entity</button>
+            </div>
+        </div>
+    `;
+};
+
+appActions.saveEntityChanges = function(entityId) {
+    const aliasInput = document.getElementById(`entity-alias-${entityId}`);
+    const flattenInput = document.getElementById(`entity-flatten-${entityId}`);
+    
+    if (!aliasInput || !flattenInput) return;
+    
+    const payload = {
+        workspace_alias: aliasInput.value.trim(),
+        flatten_gmail_label: flattenInput.checked ? 1 : 0
+    };
+    
+    google.script.run
+        .withSuccessHandler(response => {
+            if (response && response.success) {
+                document.getElementById('zt-drawer').classList.add('translate-x-full');
+                appActions.loadZeroTrustFlow(); // Refresh the tree
+            } else {
+                alert("Error saving entity: " + (response ? response.error : "Unknown Error"));
+            }
+        })
+        .withFailureHandler(err => {
+            alert("Execution failed: " + (err.message || err));
+        })
+        .updateEntity(entityId, payload);
 };
 
 // --- Add these missing functions to appActions ---

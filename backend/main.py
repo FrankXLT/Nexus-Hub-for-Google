@@ -1354,7 +1354,8 @@ async def get_taxonomy_tree():
             purps_list = []
             for purp in purposes:
                 p_dict = dict(purp)
-                p_dict["entities"] = []
+                cursor.execute("SELECT id, name, workspace_alias, flatten_gmail_label FROM entities WHERE category_id = ?", (cat["id"],))
+                p_dict["entities"] = [dict(e) for e in cursor.fetchall()] # Simplification to link entities via category in this mock
                 purps_list.append(p_dict)
                 
             cat_dict["purposes"] = purps_list
@@ -1362,6 +1363,73 @@ async def get_taxonomy_tree():
             
         conn.close()
         return JSONResponse(content=tree)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+class EntityUpdatePayload(BaseModel):
+    workspace_alias: Optional[str] = None
+    flatten_gmail_label: Optional[int] = None
+
+def update_entity_gmail_label_background(entity_id: int):
+    from sync_engine import authenticate
+    from googleapiclient.discovery import build
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT e.id, e.name, e.workspace_alias, e.flatten_gmail_label, e.gmail_label_id, c.name as cat_name
+            FROM entities e
+            JOIN categories c ON e.category_id = c.id
+            WHERE e.id = ?
+        """, (entity_id,))
+        ent = cursor.fetchone()
+        
+        if ent and ent['gmail_label_id']:
+            display_name = ent['workspace_alias'] if ent['workspace_alias'] else ent['name']
+            if ent['flatten_gmail_label'] == 1:
+                new_label_name = display_name
+            else:
+                new_label_name = f"{ent['cat_name']}/{display_name}"
+                
+            creds = authenticate()
+            service = build('gmail', 'v1', credentials=creds)
+            label_body = {'name': new_label_name}
+            service.users().labels().patch(userId='me', id=ent['gmail_label_id'], body=label_body).execute()
+        conn.close()
+    except Exception as e:
+        print(f"Background task to rename entity label failed: {e}")
+
+@app.patch("/api/entities/{entity_id}")
+async def update_entity(entity_id: int, payload: EntityUpdatePayload, background_tasks: BackgroundTasks):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        updates = []
+        params = []
+        if payload.workspace_alias !== None:
+            updates.append("workspace_alias = ?")
+            params.append(payload.workspace_alias)
+        if payload.flatten_gmail_label !== None:
+            updates.append("flatten_gmail_label = ?")
+            params.append(payload.flatten_gmail_label)
+            
+        if not updates:
+            return JSONResponse(content={"status": "success", "message": "No updates provided."})
+            
+        params.append(entity_id)
+        query = f"UPDATE entities SET {', '.join(updates)} WHERE id = ?"
+        cursor.execute(query, params)
+        conn.commit()
+        
+        cursor.execute("SELECT gmail_label_id FROM entities WHERE id = ?", (entity_id,))
+        row = cursor.fetchone()
+        if row and row['gmail_label_id']:
+            background_tasks.add_task(update_entity_gmail_label_background, entity_id)
+            
+        conn.close()
+        return JSONResponse(content={"status": "success", "message": "Entity updated."})
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
