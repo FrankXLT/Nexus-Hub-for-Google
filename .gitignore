@@ -1,5 +1,5 @@
 # Nexus - Security & State Exclusions
-*.db*
+nexus-live.db*
 .env
 .clasprc.json
 credentials.json

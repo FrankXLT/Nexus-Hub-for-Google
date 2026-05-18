@@ -105,12 +105,12 @@ def init_db(db_path: str = DB_PATH) -> None:
             min_confidence_threshold REAL DEFAULT 0.95,
             gmail_label_id TEXT DEFAULT NULL
         ) STRICT;
-        """)
+    """)
 
-        # 4c. Taxonomy_Purposes
-        # -- Tier 3 of the hierarchy determining the document's intent.
-        # -- operation_cost tracks execution impact for the Quota Governor.
-        cursor.execute("""
+    # 4c. Taxonomy_Purposes
+    # -- Tier 3 of the hierarchy determining the document's intent.
+    # -- operation_cost tracks execution impact for the Quota Governor.
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS purposes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -128,9 +128,9 @@ def init_db(db_path: str = DB_PATH) -> None:
             gmail_label_id TEXT DEFAULT NULL,
             FOREIGN KEY (category_id) REFERENCES categories (id)
         ) STRICT;
-        """)
+    """)
 
-        cursor.execute("""
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS entities (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -148,9 +148,10 @@ def init_db(db_path: str = DB_PATH) -> None:
             FOREIGN KEY (category_id) REFERENCES categories (id),
             FOREIGN KEY (parent_entity_id) REFERENCES entities (id)
         );
-        """)
-        # Idempotent column additions for entities
-        cols_to_add = [
+    """)
+
+    # Idempotent column additions for entities
+    cols_to_add = [
         ("nexus_state", "TEXT DEFAULT 'active'"),
         ("workspace_alias", "TEXT DEFAULT NULL"),
         ("show_in_gmail_nav", "BOOLEAN DEFAULT 1"),
@@ -160,26 +161,26 @@ def init_db(db_path: str = DB_PATH) -> None:
         ("ingestion_source", "TEXT DEFAULT 'unknown'"),
         ("is_favorite", "INTEGER DEFAULT 0"),
         ("gmail_label_id", "TEXT DEFAULT NULL")
-        ]
-        for col_name, col_def in cols_to_add:
+    ]
+    for col_name, col_def in cols_to_add:
         try:
             cursor.execute(f"ALTER TABLE entities ADD COLUMN {col_name} {col_def};")
         except sqlite3.OperationalError:
             pass # Column already exists
 
-        cols_to_add_cat = [
+    cols_to_add_cat = [
         ("gmail_label_id", "TEXT DEFAULT NULL")
-        ]
-        for col_name, col_def in cols_to_add_cat:
+    ]
+    for col_name, col_def in cols_to_add_cat:
         try:
             cursor.execute(f"ALTER TABLE categories ADD COLUMN {col_name} {col_def};")
         except sqlite3.OperationalError:
             pass
 
-        cols_to_add_purp = [
+    cols_to_add_purp = [
         ("gmail_label_id", "TEXT DEFAULT NULL")
-        ]
-        for col_name, col_def in cols_to_add_purp:
+    ]
+    for col_name, col_def in cols_to_add_purp:
         try:
             cursor.execute(f"ALTER TABLE purposes ADD COLUMN {col_name} {col_def};")
         except sqlite3.OperationalError:

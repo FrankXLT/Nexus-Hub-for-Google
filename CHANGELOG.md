@@ -4,6 +4,14 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.8.0] - 2026-05-17
+### Added
+- **Layer 0:** Added "Resource Management & Cleanup Protocol" to `.clinerules/execution-protocol.md` to enforce strict garbage collection, connection handling, and zero-footprint operational standards.
+
+## [v2.7.1] - 2026-05-17
+### Fixed
+- **Layer 1:** Fixed `IndentationError` in `db_init.py` by aligning schema execution blocks to standard 4-space indentation.
+
 ## [v2.7.0] - 2026-05-17
 ### Added
 - **Layer 1:** Added `flatten_gmail_label` (INTEGER DEFAULT 0) to the `entities` table in `db_init.py` to support dynamic label nesting control.
