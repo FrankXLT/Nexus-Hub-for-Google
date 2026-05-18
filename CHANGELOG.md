@@ -4,6 +4,26 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.1.0] - 2026-05-18
+### Added
+- **Layer 6:** Implemented `GET /api/management/entities/paginated` supporting SQL pagination (`LIMIT`/`OFFSET`) and joined entity/alias data.
+- **Layer 1/3:** Implemented backend logic for inline entity alias updates, allowing CSV-based batch management of alias strings via `DELETE`/`INSERT` transactions.
+- **Layer 7:** Deployed "Data Matrix View" in the Taxonomy Explorer, providing an ultra-dense, inline-editable table for bulk entity configuration.
+- **Layer 7:** Implemented frontend "Load More" pagination state management to dynamically append data rows to the matrix view.
+
+## [v3.0.0] - 2026-05-18
+### Added
+- **Layer 1/2:** Migrated `Legacy_Label_Migration` table with `classification` and `extracted_entity_name` support.
+- **Layer 4/5:** Implemented Pydantic-structured LLM extraction schema for tri-state ontological mapping.
+- **Layer 6:** Implemented asynchronous chunked processing for legacy label migration to prevent timeout errors.
+- **Layer 7:** Deployed 3-Tab Bulk Configuration matrix with inline navigation and state toggles for hierarchical label mapping.
+
+## [v2.9.0] - 2026-05-18
+### Added
+- **Layer 6:** Implemented `GET /api/diagnostics/logs` to expose system error logs.
+- **Layer 6:** Implemented `POST /api/diagnostics/generate-issue` to trigger AI-assisted GitHub issue report generation.
+- **Layer 7:** Deployed "Debug Logs" tab in the dashboard for centralized error management and automated bug report generation.
+
 ## [v2.8.5] - 2026-05-17
 ### Changed
 - **Layer 5:** Upgraded legacy label sync in `sync_engine.py` and `llm_engine.py` to use chunked batch processing (40 labels per LLM call) instead of sequential execution, resolving 504 Gateway Timeouts.

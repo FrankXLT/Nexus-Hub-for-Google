@@ -663,6 +663,56 @@ async def health_check_post(request: Request):
     report = run_all_diagnostics()
     return {"status": "healthy", "report": report}
 
+@app.get("/api/diagnostics/logs")
+async def get_diagnostics_logs(limit: int = 50):
+    """
+    Retrieves recent system, API, and LLM error logs.
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, module_name, error_message, timestamp FROM Error_Logs ORDER BY timestamp DESC LIMIT ?", (limit,))
+        logs = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return JSONResponse(content={"status": "success", "logs": logs})
+    except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/api/diagnostics/generate-issue")
+async def generate_github_issue(request: Request):
+    """
+    Generates a sanitized, GitHub-ready bug report from selected logs.
+    """
+    try:
+        body = await request.json()
+        log_ids = body.get("log_ids", [])
+        
+        if not log_ids:
+            return JSONResponse(status_code=400, content={"error": "No logs selected"})
+            
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        placeholders = ','.join(['?'] * len(log_ids))
+        cursor.execute(f"SELECT module_name, error_message FROM Error_Logs WHERE id IN ({placeholders})", log_ids)
+        logs = cursor.fetchall()
+        conn.close()
+        
+        # Prepare context for AI
+        log_context = "\n".join([f"[{l['module_name']}] {l['error_message']}" for l in logs])
+        prompt = f"Generate a detailed, sanitized GitHub issue report based on the following error logs:\n\n{log_context}\n\nInclude a title, description, and steps to reproduce."
+        
+        from llm_engine import run_sandbox_prompt
+        # Using a dummy artifact_id because this is a general system report
+        issue_report = run_sandbox_prompt("SYSTEM_DIAGNOSTICS", prompt)
+        
+        return JSONResponse(content={"status": "success", "report": issue_report})
+    except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 @app.get("/api/health")
 async def health_check_get():
     """
@@ -1308,6 +1358,60 @@ async def preview_legacy_labels():
         logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+@app.post("/api/ingestion/legacy-labels/start-async")
+async def start_async_legacy_migration(background_tasks: BackgroundTasks):
+    """
+    Initiates asynchronous legacy label processing in chunks of 40.
+    """
+    def _run_migration():
+        from sync_engine import fetch_legacy_gmail_labels
+        from llm_engine import evaluate_legacy_labels
+        
+        raw_labels = fetch_legacy_gmail_labels()
+        
+        # Split into chunks of 40
+        chunks = [raw_labels[i:i + 40] for i in range(0, len(raw_labels), 40)]
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        for chunk in chunks:
+            # Get taxonomy tree for this chunk
+            cursor.execute("SELECT id, name FROM categories")
+            categories = [dict(r) for r in cursor.fetchall()]
+            taxonomy_tree = []
+            for cat in categories:
+                cat_dict = cat
+                cursor.execute("SELECT name FROM purposes WHERE category_id = ?", (cat["id"],))
+                cat_dict["purposes"] = [r["name"] for r in cursor.fetchall()]
+                taxonomy_tree.append(cat_dict)
+                
+            results = evaluate_legacy_labels(chunk, taxonomy_tree)
+            
+            for res in results:
+                cursor.execute("""
+                    INSERT OR REPLACE INTO Legacy_Label_Migration 
+                    (label_id, label_name, classification, extracted_entity_name, status)
+                    VALUES (?, ?, ?, ?, 'pending')
+                """, (res.get("original_label"), res.get("original_label"), res.get("classification"), res.get("extracted_entity_name")))
+            conn.commit()
+        conn.close()
+
+    background_tasks.add_task(_run_migration)
+    return JSONResponse(content={"status": "success", "message": "Async migration started."})
+
+@app.get("/api/ingestion/legacy-labels/status")
+async def get_legacy_label_status():
+    """
+    Returns the current state of legacy label migration.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM Legacy_Label_Migration")
+    rows = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    return JSONResponse(content={"status": "success", "labels": rows})
+
 @app.post("/api/ingestion/legacy-labels/execute")
 async def execute_legacy_labels(payload: LegacyLabelExecutionPayload):
     conn = get_db()
@@ -1321,6 +1425,11 @@ async def execute_legacy_labels(payload: LegacyLabelExecutionPayload):
                 canonical_entity_name = item.get("canonical_entity_name")
                 workspace_alias = item.get("workspace_alias")
                 proposed_category = item.get("proposed_category")
+                # New fields from requirements
+                show_in_nav = item.get("show_in_nav", True)
+                show_in_msglist = item.get("show_in_msglist", True)
+                flatten_gmail_label = item.get("flatten_gmail_label", False)
+                make_universal = item.get("make_universal", False)
             else:
                 continue
                 
@@ -1343,8 +1452,8 @@ async def execute_legacy_labels(payload: LegacyLabelExecutionPayload):
                 ent_id = ent_row['id']
             else:
                 cursor.execute(
-                    "INSERT INTO entities (category_id, name, workspace_alias, nexus_state) VALUES (?, ?, ?, 'active')", 
-                    (cat_id, canonical_entity_name, workspace_alias)
+                    "INSERT INTO entities (category_id, name, workspace_alias, nexus_state, show_in_gmail_nav, show_in_gmail_msg, flatten_gmail_label) VALUES (?, ?, ?, 'active', ?, ?, ?)", 
+                    (cat_id, canonical_entity_name, workspace_alias, show_in_nav, show_in_msglist, flatten_gmail_label)
                 )
                 ent_id = cursor.lastrowid
                 
@@ -1422,9 +1531,45 @@ async def get_taxonomy_tree():
         logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+@app.get("/api/management/entities/paginated")
+async def get_entities_paginated(limit: int = 50, offset: int = 0):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Total count
+        cursor.execute("SELECT COUNT(*) as total FROM entities")
+        total = cursor.fetchone()['total']
+        
+        # Paginated data with joined aliases
+        cursor.execute("""
+            SELECT e.id, e.name, e.category_id, e.parent_entity_id, e.workspace_alias, 
+                   e.show_in_gmail_nav, e.show_in_gmail_msg, e.use_in_drive_structure, e.flatten_gmail_label,
+                   e.nexus_state, GROUP_CONCAT(a.alias_string) as aliases
+            FROM entities e
+            LEFT JOIN aliases a ON e.id = a.entity_id
+            GROUP BY e.id
+            LIMIT ? OFFSET ?
+        """, (limit, offset))
+        rows = [dict(r) for r in cursor.fetchall()]
+        
+        conn.close()
+        return JSONResponse(content={"entities": rows, "has_more": (offset + limit) < total, "total": total})
+    except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 class EntityUpdatePayload(BaseModel):
     workspace_alias: Optional[str] = None
     flatten_gmail_label: Optional[int] = None
+    show_in_gmail_nav: Optional[int] = None
+    show_in_gmail_msg: Optional[int] = None
+    use_in_drive_structure: Optional[int] = None
+    nexus_state: Optional[str] = None
+    aliases: Optional[str] = None
+    category_id: Optional[int] = None
+    parent_entity_id: Optional[int] = None
+    name: Optional[str] = None
 
 def update_entity_gmail_label_background(entity_id: int):
     from sync_engine import authenticate
@@ -1464,19 +1609,38 @@ async def update_entity(entity_id: int, payload: EntityUpdatePayload, background
         
         updates = []
         params = []
-        if payload.workspace_alias is not None:
-            updates.append("workspace_alias = ?")
-            params.append(payload.workspace_alias)
-        if payload.flatten_gmail_label is not None:
-            updates.append("flatten_gmail_label = ?")
-            params.append(payload.flatten_gmail_label)
+        
+        # Fields mapping
+        fields = {
+            "workspace_alias": payload.workspace_alias,
+            "flatten_gmail_label": payload.flatten_gmail_label,
+            "show_in_gmail_nav": payload.show_in_gmail_nav,
+            "show_in_gmail_msg": payload.show_in_gmail_msg,
+            "use_in_drive_structure": payload.use_in_drive_structure,
+            "nexus_state": payload.nexus_state,
+            "category_id": payload.category_id,
+            "parent_entity_id": payload.parent_entity_id,
+            "name": payload.name
+        }
+        
+        for k, v in fields.items():
+            if v is not None:
+                updates.append(f"{k} = ?")
+                params.append(v)
+        
+        # Handle Aliases separately
+        if payload.aliases is not None:
+            # Rebuild aliases table for this entity
+            cursor.execute("DELETE FROM aliases WHERE entity_id = ?", (entity_id,))
+            alias_list = [a.strip() for a in payload.aliases.split(',') if a.strip()]
+            for alias in alias_list:
+                cursor.execute("INSERT OR IGNORE INTO aliases (alias_string, entity_id) VALUES (?, ?)", (alias, entity_id))
             
-        if not updates:
-            return JSONResponse(content={"status": "success", "message": "No updates provided."})
+        if updates:
+            params.append(entity_id)
+            query = f"UPDATE entities SET {', '.join(updates)} WHERE id = ?"
+            cursor.execute(query, params)
             
-        params.append(entity_id)
-        query = f"UPDATE entities SET {', '.join(updates)} WHERE id = ?"
-        cursor.execute(query, params)
         conn.commit()
         
         cursor.execute("SELECT gmail_label_id FROM entities WHERE id = ?", (entity_id,))

@@ -1,7 +1,7 @@
 # Project Roadmap & Backlog
 
 ## Epic: DX & Telemetry (Epic 5)
-- [ ] **Automated DX Debug Panel & GitHub Issue Generator**
+- [x] **Automated DX Debug Panel & GitHub Issue Generator**
   - *Concept:* A dedicated UI tab for administrators to view system, API, and LLM errors. Users can select specific error logs and trigger an AI-assisted action to generate a sanitized, GitHub-ready bug report.
 
 ## Epic: Ingestion Expansion

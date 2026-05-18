@@ -315,72 +315,114 @@ var appActions = {
         });
     },
 
-    snapshotLegacyLabels: function() {
-        const btn = document.getElementById('btn-snapshot-legacy') || document.querySelector('button[onclick="appActions.snapshotLegacyLabels()"]');
-        const originalText = btn.innerText;
-        btn.innerText = "Extracting & Profiling... (This may take a minute)";
-        btn.disabled = true;
-
+    startAsyncLegacyMigration: function() {
         google.script.run
             .withSuccessHandler(response => {
-                if (response && response.success && response.data && response.data.status === 'success') {
-                    const results = response.data.data || response.data.results || [];
-                    this.renderLegacyLabelTable(results);
-                    const commitBtn = document.getElementById('btn-commit-legacy');
-                    if (commitBtn) commitBtn.classList.remove('hidden');
-                } else {
-                    const errorObj = response ? (response.error || (response.data && (response.data.error || JSON.stringify(response.data)))) : "Unknown error";
-                    alert("Error: " + errorObj);
+                if (response && response.status === 'success') {
+                    alert("Migration started. Polling status...");
+                    this.pollMigrationStatus();
                 }
-                btn.innerText = "Take Snapshot";
-                btn.disabled = false;
             })
-            .withFailureHandler(err => {
-                alert("Fetch failed: " + (err.message || err));
-                btn.innerText = "Take Snapshot";
-                btn.disabled = false;
-            })
-            .previewLegacyLabels();
+            .startAsyncLegacyMigration();
+    },
+
+    pollMigrationStatus: function() {
+        const interval = setInterval(() => {
+            google.script.run
+                .withSuccessHandler(response => {
+                    if (response && response.status === 'success') {
+                        this.renderLegacyLabelTable(response.labels);
+                        // Check if all are processed
+                        if (response.labels.every(l => l.status !== 'pending')) {
+                            clearInterval(interval);
+                            document.getElementById('btn-commit-legacy').classList.remove('hidden');
+                        }
+                    }
+                })
+                .getLegacyLabelStatus();
+        }, 3000);
     },
 
     renderLegacyLabelTable: function(data) {
         appState.legacyLabels = data;
-        const tbody = document.getElementById('legacy-label-tbody') || document.querySelector('#legacy-labels-table tbody');
+        const tbody = document.getElementById('legacy-label-tbody');
         tbody.innerHTML = '';
 
+        data.forEach((lbl, index) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="p-2 border text-sm">${lbl.label_name} (${lbl.classification})</td>
+                <td class="p-2 border"><input type="checkbox" checked class="nexus-nav" data-id="${lbl.label_id}"></td>
+                <td class="p-2 border"><input type="checkbox" checked class="nexus-msglist" data-id="${lbl.label_id}"></td>
+                <td class="p-2 border"><input type="checkbox" class="nexus-flatten" data-id="${lbl.label_id}"></td>
+                <td class="p-2 border"><input type="checkbox" class="nexus-universal" data-id="${lbl.label_id}"></td>
+                <td class="p-2 border">
+                    <select class="p-1 border rounded text-xs" data-id="${lbl.label_id}">
+                        <option value="">Map...</option>
+                    </select>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    },
+    
+    switchTaxonomyView: function(view) {
+        document.getElementById('view-workflow').className = view === 'workflow' ? 'px-4 py-1 text-sm bg-white border border-[#219ebc] text-[#219ebc] font-bold rounded' : 'px-4 py-1 text-sm bg-slate-200 text-[#023047] font-bold rounded';
+        document.getElementById('view-matrix').className = view === 'matrix' ? 'px-4 py-1 text-sm bg-white border border-[#219ebc] text-[#219ebc] font-bold rounded' : 'px-4 py-1 text-sm bg-slate-200 text-[#023047] font-bold rounded';
+        
+        document.getElementById('zt-taxonomy-flow').classList.toggle('hidden', view === 'matrix');
+        document.getElementById('zt-data-matrix').classList.toggle('hidden', view === 'workflow');
+
+        if(view === 'matrix' && appState.entities.length === 0) {
+            this.loadDataMatrix(0);
+        }
+    },
+
+    loadDataMatrix: function(offset) {
         google.script.run
-            .withSuccessHandler(categories => {
-                let catOptions = '';
-                if (Array.isArray(categories)) {
-                    catOptions = categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+            .withSuccessHandler(response => {
+                if (response && response.entities) {
+                    const tbody = document.getElementById('matrix-tbody');
+                    if (offset === 0) tbody.innerHTML = '';
+                    
+                    response.entities.forEach(ent => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td class="p-2 border"><select class="text-xs w-full"><option>${ent.category_id}</option></select></td>
+                            <td class="p-2 border"><select class="text-xs w-full"><option>${ent.parent_entity_id || ''}</option></select></td>
+                            <td class="p-2 border"><input type="text" value="${ent.name}" class="text-xs w-full border-none" onblur="appActions.saveMatrixRow(${ent.id}, 'name', this.value)"></td>
+                            <td class="p-2 border"><input type="text" value="${ent.workspace_alias || ''}" class="text-xs w-full border-none" onblur="appActions.saveMatrixRow(${ent.id}, 'workspace_alias', this.value)"></td>
+                            <td class="p-2 border"><input type="text" value="${ent.aliases || ''}" class="text-xs w-full border-none" onblur="appActions.saveMatrixRow(${ent.id}, 'aliases', this.value)"></td>
+                            <td class="p-2 border text-center"><input type="checkbox" ${ent.show_in_gmail_nav ? 'checked' : ''} onchange="appActions.saveMatrixRow(${ent.id}, 'show_in_gmail_nav', this.checked ? 1 : 0)"></td>
+                            <td class="p-2 border text-center"><input type="checkbox" ${ent.show_in_gmail_msg ? 'checked' : ''} onchange="appActions.saveMatrixRow(${ent.id}, 'show_in_gmail_msg', this.checked ? 1 : 0)"></td>
+                            <td class="p-2 border text-center"><input type="checkbox" ${ent.use_in_drive_structure ? 'checked' : ''} onchange="appActions.saveMatrixRow(${ent.id}, 'use_in_drive_structure', this.checked ? 1 : 0)"></td>
+                            <td class="p-2 border text-center"><input type="checkbox" ${ent.flatten_gmail_label ? 'checked' : ''} onchange="appActions.saveMatrixRow(${ent.id}, 'flatten_gmail_label', this.checked ? 1 : 0)"></td>
+                            <td class="p-2 border"><select class="text-xs w-full" onchange="appActions.saveMatrixRow(${ent.id}, 'nexus_state', this.value)"><option ${ent.nexus_state==='active'?'selected':''}>active</option><option ${ent.nexus_state==='disabled'?'selected':''}>disabled</option></select></td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                    document.getElementById('btn-load-more').classList.toggle('hidden', !response.has_more);
+                    appState.matrixOffset = offset + 50;
                 }
-
-                data.forEach((lbl, index) => {
-                    const tr = document.createElement('tr');
-                    tr.className = "border-t border-[#8ecae6]/40";
-
-                    let selectHtml = `<select class="bg-white border border-[#8ecae6] rounded p-1 w-full" id="legacy-cat-${index}">
-                        <option value="${lbl.proposed_category || ''}">${lbl.proposed_category || 'Uncategorized'}</option>
-                        ${catOptions}
-                    </select>`;
-
-                    tr.innerHTML = `
-                        <td class="p-2 border border-[#8ecae6]/40">${lbl.original_label || ''}</td>
-                        <td class="p-2 border border-[#8ecae6]/40"><input type="checkbox" id="legacy-keep-${index}" checked class="rounded"> Keep</td>
-                        <td class="p-2 border border-[#8ecae6]/40">${selectHtml}</td>
-                        <td class="p-2 border border-[#8ecae6]/40">
-                            <span class="bg-[#219ebc]/10 text-[#023047] font-bold text-xs px-2 py-1 rounded border border-[#219ebc]/20">
-                                ${lbl.canonical_entity_name || 'Unknown'} <span class="opacity-50">(${lbl.workspace_alias || 'No Alias'})</span>
-                            </span>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                });
             })
-            .withFailureHandler(err => {
-                console.error("Failed to load taxonomy tree for dropdowns", err);
-            })
-            .getTaxonomyTree();
+            .getEntitiesPaginated(50, offset);
+    },
+    
+    saveMatrixRow: function(id, field, value) {
+        const payload = {};
+        payload[field] = value;
+        google.script.run
+            .withSuccessHandler(() => console.log(`Saved ${field}`))
+            .updateEntity(id, payload);
+    },
+
+    loadMoreEntities: function() {
+        this.loadDataMatrix(appState.matrixOffset);
+    },
+
+    switchLegacyTab: function(tab) {
+        // Logic to filter appState.legacyLabels and re-render
+        console.log("Switching to", tab);
     },
 
     executeLegacyLabels: function() {
@@ -985,6 +1027,53 @@ Object.assign(appActions, {
         document.getElementById('taxonomy-mode-label').innerText = `(Global X-Ray)`;
         document.getElementById('btn-clear-filter').classList.add('hidden');
         this.loadZeroTrustFlow();
+    },
+
+    loadDebugLogs: function() {
+        const container = document.getElementById('debug-log-list');
+        container.innerHTML = '<div class="italic text-gray-500">Loading logs...</div>';
+        
+        google.script.run
+            .withSuccessHandler(response => {
+                if (response && response.status === 'success') {
+                    container.innerHTML = '';
+                    response.logs.forEach(log => {
+                        const div = document.createElement('div');
+                        div.className = "bg-white p-3 border rounded shadow-sm flex items-center gap-3";
+                        div.innerHTML = `
+                            <input type="checkbox" class="debug-log-checkbox" value="${log.id}">
+                            <div class="flex-1">
+                                <p class="text-xs font-bold text-gray-500">${log.timestamp}</p>
+                                <p class="font-semibold text-sm">${log.module_name}</p>
+                                <p class="text-sm text-gray-700">${log.error_message}</p>
+                            </div>
+                        `;
+                        container.appendChild(div);
+                    });
+                } else {
+                    container.innerHTML = '<div class="text-red-500">Failed to load logs.</div>';
+                }
+            })
+            .getDiagnosticsLogs();
+    },
+
+    generateGitHubIssue: function() {
+        const checkboxes = document.querySelectorAll('.debug-log-checkbox:checked');
+        if (checkboxes.length === 0) {
+            alert("Please select at least one log.");
+            return;
+        }
+        
+        const logIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+        google.script.run
+            .withSuccessHandler(response => {
+                if (response && response.status === 'success') {
+                    alert("GitHub Issue Generated:\n\n" + response.report);
+                } else {
+                    alert("Failed to generate issue.");
+                }
+            })
+            .generateGitHubIssue({ log_ids: logIds });
     },
 
     loadPulseTicker: function() {

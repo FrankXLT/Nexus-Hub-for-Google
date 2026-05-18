@@ -34,22 +34,31 @@
         
         <div id="settings-legacy" class="hidden">
             <div class="bg-[#ffb703]/10 border border-[#ffb703] text-[#023047] p-4 rounded mb-6">
-                <p class="font-bold mb-2 flex items-center"><svg class="w-5 h-5 mr-2 text-[#fb8500]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>Legacy Label Migration Tool</p>
-                <p class="text-sm">This tool takes a one-time snapshot of your existing Gmail labels to map or archive them, preventing AI drift and keeping your taxonomy clean.</p>
+                <p class="font-bold mb-2 flex items-center">Legacy Label Migration Tool</p>
+                <p class="text-sm">Tri-State Ontological mapping (Entity, Purpose, Hybrid) for Gmail migration.</p>
             </div>
-            <button onclick="appActions.snapshotLegacyLabels()" class="bg-[#219ebc] hover:bg-[#023047] text-white px-4 py-2 rounded mb-6 transition-colors shadow-sm font-semibold">Take Snapshot</button>
+            <button onclick="appActions.startAsyncLegacyMigration()" class="bg-[#219ebc] hover:bg-[#023047] text-white px-4 py-2 rounded mb-6 transition-colors shadow-sm font-semibold">Start Migration</button>
+            
+            <div class="flex border-b border-[#8ecae6]/30 mb-4">
+                <button onclick="appActions.switchLegacyTab('entities')" class="px-4 py-2 text-[#219ebc] font-bold border-b-2 border-[#219ebc]">Entities</button>
+                <button onclick="appActions.switchLegacyTab('purposes')" class="px-4 py-2 text-[#023047]/60 hover:text-[#219ebc]">Purposes</button>
+                <button onclick="appActions.switchLegacyTab('hybrids')" class="px-4 py-2 text-[#023047]/60 hover:text-[#219ebc]">Hybrids</button>
+            </div>
+
             <table id="legacy-labels-table" class="w-full text-left border-collapse border border-[#8ecae6]/40 mb-6">
                 <thead class="bg-slate-50">
                     <tr>
-                        <th class="p-2 border border-[#8ecae6]/40 font-semibold">Legacy Label</th>
-                        <th class="p-2 border border-[#8ecae6]/40 font-semibold">Action (Keep)</th>
-                        <th class="p-2 border border-[#8ecae6]/40 font-semibold">Map to Purpose</th>
-                        <th class="p-2 border border-[#8ecae6]/40 font-semibold">Entity & Alias</th>
+                        <th class="p-2 border font-semibold text-sm">Label</th>
+                        <th class="p-2 border font-semibold text-sm">Nav?</th>
+                        <th class="p-2 border font-semibold text-sm">List?</th>
+                        <th class="p-2 border font-semibold text-sm">Flatten?</th>
+                        <th class="p-2 border font-semibold text-sm">Universal?</th>
+                        <th class="p-2 border font-semibold text-sm">Map</th>
                     </tr>
                 </thead>
                 <tbody id="legacy-label-tbody"></tbody>
             </table>
-            <button id="btn-commit-legacy" onclick="appActions.executeLegacyLabels()" class="bg-[#fb8500] hover:bg-[#ea580c] text-white px-4 py-2 rounded transition-colors shadow-sm font-semibold hidden">Commit Taxonomy to Nexus</button>
+            <button id="btn-commit-legacy" onclick="appActions.executeLegacyLabels()" class="bg-[#fb8500] hover:bg-[#ea580c] text-white px-4 py-2 rounded transition-colors shadow-sm font-semibold hidden">Apply Configuration</button>
         </div>
     </dialog>
 
@@ -93,6 +102,12 @@
                 <button onclick="appActions.switchTab('tab-sandbox')" class="w-full flex items-center px-4 py-3 text-sm font-semibold text-[#023047]/70 hover:text-[#219ebc] hover:bg-[#8ecae6]/10 transition-colors border-l-4 border-transparent hover:border-[#219ebc]">
                     <svg class="w-6 h-6 shrink-0 mx-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
                     <span class="sidebar-text ml-4 whitespace-nowrap">Prompt Sandbox</span>
+                </button>
+            </li>
+            <li>
+                <button onclick="appActions.switchTab('tab-debug')" class="w-full flex items-center px-4 py-3 text-sm font-semibold text-[#023047]/70 hover:text-[#219ebc] hover:bg-[#8ecae6]/10 transition-colors border-l-4 border-transparent hover:border-[#219ebc]">
+                    <svg class="w-6 h-6 shrink-0 mx-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span class="sidebar-text ml-4 whitespace-nowrap">Debug Logs</span>
                 </button>
             </li>
             <li class="mt-auto">
@@ -176,7 +191,31 @@
             <h2 class="font-bold text-xl text-[#023047]">Taxonomy Explorer <span id="taxonomy-mode-label" class="text-sm font-normal text-[#8ecae6] ml-2">(Global X-Ray)</span></h2>
             <button onclick="appActions.clearQuarantineFilter()" id="btn-clear-filter" class="hidden text-xs bg-slate-200 hover:bg-slate-300 text-[#023047] px-3 py-1 rounded">Clear Filter</button>
         </div>
+        <div class="flex items-center gap-2 p-2 bg-slate-100">
+            <button onclick="appActions.switchTaxonomyView('workflow')" id="view-workflow" class="px-4 py-1 text-sm bg-white border border-[#219ebc] text-[#219ebc] font-bold rounded">Workflow View</button>
+            <button onclick="appActions.switchTaxonomyView('matrix')" id="view-matrix" class="px-4 py-1 text-sm bg-slate-200 text-[#023047] font-bold rounded">Data Matrix View</button>
+        </div>
         <div id="zt-taxonomy-flow" class="flex flex-col gap-6 overflow-y-auto p-8 flex-1 items-center"></div>
+        <div id="zt-data-matrix" class="hidden flex-col h-full p-6 overflow-auto">
+            <table class="w-full text-left border-collapse border border-[#8ecae6]/40">
+                <thead class="bg-slate-50 sticky top-0">
+                    <tr>
+                        <th class="p-2 border font-bold text-xs">Category</th>
+                        <th class="p-2 border font-bold text-xs">Parent</th>
+                        <th class="p-2 border font-bold text-xs">Name</th>
+                        <th class="p-2 border font-bold text-xs">Alias</th>
+                        <th class="p-2 border font-bold text-xs">Ingestion Aliases</th>
+                        <th class="p-2 border font-bold text-xs">Nav?</th>
+                        <th class="p-2 border font-bold text-xs">Msg?</th>
+                        <th class="p-2 border font-bold text-xs">Drive?</th>
+                        <th class="p-2 border font-bold text-xs">Flatten?</th>
+                        <th class="p-2 border font-bold text-xs">State</th>
+                    </tr>
+                </thead>
+                <tbody id="matrix-tbody"></tbody>
+            </table>
+            <button onclick="appActions.loadMoreEntities()" id="btn-load-more" class="mt-4 p-2 bg-[#8ecae6]/20 hover:bg-[#8ecae6]/30 text-[#023047] font-bold rounded">Load More (50)</button>
+        </div>
     </div>
 </div>
 
@@ -334,6 +373,13 @@
             </div>
         </div>
         
+        <div id="tab-debug" class="hidden h-full flex flex-col bg-slate-50 p-6 overflow-auto">
+            <h2 class="text-2xl font-bold mb-4">System Debug Logs</h2>
+            <button onclick="appActions.loadDebugLogs()" class="bg-[#219ebc] text-white px-4 py-2 rounded mb-4">Refresh Logs</button>
+            <div id="debug-log-list" class="space-y-2"></div>
+            <button onclick="appActions.generateGitHubIssue()" class="bg-[#fb8500] text-white px-4 py-2 rounded mt-4">Generate Bug Report</button>
+        </div>
+
         <div id="tab-batch-ingestion" class="hidden h-full flex flex-col bg-slate-50">
             <!-- Quota Dashboard (Top Panel) -->
             <div class="p-6 border-b border-[#8ecae6]/50 bg-white shrink-0 shadow-sm flex items-center justify-between">

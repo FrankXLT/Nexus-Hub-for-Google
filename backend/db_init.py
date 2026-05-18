@@ -22,7 +22,7 @@ def get_prompt_template(filename):
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
 
-DB_PATH = 'nexus.db'
+DB_PATH = 'nexus-live.db'
 
 def init_db(db_path: str = DB_PATH) -> None:
     """
@@ -423,6 +423,13 @@ def seed_default_prompts(conn: sqlite3.Connection) -> None:
                 cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", (target_app, prompt_text))
         except Exception as e:
             print(f"Failed to seed {target_app} prompt: {e}")
+
+def get_pydantic_schema_definitions() -> dict:
+    """
+    Returns the raw Pydantic-to-JSONSchema mapping for LLM injection.
+    """
+    from llm_engine import BulkMappingResponse
+    return BulkMappingResponse.model_json_schema()
 
 def seed_taxonomy_from_json(conn: sqlite3.Connection) -> None:
     """

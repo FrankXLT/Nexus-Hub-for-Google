@@ -18,8 +18,28 @@ from typing import Dict, Any, Optional, Tuple, List
 from google import genai
 from google.genai import types
 from tenacity import retry, wait_exponential, stop_after_attempt
+from pydantic import BaseModel, Field
+from enum import Enum
 
 from db_init import DB_PATH
+
+class LabelClassification(str, Enum):
+    ENTITY = "entity"
+    PURPOSE = "purpose"
+    HYBRID = "hybrid"
+    NOISE = "noise"
+
+class MappedLabel(BaseModel):
+    original_label: str
+    classification: LabelClassification
+    extracted_entity_name: str | None
+    mapped_category_id: int | None
+    mapped_purpose_id: int | None
+    confidence_score: float
+    reasoning: str
+
+class BulkMappingResponse(BaseModel):
+    mappings: list[MappedLabel]
 
 def strip_markdown_json(text: str) -> str:
     """
