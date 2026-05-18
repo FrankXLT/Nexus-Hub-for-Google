@@ -1037,3 +1037,35 @@ def run_bulk_classifier(entity_name: str, artifacts: List[dict]) -> Optional[Lis
     except Exception as e:
         logger.error(f"Error in Bulk Classifier for {entity_name}: {e}")
         return None
+
+def run_bulk_legacy_mapper(labels_chunk: list, taxonomy_tree: dict) -> list:
+    """Zero Trust Bulk Mapper: Processes up to 50 legacy labels in a single LLM call."""
+    client = get_genai_client()
+    prompt = """
+    You are a Zero Trust Data Architect. Map the following JSON array of legacy Gmail labels to the provided Taxonomy Tree.
+    You MUST return a valid JSON array where each object contains:
+    {
+      "original_label": "string",
+      "mapped_category_id": int or null,
+      "mapped_purpose_id": int or null,
+      "confidence_score": float,
+      "reasoning": "string"
+    }
+    """
+    context = json.dumps({
+        "taxonomy": taxonomy_tree,
+        "labels_to_map": labels_chunk
+    })
+    
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=[prompt, context],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+            ),
+        )
+        return json.loads(strip_markdown_json(response.text))
+    except Exception as e:
+        logger.error(f"Bulk Mapper Failure: {e}")
+        return []

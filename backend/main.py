@@ -10,6 +10,8 @@ import time
 import json
 import sqlite3
 import asyncio
+import traceback
+import logging
 from typing import Callable, Awaitable, Optional
 from fastapi import FastAPI, Request, BackgroundTasks, HTTPException
 from fastapi.responses import JSONResponse
@@ -25,6 +27,8 @@ from sync_engine import run_sync
 load_dotenv()
 
 NEXUS_HMAC_SECRET = os.getenv("NEXUS_HMAC_SECRET", "")
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Nexus Webhook Receiver", description="Receives secure webhook events from Google Apps Script.")
 
@@ -238,6 +242,8 @@ async def queue_historical(request: Request, background_tasks: BackgroundTasks):
         
         return JSONResponse(content={"status": "success", "message": "Historical sync queued in background."})
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/api/workflows/materialize")
@@ -250,6 +256,8 @@ async def materialize_items(request: Request, background_tasks: BackgroundTasks)
             background_tasks.add_task(materialize_artifact, a_id)
         return JSONResponse(content={"status": "success", "message": f"Queued {len(artifact_ids)} items for materialization."})
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/api/taxonomy/zero-shot-rule")
@@ -268,6 +276,8 @@ async def zero_shot_rule(request: Request):
         else:
             return JSONResponse(status_code=400, content=result)
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/artifacts/search")
@@ -375,6 +385,8 @@ async def search_artifacts(q: str = "", limit: int = 50, offset: int = 0):
             "results": results
         })
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/api/sandbox")
@@ -393,6 +405,8 @@ async def sandbox_endpoint(request: Request):
         result = run_sandbox_prompt(artifact_id, prompt_string)
         return JSONResponse(content={"status": "success", "result": result})
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"detail": str(e)})
 
 @app.post("/api/ask")
@@ -409,6 +423,8 @@ async def ask_endpoint(request: Request):
         answer = ask_rag(question)
         return JSONResponse(content={"status": "success", "answer": answer})
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"detail": str(e)})
 
 @app.post("/api/bulk-update")
@@ -467,6 +483,8 @@ async def bulk_update_endpoint(request: Request):
         
         return JSONResponse(content={"status": "success", "message": f"Updated {len(artifact_ids)} artifacts."})
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"detail": str(e)})
 
 @app.get("/api/settings/pipeline")
@@ -497,6 +515,8 @@ async def get_pipeline_settings():
                 
         return JSONResponse(content={"status": "success", "settings": settings})
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"detail": str(e)})
 
 @app.post("/api/settings/pipeline")
@@ -538,6 +558,8 @@ async def update_pipeline_settings(request: Request):
         
         return JSONResponse(content={"status": "success", "message": "Pipeline settings updated."})
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"detail": str(e)})
 
 
@@ -566,6 +588,8 @@ async def get_health_quota():
                 
         return JSONResponse(content={"status": "success", "quota": {"used": calls, "limit": DAILY_QUOTA_LIMIT}})
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"detail": str(e)})
 
 @app.get("/api/retention/rules")
@@ -579,6 +603,8 @@ async def get_retention_rules():
         conn.close()
         return JSONResponse(content={"status": "success", "rules": rules})
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"detail": str(e)})
 
 @app.post("/api/retention/rules")
@@ -597,6 +623,8 @@ async def add_retention_rule(request: Request):
         conn.close()
         return JSONResponse(content={"status": "success"})
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"detail": str(e)})
 
 @app.delete("/api/retention/rules/{rule_id}")
@@ -610,6 +638,8 @@ async def delete_retention_rule(rule_id: int):
         conn.close()
         return JSONResponse(content={"status": "success"})
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"detail": str(e)})
 
 @app.post("/api/retention/sweep")
@@ -619,6 +649,8 @@ async def trigger_retention_sweep():
         subprocess.Popen(["python", "retention_worker.py"])
         return JSONResponse(content={"status": "success", "message": "Sweep started in background."})
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"detail": str(e)})
 
 @app.post("/api/health")
@@ -834,6 +866,8 @@ async def get_orchestrator_telemetry():
             "system_status": "Engine Online"
         })
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/quarantine/queue")
@@ -876,6 +910,8 @@ async def get_quarantine_queue():
         conn.close()
         return JSONResponse(content=results)
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/api/batch/preview")
@@ -893,6 +929,8 @@ async def batch_preview(request: Request):
         else:
             return JSONResponse(status_code=400, content={"error": "Invalid source or query"})
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 class BatchPayload(BaseModel):
@@ -990,6 +1028,8 @@ async def save_orchestrator_config(payload: PipelineConfigPayload):
         conn.close()
         return JSONResponse(content={"status": "success", "message": "Config saved"})
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 class SimulatePayload(BaseModel):
@@ -1098,6 +1138,8 @@ async def get_analytics_heatmap(days: int = 30, source: str = "all", status: str
 
         return JSONResponse(content=data)
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/analytics/sankey")
@@ -1174,6 +1216,8 @@ async def get_analytics_sankey(days: int = 30, source: str = "all", status: str 
 
         return JSONResponse(content={"nodes": final_nodes, "links": final_links})
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": str(e)})
 @app.get("/api/migration/labels")
 async def get_migration_labels(sort_by: str = "confidence"):
@@ -1200,6 +1244,8 @@ async def get_migration_labels(sort_by: str = "confidence"):
         
         return JSONResponse(content=[dict(row) for row in rows])
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 class LabelStatusUpdate(BaseModel):
@@ -1225,6 +1271,8 @@ async def update_migration_label_status(payload: LabelStatusUpdate):
         
         return JSONResponse(content={"status": "success", "message": f"Updated {len(payload.label_ids)} labels to {payload.status}"})
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 class LegacyLabelExecutionPayload(BaseModel):
@@ -1256,6 +1304,8 @@ async def preview_legacy_labels():
         
         return JSONResponse(content={"status": "success", "data": final_profiles})
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/api/ingestion/legacy-labels/execute")
@@ -1306,6 +1356,8 @@ async def execute_legacy_labels(payload: LegacyLabelExecutionPayload):
         conn.execute("COMMIT;")
         return JSONResponse(content={"status": "success", "message": "Legacy labels migrated successfully."})
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         conn.execute("ROLLBACK;")
         return JSONResponse(status_code=500, content={"error": str(e)})
     finally:
@@ -1323,6 +1375,8 @@ async def get_prompts():
         data = {row["target_app"]: row["prompt_text"] for row in rows}
         return JSONResponse(content=data)
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/api/orchestrator/run-now/{pipeline_name}")
@@ -1354,7 +1408,7 @@ async def get_taxonomy_tree():
             purps_list = []
             for purp in purposes:
                 p_dict = dict(purp)
-                cursor.execute("SELECT id, name, workspace_alias, flatten_gmail_label FROM entities WHERE category_id = ?", (cat["id"],))
+                cursor.execute("SELECT id, name FROM entities WHERE category_id = ?", (cat["id"],))
                 p_dict["entities"] = [dict(e) for e in cursor.fetchall()] # Simplification to link entities via category in this mock
                 purps_list.append(p_dict)
                 
@@ -1364,6 +1418,8 @@ async def get_taxonomy_tree():
         conn.close()
         return JSONResponse(content=tree)
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 class EntityUpdatePayload(BaseModel):
@@ -1431,6 +1487,8 @@ async def update_entity(entity_id: int, payload: EntityUpdatePayload, background
         conn.close()
         return JSONResponse(content={"status": "success", "message": "Entity updated."})
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -1452,6 +1510,8 @@ async def get_pulse_telemetry():
         conn.close()
         return JSONResponse(content=stats)
     except Exception as e:
+        logger.error(f"Endpoint Failure: {str(e)}")
+        logger.error(traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 if __name__ == "__main__":

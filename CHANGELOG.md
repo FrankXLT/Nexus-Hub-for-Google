@@ -4,6 +4,18 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.8.5] - 2026-05-17
+### Changed
+- **Layer 5:** Upgraded legacy label sync in `sync_engine.py` and `llm_engine.py` to use chunked batch processing (40 labels per LLM call) instead of sequential execution, resolving 504 Gateway Timeouts.
+
+## [v2.8.4] - 2026-05-17
+### Changed
+- **Layer 3:** Upgraded API endpoint exception handling in `main.py` to log full stack trace errors using `traceback` and `logging` modules before returning 500 responses, improving diagnostic visibility.
+
+## [v2.8.3] - 2026-05-17
+### Fixed
+- **Layer 3:** Fixed `500 Internal Server Error` in `/api/taxonomy/tree` by removing invalid `workspace_alias` and `flatten_gmail_label` column references from the `entities` SELECT query, ensuring compatibility with the database schema.
+
 ## [v2.8.2] - 2026-05-17
 ### Added
 - **Layer 1:** Added idempotent seeding logic in `db_init.py` to pre-populate `pipeline_config` with core pipelines in a 'disabled' state, ensuring UI toggle controls are renderable on Day 0.

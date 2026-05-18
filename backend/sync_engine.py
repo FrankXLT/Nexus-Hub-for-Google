@@ -1069,7 +1069,8 @@ def fetch_legacy_gmail_labels() -> list:
     import sqlite3
     import json
     from db_init import DB_PATH
-    from llm_engine import get_taxonomy_tree_json, call_gemini, fetch_active_prompt
+    from llm_engine import get_taxonomy_tree_json, run_bulk_legacy_mapper
+    import time
     
     creds = authenticate()
     service = build('gmail', 'v1', credentials=creds)
@@ -1078,7 +1079,6 @@ def fetch_legacy_gmail_labels() -> list:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row # CRITICAL: Prevents dict(row) TypeError in taxonomy builder
     taxonomy_tree = get_taxonomy_tree_json(conn)
-    prompt = fetch_active_prompt('MIGRATE_LEGACY_LABEL')
     
     results = service.users().labels().list(userId='me').execute()
     labels = results.get('labels', [])
@@ -1086,6 +1086,7 @@ def fetch_legacy_gmail_labels() -> list:
     system_labels = {'CATEGORY_PROMOTIONS', 'CATEGORY_UPDATES', 'CATEGORY_SOCIAL', 'CATEGORY_FORUMS', 'CATEGORY_PERSONAL', 'SENT', 'INBOX', 'TRASH', 'SPAM', 'DRAFT', 'UNREAD', 'STARRED', 'IMPORTANT', 'CHAT'}
     
     custom_labels = []
+    legacy_labels = []
     cursor = conn.cursor()
     
     for label in labels:
@@ -1098,53 +1099,75 @@ def fetch_legacy_gmail_labels() -> list:
             if row and row[0] == 'accepted':
                 continue
             
-            context = f"Legacy Label: {name}\nTaxonomy Tree: {json.dumps(taxonomy_tree)}"
-            result, _ = call_gemini(prompt, context)
+            legacy_labels.append(label)
+
+    # Chunking logic for batch LLM processing to prevent API timeouts
+    CHUNK_SIZE = 40
+    all_mapped_results = []
+    
+    for i in range(0, len(legacy_labels), CHUNK_SIZE):
+        chunk = legacy_labels[i:i + CHUNK_SIZE]
+        logger.info(f"Processing batch {i//CHUNK_SIZE + 1} of {(len(legacy_labels)//CHUNK_SIZE) + 1}...")
+        
+        # Extract just the string names for the prompt to save tokens
+        label_names = [label['name'] for label in chunk] 
+        
+        batch_results = run_bulk_legacy_mapper(label_names, taxonomy_tree)
+        if batch_results:
+            all_mapped_results.extend(batch_results)
             
-            if result:
-                cat_id = result.get('mapped_category_id')
-                purp_id = result.get('mapped_purpose_id')
-                conf = result.get('confidence_score', 0.0)
-                
-                cursor.execute("SELECT min_confidence_threshold FROM purposes WHERE id = ?", (purp_id,))
-                p_row = cursor.fetchone()
-                if p_row:
-                    threshold = p_row[0]
-                else:
-                    cursor.execute("SELECT min_confidence_threshold FROM categories WHERE id = ?", (cat_id,))
-                    c_row = cursor.fetchone()
-                    threshold = c_row[0] if c_row else 0.95
-                
-                status = 'accepted' if conf >= threshold else 'pending'
-                
-                cursor.execute("""
-                    INSERT INTO Legacy_Label_Migration (label_id, label_name, mapped_category_id, mapped_purpose_id, ai_confidence, status)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(label_id) DO UPDATE SET
-                        mapped_category_id = excluded.mapped_category_id,
-                        mapped_purpose_id = excluded.mapped_purpose_id,
-                        ai_confidence = excluded.ai_confidence,
-                        status = excluded.status,
-                        last_evaluated = CURRENT_TIMESTAMP
-                """, (label['id'], name, cat_id, purp_id, conf, status))
-                
-                if status == 'accepted':
-                    try:
-                        msg_results = service.users().messages().list(userId='me', labelIds=[label['id']]).execute()
-                        messages = msg_results.get('messages', [])
-                        for msg in messages:
-                            artifact_id = f"mail_{msg['id']}"
-                            custom_data = json.dumps({"legacy_category_id": cat_id})
-                            cursor.execute("""
-                                INSERT INTO Workspace_Artifacts (artifact_id, purpose_id, ai_confidence, custom_data, status)
-                                VALUES (?, ?, ?, ?, 'PROCESSED')
-                                ON CONFLICT(artifact_id) DO UPDATE SET
-                                    purpose_id = excluded.purpose_id,
-                                    ai_confidence = excluded.ai_confidence,
-                                    custom_data = excluded.custom_data
-                            """, (artifact_id, purp_id, conf, custom_data))
-                    except Exception as e:
-                        print(f"Error migrating artifacts for label {name}: {e}")
+        time.sleep(1) # Brief rate-limit buffer between batches
+        
+    for label in legacy_labels:
+        name = label.get('name', '')
+        
+        # Find result in all_mapped_results
+        result = next((item for item in all_mapped_results if item.get('original_label') == name), None)
+        
+        if result:
+            cat_id = result.get('mapped_category_id')
+            purp_id = result.get('mapped_purpose_id')
+            conf = result.get('confidence_score', 0.0)
+            
+            cursor.execute("SELECT min_confidence_threshold FROM purposes WHERE id = ?", (purp_id,))
+            p_row = cursor.fetchone()
+            if p_row and p_row[0] is not None:
+                threshold = p_row[0]
+            else:
+                cursor.execute("SELECT min_confidence_threshold FROM categories WHERE id = ?", (cat_id,))
+                c_row = cursor.fetchone()
+                threshold = c_row[0] if c_row and c_row[0] is not None else 0.95
+            
+            status = 'accepted' if conf >= threshold else 'pending'
+            
+            cursor.execute("""
+                INSERT INTO Legacy_Label_Migration (label_id, label_name, mapped_category_id, mapped_purpose_id, ai_confidence, status)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(label_id) DO UPDATE SET
+                    mapped_category_id = excluded.mapped_category_id,
+                    mapped_purpose_id = excluded.mapped_purpose_id,
+                    ai_confidence = excluded.ai_confidence,
+                    status = excluded.status,
+                    last_evaluated = CURRENT_TIMESTAMP
+            """, (label['id'], name, cat_id, purp_id, conf, status))
+            
+            if status == 'accepted':
+                try:
+                    msg_results = service.users().messages().list(userId='me', labelIds=[label['id']]).execute()
+                    messages = msg_results.get('messages', [])
+                    for msg in messages:
+                        artifact_id = f"mail_{msg['id']}"
+                        custom_data = json.dumps({"legacy_category_id": cat_id})
+                        cursor.execute("""
+                            INSERT INTO Workspace_Artifacts (artifact_id, purpose_id, ai_confidence, custom_data, status)
+                            VALUES (?, ?, ?, ?, 'PROCESSED')
+                            ON CONFLICT(artifact_id) DO UPDATE SET
+                                purpose_id = excluded.purpose_id,
+                                ai_confidence = excluded.ai_confidence,
+                                custom_data = excluded.custom_data
+                        """, (artifact_id, purp_id, conf, custom_data))
+                except Exception as e:
+                    print(f"Error migrating artifacts for label {name}: {e}")
                     
     conn.commit()
     conn.close()
