@@ -4,6 +4,10 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.8.2] - 2026-05-17
+### Added
+- **Layer 1:** Added idempotent seeding logic in `db_init.py` to pre-populate `pipeline_config` with core pipelines in a 'disabled' state, ensuring UI toggle controls are renderable on Day 0.
+
 ## [v2.8.1] - 2026-05-17
 ### Fixed
 - **Layer 3:** Fixed `SyntaxError` in `main.py` by replacing invalid JavaScript-style strict inequality operators (`!==`) with Pythonic `is not None` identity checks.

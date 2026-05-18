@@ -203,6 +203,15 @@ def init_db(db_path: str = DB_PATH) -> None:
         );
     """)
 
+    # Zero Trust Registry: Pre-populate core pipelines in a explicitly disabled state 
+    # so the frontend UI can render their toggle controls.
+    core_pipelines = ['gmail', 'drive', 'materialization', 'retention_sweeper', 'google_tasks']
+    for pipeline in core_pipelines:
+        cursor.execute("""
+            INSERT OR IGNORE INTO pipeline_config (pipeline_name, is_enabled, settings_json)
+            VALUES (?, 0, '{}')
+        """, (pipeline,))
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS blacklist (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
