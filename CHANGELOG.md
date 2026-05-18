@@ -4,6 +4,10 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.8.1] - 2026-05-17
+### Fixed
+- **Layer 3:** Fixed `SyntaxError` in `main.py` by replacing invalid JavaScript-style strict inequality operators (`!==`) with Pythonic `is not None` identity checks.
+
 ## [v2.8.0] - 2026-05-17
 ### Added
 - **Layer 0:** Added "Resource Management & Cleanup Protocol" to `.clinerules/execution-protocol.md` to enforce strict garbage collection, connection handling, and zero-footprint operational standards.

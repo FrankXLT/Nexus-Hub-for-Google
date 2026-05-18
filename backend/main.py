@@ -1408,10 +1408,10 @@ async def update_entity(entity_id: int, payload: EntityUpdatePayload, background
         
         updates = []
         params = []
-        if payload.workspace_alias !== None:
+        if payload.workspace_alias is not None:
             updates.append("workspace_alias = ?")
             params.append(payload.workspace_alias)
-        if payload.flatten_gmail_label !== None:
+        if payload.flatten_gmail_label is not None:
             updates.append("flatten_gmail_label = ?")
             params.append(payload.flatten_gmail_label)
             
