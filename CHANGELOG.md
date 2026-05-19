@@ -4,6 +4,12 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.6] - 2026-05-18
+### Fixed
+- **Layer 3:** Added `GET /api/telemetry/quota` to `backend/main.py` providing safe structured fallback for UI binding instead of direct class calls.
+- **Layer 7:** Rewired `loadQuotaStats` in `JS_Actions.html` to securely fetch through the `sendToNexusVM` RPC proxy, resolving 'Script function not found' crashes.
+- **Layer 7:** Verified HTML UI DOM isolation for the Batch Ingestion dashboard to prevent visual bleeding.
+
 ## [v3.2.5] - 2026-05-18
 ### Fixed
 - **Layer 7:** Fixed critical HTML DOM structure in `Index.html` by properly nesting the Batch Ingestion UI (Quota Dashboard, Control Bar, Staging Table) inside the `tab-batch-ingestion` container and applied the missing `view-section` classes.

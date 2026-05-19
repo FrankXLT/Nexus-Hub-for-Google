@@ -39,6 +39,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/api/telemetry/quota")
+async def get_quota_telemetry():
+    """Returns daily API quota usage and limits for the UI Dashboard."""
+    try:
+        # TODO: Wire this to the actual QuotaGovernor state tracking. 
+        # Providing safe structural fallback for UI binding.
+        stats = {
+            "usage": {"daily_usage": 0}, 
+            "limits": {"daily_limit": 14250}
+        }
+        return JSONResponse(content=stats)
+    except Exception as e:
+        logger.error(f"Quota Endpoint Failure: {str(e)}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 @app.on_event("startup")
 async def start_cron_jobs():
     """

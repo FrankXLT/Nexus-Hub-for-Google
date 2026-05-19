@@ -110,6 +110,21 @@ var appActions = {
         checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
     },
 
+    loadQuotaStats: function() {
+        google.script.run
+            .withSuccessHandler((response) => {
+                if (response && response.limits) {
+                    const remaining = response.limits.daily_limit - (response.usage.daily_usage || 0);
+                    const elQuota = document.getElementById('stat-quota-remaining');
+                    const elReserve = document.getElementById('stat-priority-reserve');
+                    if (elQuota) elQuota.innerText = remaining.toLocaleString();
+                    if (elReserve) elReserve.innerText = "2,000";
+                }
+            })
+            .withFailureHandler((err) => console.error("Quota Fetch Error:", err))
+            .sendToNexusVM('/api/telemetry/quota', {}, 'GET');
+    },
+
     executeBatch: function() {
         const checkboxes = document.querySelectorAll('.batch-checkbox:checked');
         if (checkboxes.length === 0) {
