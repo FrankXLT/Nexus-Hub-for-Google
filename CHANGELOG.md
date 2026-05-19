@@ -4,6 +4,18 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.4] - 2026-05-18
+### Fixed
+- **Layer 7:** Fixed the dead "Nexus Pulse" stats ticker by adding the missing `this.loadPulseTicker()` initialization call to the `appActions.init` bootstrap function in `JS_Actions.html`.
+
+## [v3.2.3] - 2026-05-18
+### Fixed
+- **Layer 5:** Fixed batch LLM hallucinations in `llm_engine.py` by defining strict Pydantic schemas (`ProfilerResponse`, `ArtifactClassification`) for `run_agent_profiler` and `run_agent_classifier`.
+- **Layer 7:** Fixed taxonomy workflow rendering by renaming the container to `zt-workflow-view` in `Index.html` and `JS_Actions.html`, properly populating dynamic cards.
+- **Layer 7:** Added global 'Enter' key binding to the Batch Ingestion search input, and wired up the master "Select All" batch checkbox.
+- **Layer 7:** Added flexbox containment to legacy and matrix table checkboxes, and applied max-width ellipsis styling to the ingestion aliases column.
+- **Layer 7:** Fixed the broken 'Legacy Label Import' button by wiring it directly to the `/api/ingestion/legacy-labels/start-async` backend endpoint and creating the `loadLegacyLabels` bootstrapper.
+
 ## [v3.2.2] - 2026-05-18
 ### Fixed
 - **Layer 7:** Implemented missing `switchView` router and correctly applied `.view-section` classes in `Index.html` to fix view stacking issues.

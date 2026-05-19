@@ -174,7 +174,7 @@
             <button onclick="appActions.switchTaxonomyView('workflow')" id="view-workflow" class="px-4 py-1 text-sm bg-white border border-[#219ebc] text-[#219ebc] font-bold rounded">Workflow View</button>
             <button onclick="appActions.switchTaxonomyView('matrix')" id="view-matrix" class="px-4 py-1 text-sm bg-slate-200 text-[#023047] font-bold rounded">Data Matrix View</button>
         </div>
-        <div id="zt-taxonomy-flow" class="flex flex-col gap-6 overflow-y-auto p-8 flex-1 items-center"></div>
+        <div id="zt-workflow-view" class="flex flex-col gap-6 overflow-y-auto p-8 flex-1 items-center"></div>
         <div id="zt-data-matrix" class="hidden flex-col h-full p-6 overflow-auto">
             <div class="w-full overflow-x-auto">
                 <table class="w-full text-left border-collapse border border-[#8ecae6]/40 min-w-[1200px]">
@@ -367,7 +367,7 @@
 
         <div id="tab-legacy-migration" class="hidden h-full flex flex-col bg-slate-50 p-6 overflow-auto">
             <h2 class="text-2xl font-bold mb-4">Legacy Label Migration</h2>
-            <button onclick="appActions.startAsyncLegacyMigration()" class="bg-[#219ebc] text-white px-4 py-2 rounded mb-6">Start Migration</button>
+            <button onclick="appActions.startLegacyImport(this)" class="bg-[#219ebc] text-white px-4 py-2 rounded mb-6">Legacy Label Import</button>
             <div class="flex border-b border-[#8ecae6]/30 mb-4">
                 <button onclick="appActions.switchLegacyTab('entities')" class="px-4 py-2 text-[#219ebc] font-bold border-b-2 border-[#219ebc]">Entities</button>
                 <button onclick="appActions.switchLegacyTab('purposes')" class="px-4 py-2 text-[#023047]/60 hover:text-[#219ebc]">Purposes</button>
@@ -436,7 +436,7 @@
                 <table class="w-full text-left border-collapse" id="batch-table">
                     <thead class="bg-slate-50 sticky top-0 z-10 shadow-sm border-b border-[#8ecae6]">
                         <tr>
-                            <th class="p-3 w-10"><input type="checkbox" id="batch-select-all" class="rounded border-[#8ecae6]"></th>
+                            <th class="p-3 w-10"><input type="checkbox" id="batch-select-all" onchange="appActions.toggleAllBatchItems(this)" class="rounded border-[#8ecae6]"></th>
                             <th class="p-3 text-sm font-bold text-[#023047]">Sender / Alias</th>
                             <th class="p-3 text-sm font-bold text-[#023047]">Artifact Count</th>
                             <th class="p-3 text-sm font-bold text-[#023047]">Est. API Cost</th>
@@ -459,5 +459,7 @@
 
     <?!= HtmlService.createHtmlOutputFromFile('JS_State').getContent(); ?>
     <?!= HtmlService.createHtmlOutputFromFile('JS_Actions').getContent(); ?>
+</body>
+</html>_Actions').getContent(); ?>
 </body>
 </html>

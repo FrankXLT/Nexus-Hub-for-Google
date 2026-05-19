@@ -5,6 +5,7 @@ var appActions = {
         this.renderSankey();
         this.loadZeroTrustFlow();
         this.loadPipelineSettings();
+        this.loadPulseTicker();
         
         const omnibox = document.getElementById('omnibox-input');
         if (omnibox) {
@@ -13,6 +14,7 @@ var appActions = {
 
         // Initialize Data Matrix
         this.loadDataMatrix(0);
+        this.loadLegacyLabels();
     },
 
     toggleSidebar: function() {
@@ -100,6 +102,11 @@ var appActions = {
         });
         
         document.getElementById('batch-est-cost').innerText = totalCost;
+    },
+
+    toggleAllBatchItems: function(masterCheckbox) {
+        const checkboxes = document.querySelectorAll('#batch-table-body input[type="checkbox"]');
+        checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
     },
 
     executeBatch: function() {
@@ -362,10 +369,10 @@ var appActions = {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td class="p-2 border text-sm">${lbl.label_name} (${lbl.classification})</td>
-                <td class="p-2 border"><input type="checkbox" checked class="nexus-nav" data-id="${lbl.label_id}"></td>
-                <td class="p-2 border"><input type="checkbox" checked class="nexus-msglist" data-id="${lbl.label_id}"></td>
-                <td class="p-2 border"><input type="checkbox" class="nexus-flatten" data-id="${lbl.label_id}"></td>
-                <td class="p-2 border"><input type="checkbox" class="nexus-universal" data-id="${lbl.label_id}"></td>
+                <td class="p-2 border"><div style="display: flex; align-items: center; gap: 4px;"><input type="checkbox" checked class="nexus-nav" data-id="${lbl.label_id}"> Nav</div></td>
+                <td class="p-2 border"><div style="display: flex; align-items: center; gap: 4px;"><input type="checkbox" checked class="nexus-msglist" data-id="${lbl.label_id}"> Msg</div></td>
+                <td class="p-2 border"><div style="display: flex; align-items: center; gap: 4px;"><input type="checkbox" class="nexus-flatten" data-id="${lbl.label_id}"> Drive</div></td>
+                <td class="p-2 border"><div style="display: flex; align-items: center; gap: 4px;"><input type="checkbox" class="nexus-universal" data-id="${lbl.label_id}"> Univ</div></td>
                 <td class="p-2 border">
                     <select class="p-1 border rounded text-xs" data-id="${lbl.label_id}">
                         <option value="">Map...</option>
@@ -380,7 +387,7 @@ var appActions = {
         document.getElementById('view-workflow').className = view === 'workflow' ? 'px-4 py-1 text-sm bg-white border border-[#219ebc] text-[#219ebc] font-bold rounded' : 'px-4 py-1 text-sm bg-slate-200 text-[#023047] font-bold rounded';
         document.getElementById('view-matrix').className = view === 'matrix' ? 'px-4 py-1 text-sm bg-white border border-[#219ebc] text-[#219ebc] font-bold rounded' : 'px-4 py-1 text-sm bg-slate-200 text-[#023047] font-bold rounded';
         
-        document.getElementById('zt-taxonomy-flow').classList.toggle('hidden', view === 'matrix');
+        document.getElementById('zt-workflow-view').classList.toggle('hidden', view === 'matrix');
         document.getElementById('zt-data-matrix').classList.toggle('hidden', view === 'workflow');
 
         if(view === 'matrix' && appState.entities.length === 0) {
@@ -403,7 +410,7 @@ var appActions = {
                             <td class="p-2 border"><select class="text-xs w-full"><option>${ent.parent_entity_id || ''}</option></select></td>
                             <td class="p-2 border"><input type="text" value="${ent.name}" class="text-xs w-full border-none" onblur="appActions.saveMatrixRow(${ent.id}, 'name', this.value)"></td>
                             <td class="p-2 border"><input type="text" value="${ent.workspace_alias || ''}" class="text-xs w-full border-none" onblur="appActions.saveMatrixRow(${ent.id}, 'workspace_alias', this.value)"></td>
-                            <td class="p-2 border"><input type="text" value="${ent.aliases || ''}" class="text-xs w-full border-none" onblur="appActions.saveMatrixRow(${ent.id}, 'aliases', this.value)"></td>
+                            <td class="p-2 border"><input type="text" value="${ent.aliases || ''}" class="text-xs w-full border-none" style="max-width: 200px; text-overflow: ellipsis; overflow: hidden;" onblur="appActions.saveMatrixRow(${ent.id}, 'aliases', this.value)"></td>
                             <td class="p-2 border text-center"><input type="checkbox" ${ent.show_in_gmail_nav ? 'checked' : ''} onchange="appActions.saveMatrixRow(${ent.id}, 'show_in_gmail_nav', this.checked ? 1 : 0)"></td>
                             <td class="p-2 border text-center"><input type="checkbox" ${ent.show_in_gmail_msg ? 'checked' : ''} onchange="appActions.saveMatrixRow(${ent.id}, 'show_in_gmail_msg', this.checked ? 1 : 0)"></td>
                             <td class="p-2 border text-center"><input type="checkbox" ${ent.use_in_drive_structure ? 'checked' : ''} onchange="appActions.saveMatrixRow(${ent.id}, 'use_in_drive_structure', this.checked ? 1 : 0)"></td>
@@ -498,7 +505,7 @@ var appActions = {
     },
     // --- ZERO TRUST MODULE ---
     loadZeroTrustFlow: function() {
-        const container = document.getElementById('zt-taxonomy-flow');
+        const container = document.getElementById('zt-workflow-view');
         if (!container) return;
 
         container.innerHTML = '<div class="text-[#023047]/50 italic p-4 text-center w-full">Loading Taxonomy Tree...</div>';
@@ -1041,7 +1048,7 @@ Object.assign(appActions, {
 
         if (window.mermaid) {
             mermaid.render('graph-filtered', targetedGraph).then(({ svg }) => {
-                const target = document.getElementById('zt-taxonomy-flow');
+                const target = document.getElementById('zt-workflow-view');
                 target.innerHTML = `<div class="bg-slate-50/50 p-6 rounded-lg border border-dashed border-[#8ecae6] w-full flex justify-center">${svg}</div>`;
                 
                 setTimeout(() => {

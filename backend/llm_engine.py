@@ -21,6 +21,23 @@ from tenacity import retry, wait_exponential, stop_after_attempt
 from pydantic import BaseModel, Field
 from enum import Enum
 
+class ProfilerResponse(BaseModel):
+    mapped_category_id: int | None = Field(description="Integer ID of the best-fit Category")
+    workspace_alias: str | None = Field(description="Shortened, clean name")
+    is_commercial: bool
+    confidence_score: float
+    reasoning: str
+
+class ArtifactClassification(BaseModel):
+    artifact_id: str
+    mapped_category_id: int | None
+    mapped_purpose_id: int | None
+    confidence_score: float
+    reasoning: str
+
+class BatchClassificationResponse(BaseModel):
+    classifications: list[ArtifactClassification]
+
 from db_init import DB_PATH
 
 class LabelClassification(str, Enum):
@@ -940,7 +957,7 @@ def run_agent_profiler(domain: str, is_personal: bool = False, context: str = No
     """
     Runs the appropriate profiler agent (personal or commercial) to identify the entity.
     """
-    prompt_key = 'agent_profiler_personal' if is_personal else 'agent_profiler_commercial'
+    prompt_key = 'PROFILE_AND_MAP'
     prompt = fetch_active_prompt(prompt_key)
     
     client = get_genai_client()
@@ -953,6 +970,8 @@ def run_agent_profiler(domain: str, is_personal: bool = False, context: str = No
             model='gemini-2.5-flash',
             contents=[prompt, context or f"Evaluate domain/email: {domain}"],
             config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=ProfilerResponse,
                 tools=[{"google_search": {}}]
             ),
         )
@@ -989,13 +1008,14 @@ def run_agent_classifier(artifact_text: str, entity_known: bool = False, allowed
             contents=[prompt, context],
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
+                response_schema=ArtifactClassification,
             ),
         )
         result = json.loads(response.text)
         
         # Telemetry
-        category_id = result.get('category_id')
-        purpose_id = result.get('purpose_id')
+        category_id = result.get('mapped_category_id') or result.get('category_id')
+        purpose_id = result.get('mapped_purpose_id') or result.get('purpose_id')
         logger.info(f"Classifier resolved Category ID: {category_id}, Purpose ID: {purpose_id}")
         
         return result
