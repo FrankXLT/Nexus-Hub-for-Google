@@ -361,35 +361,7 @@
             <button onclick="appActions.generateGitHubIssue()" class="bg-[#fb8500] text-white px-4 py-2 rounded mt-4">Generate Bug Report</button>
         </div>
 
-        <div id="tab-batch-ingestion" class="hidden h-full flex flex-col bg-slate-50">
-            <!-- Existing content -->
-        </div>
-
-        <div id="tab-legacy-migration" class="hidden h-full flex flex-col bg-slate-50 p-6 overflow-auto">
-            <h2 class="text-2xl font-bold mb-4">Legacy Label Migration</h2>
-            <button onclick="appActions.startLegacyImport(this)" class="bg-[#219ebc] text-white px-4 py-2 rounded mb-6">Legacy Label Import</button>
-            <div class="flex border-b border-[#8ecae6]/30 mb-4">
-                <button onclick="appActions.switchLegacyTab('entities')" class="px-4 py-2 text-[#219ebc] font-bold border-b-2 border-[#219ebc]">Entities</button>
-                <button onclick="appActions.switchLegacyTab('purposes')" class="px-4 py-2 text-[#023047]/60 hover:text-[#219ebc]">Purposes</button>
-                <button onclick="appActions.switchLegacyTab('hybrids')" class="px-4 py-2 text-[#023047]/60 hover:text-[#219ebc]">Hybrids</button>
-            </div>
-            <div class="w-full overflow-x-auto">
-                <table id="legacy-labels-table" class="w-full text-left border-collapse border border-[#8ecae6]/40 mb-6">
-                    <thead class="bg-slate-50">
-                        <tr>
-                            <th class="p-2 border font-semibold text-sm">Label</th>
-                            <th class="p-2 border font-semibold text-sm">Nav?</th>
-                            <th class="p-2 border font-semibold text-sm">List?</th>
-                            <th class="p-2 border font-semibold text-sm">Flatten?</th>
-                            <th class="p-2 border font-semibold text-sm">Universal?</th>
-                            <th class="p-2 border font-semibold text-sm">Map</th>
-                        </tr>
-                    </thead>
-                    <tbody id="legacy-label-tbody"></tbody>
-                </table>
-            </div>
-            <button id="btn-commit-legacy" onclick="appActions.executeLegacyLabels()" class="bg-[#fb8500] text-white px-4 py-2 rounded hidden">Apply Configuration</button>
-        </div>
+        <div id="tab-batch-ingestion" class="view-section hidden h-full flex flex-col bg-slate-50">
             <!-- Quota Dashboard (Top Panel) -->
             <div class="p-6 border-b border-[#8ecae6]/50 bg-white shrink-0 shadow-sm flex items-center justify-between">
                 <div>
@@ -399,14 +371,14 @@
                 <div class="flex gap-6">
                     <div class="bg-slate-50 border border-[#8ecae6] rounded p-3 min-w-[150px]">
                         <div class="text-xs text-[#023047]/70 font-bold uppercase mb-1">API Quota Remaining</div>
-                        <div class="text-2xl font-black text-[#219ebc]">14,250</div>
+                        <div class="text-2xl font-black text-[#219ebc]"><span id="stat-quota-remaining">14,250</span></div>
                         <div class="w-full bg-slate-200 h-1.5 rounded-full mt-2">
                             <div class="bg-[#219ebc] h-1.5 rounded-full w-[70%]"></div>
                         </div>
                     </div>
                     <div class="bg-slate-50 border border-[#8ecae6] rounded p-3 min-w-[150px]">
                         <div class="text-xs text-[#023047]/70 font-bold uppercase mb-1">Priority Reserve</div>
-                        <div class="text-2xl font-black text-[#fb8500]">2,000</div>
+                        <div class="text-2xl font-black text-[#fb8500]"><span id="stat-priority-reserve">2,000</span></div>
                     </div>
                     <div class="bg-slate-50 border border-[#8ecae6] rounded p-3 min-w-[150px]">
                         <div class="text-xs text-[#023047]/70 font-bold uppercase mb-1">Est. Batch Cost</div>
@@ -422,7 +394,7 @@
                         <option value="gmail">Gmail Search</option>
                         <option value="drive">Drive Folder</option>
                     </select>
-                    <input type="text" id="batch-query" placeholder="e.g. from:orders@amazon.com after:2023/01/01" class="flex-1 bg-white border border-[#8ecae6] rounded p-2 focus:ring-2 focus:ring-[#219ebc] outline-none text-[#023047]">
+                    <input type="text" id="batch-query" placeholder="e.g. from:orders@amazon.com after:2023/01/01" onkeydown="if(event.key === 'Enter') { event.preventDefault(); appActions.previewBatch(); }" class="flex-1 bg-white border border-[#8ecae6] rounded p-2 focus:ring-2 focus:ring-[#219ebc] outline-none text-[#023047]">
                     <button onclick="appActions.previewBatch()" class="px-4 py-2 bg-white border border-[#219ebc] text-[#219ebc] font-bold rounded hover:bg-[#219ebc] hover:text-white transition-colors shadow-sm whitespace-nowrap">Preview Batch</button>
                 </div>
                 <button onclick="appActions.executeBatch()" class="px-6 py-2 bg-[#219ebc] text-white font-bold rounded shadow-sm hover:bg-[#023047] transition-colors flex items-center gap-2">
@@ -448,6 +420,32 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+
+        <div id="tab-legacy-migration" class="view-section hidden h-full flex flex-col bg-slate-50 p-6 overflow-auto">
+            <h2 class="text-2xl font-bold mb-4">Legacy Label Migration</h2>
+            <button onclick="appActions.startLegacyImport(this)" class="bg-[#219ebc] text-white px-4 py-2 rounded mb-6">Legacy Label Import</button>
+            <div class="flex border-b border-[#8ecae6]/30 mb-4">
+                <button onclick="appActions.switchLegacyTab('entities')" class="px-4 py-2 text-[#219ebc] font-bold border-b-2 border-[#219ebc]">Entities</button>
+                <button onclick="appActions.switchLegacyTab('purposes')" class="px-4 py-2 text-[#023047]/60 hover:text-[#219ebc]">Purposes</button>
+                <button onclick="appActions.switchLegacyTab('hybrids')" class="px-4 py-2 text-[#023047]/60 hover:text-[#219ebc]">Hybrids</button>
+            </div>
+            <div class="w-full overflow-x-auto">
+                <table id="legacy-labels-table" class="w-full text-left border-collapse border border-[#8ecae6]/40 mb-6">
+                    <thead class="bg-slate-50">
+                        <tr>
+                            <th class="p-2 border font-semibold text-sm">Label</th>
+                            <th class="p-2 border font-semibold text-sm">Nav?</th>
+                            <th class="p-2 border font-semibold text-sm">List?</th>
+                            <th class="p-2 border font-semibold text-sm">Flatten?</th>
+                            <th class="p-2 border font-semibold text-sm">Universal?</th>
+                            <th class="p-2 border font-semibold text-sm">Map</th>
+                        </tr>
+                    </thead>
+                    <tbody id="legacy-label-tbody"></tbody>
+                </table>
+            </div>
+            <button id="btn-commit-legacy" onclick="appActions.executeLegacyLabels()" class="bg-[#fb8500] text-white px-4 py-2 rounded hidden">Apply Configuration</button>
         </div>
 
         <div id="workspace-drawer" class="fixed top-0 right-0 w-80 h-full bg-white border-l border-[#8ecae6]/50 shadow-2xl transform translate-x-full transition-transform duration-300 z-50"></div>

@@ -6,6 +6,7 @@ var appActions = {
         this.loadZeroTrustFlow();
         this.loadPipelineSettings();
         this.loadPulseTicker();
+        this.loadQuotaStats();
         
         const omnibox = document.getElementById('omnibox-input');
         if (omnibox) {
@@ -1125,6 +1126,24 @@ Object.assign(appActions, {
                         
                         if(elEmails) elEmails.innerText = response.data.emails.toLocaleString();
                         if(elContacts) elContacts.innerText = response.data.contacts.toLocaleString();
+                        if(elQuar) elQuar.innerText = response.data.quarantine.toLocaleString();
+                    }
+                })
+                .getPulseData();
+        };
+        
+        fetchPulse(); // Initial load
+        setInterval(fetchPulse, 60000); // Refresh every 60 seconds
+    }
+});
+
+
+
+document.addEventListener('DOMContentLoaded', () => {
+    appActions.init();
+    appActions.initOrchestrator(); // Added initialization trigger
+});
+</script>t = response.data.contacts.toLocaleString();
                         if(elQuar) elQuar.innerText = response.data.quarantine.toLocaleString();
                     }
                 })

@@ -4,6 +4,11 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.5] - 2026-05-18
+### Fixed
+- **Layer 7:** Fixed critical HTML DOM structure in `Index.html` by properly nesting the Batch Ingestion UI (Quota Dashboard, Control Bar, Staging Table) inside the `tab-batch-ingestion` container and applied the missing `view-section` classes.
+- **Layer 7:** Replaced hardcoded dummy quota statistics with dynamic variables via `loadQuotaStats` in `JS_Actions.html`, properly consuming from `getQuotaGovernor`.
+
 ## [v3.2.4] - 2026-05-18
 ### Fixed
 - **Layer 7:** Fixed the dead "Nexus Pulse" stats ticker by adding the missing `this.loadPulseTicker()` initialization call to the `appActions.init` bootstrap function in `JS_Actions.html`.
