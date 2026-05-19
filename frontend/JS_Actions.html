@@ -1,21 +1,25 @@
 <script>
 var appActions = {
     init: function() {
-        this.renderVQB();
-        this.renderSankey();
-        this.loadZeroTrustFlow();
-        this.loadPipelineSettings();
-        this.loadPulseTicker();
-        this.loadQuotaStats();
-        
-        const omnibox = document.getElementById('omnibox-input');
-        if (omnibox) {
-            omnibox.addEventListener('keydown', this.executeGlobalSearch);
-        }
+        try {
+            this.renderVQB();
+            this.renderSankey();
+            this.loadZeroTrustFlow();
+            this.loadPipelineSettings();
+            this.loadPulseTicker();
+            this.loadQuotaStats();
+            
+            const omnibox = document.getElementById('omnibox-input');
+            if (omnibox) {
+                omnibox.addEventListener('keydown', this.executeGlobalSearch);
+            }
 
-        // Initialize Data Matrix
-        this.loadDataMatrix(0);
-        this.loadLegacyLabels();
+            // Initialize Data Matrix
+            this.loadDataMatrix(0);
+            this.loadLegacyLabels();
+        } catch (e) {
+            console.error("Initialization sequence error:", e);
+        }
     },
 
     toggleSidebar: function() {
@@ -1141,24 +1145,6 @@ Object.assign(appActions, {
                         
                         if(elEmails) elEmails.innerText = response.data.emails.toLocaleString();
                         if(elContacts) elContacts.innerText = response.data.contacts.toLocaleString();
-                        if(elQuar) elQuar.innerText = response.data.quarantine.toLocaleString();
-                    }
-                })
-                .getPulseData();
-        };
-        
-        fetchPulse(); // Initial load
-        setInterval(fetchPulse, 60000); // Refresh every 60 seconds
-    }
-});
-
-
-
-document.addEventListener('DOMContentLoaded', () => {
-    appActions.init();
-    appActions.initOrchestrator(); // Added initialization trigger
-});
-</script>t = response.data.contacts.toLocaleString();
                         if(elQuar) elQuar.innerText = response.data.quarantine.toLocaleString();
                     }
                 })

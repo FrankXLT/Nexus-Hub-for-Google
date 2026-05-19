@@ -4,6 +4,12 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.7] - 2026-05-18
+### Fixed
+- **Layer 7:** Enforced SPA container integrity by explicitly assigning `view-section` display attributes to all tab root `div` elements, curing cascading overlaps.
+- **Layer 7:** Rewrote `switchView` in `JS_Actions.html` to gracefully capture missing views and forcefully re-init `mermaid.run()` when navigating to the Orchestrator, fixing rendering lifecycle drops.
+- **Layer 7:** Wrapped the `appActions.init()` bootstrap in a strict try-catch block, ensuring that Zero Trust tree data failures no longer crash the entire DOM listener load phase.
+
 ## [v3.2.6] - 2026-05-18
 ### Fixed
 - **Layer 3:** Added `GET /api/telemetry/quota` to `backend/main.py` providing safe structured fallback for UI binding instead of direct class calls.

@@ -354,7 +354,7 @@
             </div>
         </div>
         
-        <div id="tab-debug" class="hidden h-full flex flex-col bg-slate-50 p-6 overflow-auto">
+        <div id="tab-debug" class="view-section hidden h-full flex flex-col bg-slate-50 p-6 overflow-auto">
             <h2 class="text-2xl font-bold mb-4">System Debug Logs</h2>
             <button onclick="appActions.loadDebugLogs()" class="bg-[#219ebc] text-white px-4 py-2 rounded mb-4">Refresh Logs</button>
             <div id="debug-log-list" class="space-y-2"></div>
@@ -457,7 +457,5 @@
 
     <?!= HtmlService.createHtmlOutputFromFile('JS_State').getContent(); ?>
     <?!= HtmlService.createHtmlOutputFromFile('JS_Actions').getContent(); ?>
-</body>
-</html>_Actions').getContent(); ?>
 </body>
 </html>
