@@ -1050,7 +1050,7 @@ async def batch_process(payload: BatchPayload):
                 # Update Workspace_Artifacts
                 cursor.execute("""
                     UPDATE Workspace_Artifacts 
-                    SET summary = ?, status = 'PROCESSED', taxonomy_id = ?
+                    SET summary = ?, status = 'PROCESSED', purpose_id = ?
                     WHERE artifact_id = ?
                 """, (f"Mapped to {purp}", p_id, art_id))
         conn.commit()

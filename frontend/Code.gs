@@ -322,6 +322,20 @@ function previewBatchQuery(payload) {
 }
 
 /**
+ * Purpose: Fetches Paginated Entities.
+ * Expected Inputs: limit (int), offset (int)
+ * Expected Outputs: Object - Entity batch.
+ */
+function getEntitiesPaginated(limit, offset) {
+  try {
+    const result = sendToNexusVM("/api/management/entities/paginated?limit=" + limit + "&offset=" + offset, {}, 'get');
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * Purpose: Updates an entity's metadata (e.g. workspace_alias, flatten_gmail_label).
  * Expected Inputs: entityId (int), payload (Object)
  * Expected Outputs: Object - Success confirmation.

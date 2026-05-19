@@ -5,6 +5,14 @@ var appActions = {
         this.renderSankey();
         this.loadZeroTrustFlow();
         this.loadPipelineSettings();
+        
+        const omnibox = document.getElementById('omnibox-input');
+        if (omnibox) {
+            omnibox.addEventListener('keydown', this.executeGlobalSearch);
+        }
+
+        // Initialize Data Matrix
+        this.loadDataMatrix(0);
     },
 
     toggleSidebar: function() {
@@ -23,7 +31,7 @@ var appActions = {
     },
 
     switchTab: function(tabId) {
-        const tabs = ['tab-home', 'tab-zero-trust', 'tab-orchestrator', 'tab-sandbox', 'tab-batch-ingestion'];
+        const tabs = ['tab-home', 'tab-zero-trust', 'tab-orchestrator', 'tab-sandbox', 'tab-debug', 'tab-legacy-migration', 'tab-batch-ingestion'];
         tabs.forEach(t => {
             const el = document.getElementById(t);
             if(el) {
@@ -282,6 +290,14 @@ var appActions = {
         input.focus();
     },
 
+    executeGlobalSearch: function(event) {
+        if(event.key === 'Enter') {
+            const input = document.getElementById('omnibox-input');
+            console.log("Searching for:", input.value);
+            // Add search logic here
+        }
+    },
+
     openSettingsModal: function() {
         document.getElementById('settings-modal').showModal();
     },
@@ -381,11 +397,12 @@ var appActions = {
     loadDataMatrix: function(offset) {
         google.script.run
             .withSuccessHandler(response => {
-                if (response && response.entities) {
+                if (response && response.success && response.data && response.data.entities) {
+                    const responseData = response.data;
                     const tbody = document.getElementById('matrix-tbody');
                     if (offset === 0) tbody.innerHTML = '';
                     
-                    response.entities.forEach(ent => {
+                    responseData.entities.forEach(ent => {
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
                             <td class="p-2 border"><select class="text-xs w-full"><option>${ent.category_id}</option></select></td>
@@ -401,11 +418,11 @@ var appActions = {
                         `;
                         tbody.appendChild(tr);
                     });
-                    document.getElementById('btn-load-more').classList.toggle('hidden', !response.has_more);
+                    document.getElementById('btn-load-more').classList.toggle('hidden', !responseData.has_more);
                     appState.matrixOffset = offset + 50;
                 }
             })
-            .getEntitiesPaginated(50, offset);
+            .sendToNexusVM({ method: 'GET', endpoint: `/api/management/entities/paginated?limit=50&offset=${offset}` });
     },
     
     saveMatrixRow: function(id, field, value) {
@@ -559,7 +576,7 @@ var appActions = {
             .withFailureHandler(err => {
                 container.innerHTML = `<div class="text-red-500 italic p-4 text-center w-full">Error loading taxonomy: ${err.message || err}</div>`;
             })
-            .getTaxonomyTree();
+            .sendToNexusVM({ method: 'GET', endpoint: '/api/taxonomy/tree' });
     }
 };
 

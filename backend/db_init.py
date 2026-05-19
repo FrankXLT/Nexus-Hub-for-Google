@@ -24,6 +24,16 @@ def get_prompt_template(filename):
 
 DB_PATH = 'nexus-live.db'
 
+def column_exists(cursor, table_name, column_name):
+    cursor.execute(f"PRAGMA table_info({table_name});")
+    columns = [row[1] for row in cursor.fetchall()]
+    return column_name in columns
+
+def add_column_if_not_exists(cursor, table_name, column_name, column_def):
+    if not column_exists(cursor, table_name, column_name):
+        cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_def};")
+        logger.info(f"Added column {column_name} to {table_name}.")
+
 def init_db(db_path: str = DB_PATH) -> None:
     """
     Purpose: Connects to the SQLite database and executes the table creation schemas.
@@ -47,7 +57,6 @@ def init_db(db_path: str = DB_PATH) -> None:
     cursor.execute("BEGIN TRANSACTION;")
     
     # 1. Config_System
-    # -- Core key-value store for global settings and Quota Governor API call tracking.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Config_System (
             key TEXT PRIMARY KEY,
@@ -57,8 +66,6 @@ def init_db(db_path: str = DB_PATH) -> None:
     """)
     
     # 2. Sync_State
-    # -- Maintains the Google API pagination/history tokens for delta-sync operations, 
-    # -- preventing full data polling and preserving API quota.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Sync_State (
             app_name TEXT PRIMARY KEY,
@@ -68,8 +75,6 @@ def init_db(db_path: str = DB_PATH) -> None:
     """)
 
     # 3. Config_Prompts
-    # -- Stores the active dynamic LLM prompts. Supports real-time prompt tuning
-    # -- directly from the Apps Script UI.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Config_Prompts (
             target_app TEXT PRIMARY KEY,
@@ -78,7 +83,6 @@ def init_db(db_path: str = DB_PATH) -> None:
     """)
 
     # 3b. Config_Retention_Rules
-    # -- Stores advanced retention rules for inbox sweep/cleanup
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Config_Retention_Rules (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -89,8 +93,7 @@ def init_db(db_path: str = DB_PATH) -> None:
         ) STRICT;
     """)
 
-    # 4. Taxonomy_Categories    # -- Tier 1 of the relational taxonomy hierarchy (e.g., 'Finance', 'Technology').
-    # -- Uses Zero-Trust default toggles for ecosystem propagation.
+    # 4. Taxonomy_Categories
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -98,28 +101,26 @@ def init_db(db_path: str = DB_PATH) -> None:
             description TEXT,
             show_in_nav INTEGER DEFAULT 1,
             show_in_msglist INTEGER DEFAULT 1,
-            nav_condition TEXT DEFAULT 'always', -- Options: 'always', 'has_unread', 'recent_activity'
+            nav_condition TEXT DEFAULT 'always',
             top_entities_limit INTEGER DEFAULT 5,
-            top_entities_sort TEXT DEFAULT 'received', -- Options: 'received', 'read', 'replied'
-            top_entities_importance_filter TEXT DEFAULT 'nexus', -- Options: 'nexus', 'gmail', 'both', 'none'
+            top_entities_sort TEXT DEFAULT 'received',
+            top_entities_importance_filter TEXT DEFAULT 'nexus',
             min_confidence_threshold REAL DEFAULT 0.95,
             gmail_label_id TEXT DEFAULT NULL
         ) STRICT;
     """)
 
     # 4c. Taxonomy_Purposes
-    # -- Tier 3 of the hierarchy determining the document's intent.
-    # -- operation_cost tracks execution impact for the Quota Governor.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS purposes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             description TEXT,
-            scope TEXT NOT NULL, -- 'Universal' or 'Categorical'
+            scope TEXT NOT NULL,
             show_in_nav INTEGER DEFAULT 1,
             show_in_msglist INTEGER DEFAULT 1,
-            nexus_importance_rule TEXT DEFAULT 'inherit_gmail', -- Options: 'force_true', 'force_false', 'inherit_gmail'
-            default_action TEXT DEFAULT 'none', -- Options: 'none', 'review', 'reply', 'pay', 'urgent'
+            nexus_importance_rule TEXT DEFAULT 'inherit_gmail',
+            default_action TEXT DEFAULT 'none',
             default_star_color TEXT DEFAULT NULL,
             min_confidence_threshold REAL DEFAULT 0.95,
             risk_level TEXT DEFAULT 'Medium',
@@ -141,50 +142,29 @@ def init_db(db_path: str = DB_PATH) -> None:
             show_in_gmail_msg BOOLEAN DEFAULT 1,
             use_in_drive_structure BOOLEAN DEFAULT 1,
             nexus_state TEXT DEFAULT 'active',
-            is_profiled INTEGER DEFAULT 0, -- 0 = Unprofiled holding bucket, 1 = Profiled by AI/User
-            ingestion_source TEXT DEFAULT 'unknown', -- Options: 'people_api', 'gmail', 'drive', 'user'
-            is_favorite INTEGER DEFAULT 0, -- Maps to Google Contacts 'starred' or 'favorite' status
+            is_profiled INTEGER DEFAULT 0,
+            ingestion_source TEXT DEFAULT 'unknown',
+            is_favorite INTEGER DEFAULT 0,
             gmail_label_id TEXT DEFAULT NULL,
+            flatten_gmail_label BOOLEAN DEFAULT 0,
             FOREIGN KEY (category_id) REFERENCES categories (id),
             FOREIGN KEY (parent_entity_id) REFERENCES entities (id)
         );
     """)
 
-    # Idempotent column additions for entities
-    cols_to_add = [
-        ("nexus_state", "TEXT DEFAULT 'active'"),
-        ("workspace_alias", "TEXT DEFAULT NULL"),
-        ("show_in_gmail_nav", "BOOLEAN DEFAULT 1"),
-        ("show_in_gmail_msg", "BOOLEAN DEFAULT 1"),
-        ("use_in_drive_structure", "BOOLEAN DEFAULT 1"),
-        ("is_profiled", "INTEGER DEFAULT 0"),
-        ("ingestion_source", "TEXT DEFAULT 'unknown'"),
-        ("is_favorite", "INTEGER DEFAULT 0"),
-        ("gmail_label_id", "TEXT DEFAULT NULL")
-    ]
-    for col_name, col_def in cols_to_add:
-        try:
-            cursor.execute(f"ALTER TABLE entities ADD COLUMN {col_name} {col_def};")
-        except sqlite3.OperationalError:
-            pass # Column already exists
-
-    cols_to_add_cat = [
-        ("gmail_label_id", "TEXT DEFAULT NULL")
-    ]
-    for col_name, col_def in cols_to_add_cat:
-        try:
-            cursor.execute(f"ALTER TABLE categories ADD COLUMN {col_name} {col_def};")
-        except sqlite3.OperationalError:
-            pass
-
-    cols_to_add_purp = [
-        ("gmail_label_id", "TEXT DEFAULT NULL")
-    ]
-    for col_name, col_def in cols_to_add_purp:
-        try:
-            cursor.execute(f"ALTER TABLE purposes ADD COLUMN {col_name} {col_def};")
-        except sqlite3.OperationalError:
-            pass
+    # Idempotent column additions using the helper
+    add_column_if_not_exists(cursor, "entities", "nexus_state", "TEXT DEFAULT 'active'")
+    add_column_if_not_exists(cursor, "entities", "workspace_alias", "TEXT DEFAULT NULL")
+    add_column_if_not_exists(cursor, "entities", "show_in_gmail_nav", "BOOLEAN DEFAULT 1")
+    add_column_if_not_exists(cursor, "entities", "show_in_gmail_msg", "BOOLEAN DEFAULT 1")
+    add_column_if_not_exists(cursor, "entities", "use_in_drive_structure", "BOOLEAN DEFAULT 1")
+    add_column_if_not_exists(cursor, "entities", "is_profiled", "INTEGER DEFAULT 0")
+    add_column_if_not_exists(cursor, "entities", "ingestion_source", "TEXT DEFAULT 'unknown'")
+    add_column_if_not_exists(cursor, "entities", "is_favorite", "INTEGER DEFAULT 0")
+    add_column_if_not_exists(cursor, "entities", "gmail_label_id", "TEXT DEFAULT NULL")
+    add_column_if_not_exists(cursor, "entities", "flatten_gmail_label", "BOOLEAN DEFAULT 0")
+    add_column_if_not_exists(cursor, "categories", "gmail_label_id", "TEXT DEFAULT NULL")
+    add_column_if_not_exists(cursor, "purposes", "gmail_label_id", "TEXT DEFAULT NULL")
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS aliases (
@@ -203,8 +183,6 @@ def init_db(db_path: str = DB_PATH) -> None:
         );
     """)
 
-    # Zero Trust Registry: Pre-populate core pipelines in a explicitly disabled state 
-    # so the frontend UI can render their toggle controls.
     core_pipelines = ['gmail', 'drive', 'materialization', 'retention_sweeper', 'google_tasks']
     for pipeline in core_pipelines:
         cursor.execute("""
@@ -215,16 +193,12 @@ def init_db(db_path: str = DB_PATH) -> None:
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS blacklist (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            type TEXT NOT NULL, -- 'domain' or 'purpose'
+            type TEXT NOT NULL,
             pattern TEXT NOT NULL,
             UNIQUE(type, pattern)
         );
     """)
     
-    # 5. Workspace_Artifacts
-    # -- The master index for all Google Workspace items. 
-    # -- Uses `purpose_id` as the sole foreign key to maintain the cascading hierarchy,
-    # -- as the Purpose node inherently belongs to a specific Correspondent and Category.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Workspace_Artifacts (
             artifact_id TEXT PRIMARY KEY,
@@ -237,14 +211,11 @@ def init_db(db_path: str = DB_PATH) -> None:
             parent_artifact_id TEXT,
             lifecycle_status TEXT DEFAULT 'ACTIVE',
             google_task_id TEXT,
-            -- Importance & States
             gmail_important INTEGER DEFAULT 0,
             nexus_important INTEGER DEFAULT 0,
             gmail_starred INTEGER DEFAULT 0,
             nexus_action_state TEXT DEFAULT 'none',
             nexus_star_color TEXT DEFAULT NULL,
-            
-            -- AI Telemetry & Lifecycle
             ai_confidence REAL DEFAULT 0.0,
             is_quarantined INTEGER DEFAULT 0,
             needs_reprocessing INTEGER DEFAULT 0,
@@ -253,8 +224,6 @@ def init_db(db_path: str = DB_PATH) -> None:
         ) STRICT;
     """)
     
-    # 6. Artifact_History
-    # -- Immutable audit log tracking state changes from LLMs or manual UI overrides.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Artifact_History (
             log_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -271,9 +240,6 @@ def init_db(db_path: str = DB_PATH) -> None:
         ) STRICT;
     """)
 
-    # 7. Error_Logs
-    # -- The Dead-Letter Queue (DLQ) persisting stack traces and failures for later 
-    # -- automated retries and Telemetry alerting.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Error_Logs (
             log_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -286,8 +252,6 @@ def init_db(db_path: str = DB_PATH) -> None:
         ) STRICT;
     """)
 
-    # 8. Ingestion_Queue
-    # -- Asynchronous buffering system to handle massive historical data ingestion
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Ingestion_Queue (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -298,8 +262,6 @@ def init_db(db_path: str = DB_PATH) -> None:
         ) STRICT;
     """)
 
-    # 9. Quarantine_Queue
-    # -- Holds items that lack trust validation pending manual approval
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS quarantine_queue (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -313,10 +275,7 @@ def init_db(db_path: str = DB_PATH) -> None:
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     """)
-    logger.info("Verified Zero Trust tables (quarantine_queue) are initialized.")
 
-    # 10. Legacy_Label_Migration
-    # -- Iterative migration staging system for legacy Gmail labels
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Legacy_Label_Migration (
             label_id TEXT PRIMARY KEY,
@@ -324,13 +283,13 @@ def init_db(db_path: str = DB_PATH) -> None:
             mapped_category_id INTEGER,
             mapped_purpose_id INTEGER,
             ai_confidence REAL DEFAULT 0.0,
-            status TEXT DEFAULT 'pending', -- Options: 'pending', 'accepted', 'rejected'
+            status TEXT DEFAULT 'pending',
             last_evaluated TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(mapped_category_id) REFERENCES categories(id),
             FOREIGN KEY(mapped_purpose_id) REFERENCES purposes(id)
         ) STRICT;
     """)
-    logger.info("Verified Legacy_Label_Migration table is initialized.")
+    
     cursor.execute("COMMIT;")
     
     seed_default_configs(conn)
@@ -342,11 +301,6 @@ def init_db(db_path: str = DB_PATH) -> None:
     print(f"Database initialization complete: {db_path} with STRICT tables and WAL mode enabled.")
 
 def seed_default_configs(conn: sqlite3.Connection) -> None:
-    """
-    Purpose: Seeds default JSON settings into Config_System for UI Pipeline Orchestrator.
-    Expected Inputs: conn (sqlite3.Connection) - An active connection to the SQLite database.
-    Expected Outputs: None. Populates the Config_System table with initial values.
-    """
     cursor = conn.cursor()
     cursor.execute("SELECT key FROM Config_System WHERE key = ?", ('ui_gmail_filters',))
     if cursor.fetchone() is None:
@@ -372,7 +326,6 @@ def seed_default_configs(conn: sqlite3.Connection) -> None:
         cursor.execute("INSERT INTO Config_System (key, value, description) VALUES (?, ?, ?)",
             ('default_view', 'dashboard', 'UI Startup View'))
     
-    # Epic 5 Safe Mode Gatekeepers
     cursor.execute("SELECT key FROM Config_System WHERE key = ?", ('feature_retention_sweeper',))
     if cursor.fetchone() is None:
         cursor.execute("INSERT INTO Config_System (key, value, description) VALUES (?, ?, ?)",
@@ -395,11 +348,6 @@ def seed_default_configs(conn: sqlite3.Connection) -> None:
 
 
 def seed_default_prompts(conn: sqlite3.Connection) -> None:
-    """
-    Purpose: Seeds the default master prompts into the Config_Prompts table if they do not already exist.
-    Expected Inputs: conn (sqlite3.Connection) - An active database connection.
-    Expected Outputs: None. Modifies Config_Prompts table.
-    """
     cursor = conn.cursor()
     
     prompts_to_seed = {
@@ -416,30 +364,16 @@ def seed_default_prompts(conn: sqlite3.Connection) -> None:
     }
     
     for target_app, filename in prompts_to_seed.items():
-        try:
-            cursor.execute("SELECT target_app FROM Config_Prompts WHERE target_app = ?", (target_app,))
-            if cursor.fetchone() is None:
-                prompt_text = get_prompt_template(filename)
-                cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", (target_app, prompt_text))
-        except Exception as e:
-            print(f"Failed to seed {target_app} prompt: {e}")
-
-def get_pydantic_schema_definitions() -> dict:
-    """
-    Returns the raw Pydantic-to-JSONSchema mapping for LLM injection.
-    """
-    from llm_engine import BulkMappingResponse
-    return BulkMappingResponse.model_json_schema()
+        cursor.execute("SELECT target_app FROM Config_Prompts WHERE target_app = ?", (target_app,))
+        if cursor.fetchone() is None:
+            prompt_text = get_prompt_template(filename)
+            cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", (target_app, prompt_text))
 
 def seed_taxonomy_from_json(conn: sqlite3.Connection) -> None:
-    """
-    Seeds the categories and purposes tables using DEFAULTS/zero_trust_defaults.json.
-    Ensures that universal_purposes are applied to every category.
-    """
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM categories")
     if cursor.fetchone()[0] > 0:
-        return  # Taxonomy already seeded
+        return
 
     json_path = os.path.join(DEFAULTS_DIR, "zero_trust_defaults.json")
     if not os.path.exists(json_path):
@@ -451,7 +385,6 @@ def seed_taxonomy_from_json(conn: sqlite3.Connection) -> None:
 
     universal_purposes = defaults.get("universal_purposes", [])
     
-    # Handle Blacklist
     blacklist = defaults.get("blacklist", {})
     for d in blacklist.get("domains", []):
         cursor.execute("INSERT INTO blacklist (type, pattern) VALUES ('domain', ?)", (d,))
@@ -463,11 +396,9 @@ def seed_taxonomy_from_json(conn: sqlite3.Connection) -> None:
                        (cat["name"], cat.get("description", "")))
         cat_id = cursor.lastrowid
         
-        # Combine universal purposes with this category's specific purposes
         all_purposes = set(universal_purposes + cat.get("categorical_purposes", []))
         
         for purp_name in all_purposes:
-            # Defaulting description, risk_level and scope
             scope = 'Universal' if purp_name in universal_purposes else 'Categorical'
             cursor.execute("""
                 INSERT INTO purposes (category_id, name, description, scope, risk_level, retention_days)
@@ -477,6 +408,5 @@ def seed_taxonomy_from_json(conn: sqlite3.Connection) -> None:
     conn.commit()
     logger.info("Zero Trust Taxonomy seeded successfully from zero_trust_defaults.json.")
 
-# Execute the initialization if the script is run directly.
 if __name__ == "__main__":
     init_db()

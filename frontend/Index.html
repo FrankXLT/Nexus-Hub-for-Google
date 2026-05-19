@@ -19,7 +19,6 @@
         <div class="flex space-x-4 border-b border-[#8ecae6]/30 mb-6">
             <button onclick="appActions.switchSettingsTab('settings-ingestion')" class="px-4 py-2 border-b-2 border-[#219ebc] text-[#219ebc] font-semibold">Ingestion Rules</button>
             <button onclick="appActions.switchSettingsTab('settings-prompts')" class="px-4 py-2 border-b-2 border-transparent text-[#023047]/60 hover:text-[#219ebc]">AI Prompts</button>
-            <button onclick="appActions.switchSettingsTab('settings-legacy')" class="px-4 py-2 border-b-2 border-transparent text-[#023047]/60 hover:text-[#219ebc]">Legacy Label Tool</button>
         </div>
         
         <div id="settings-ingestion" class="block">
@@ -32,34 +31,6 @@
             <p class="text-[#023047]/70">Manage system prompts here.</p>
         </div>
         
-        <div id="settings-legacy" class="hidden">
-            <div class="bg-[#ffb703]/10 border border-[#ffb703] text-[#023047] p-4 rounded mb-6">
-                <p class="font-bold mb-2 flex items-center">Legacy Label Migration Tool</p>
-                <p class="text-sm">Tri-State Ontological mapping (Entity, Purpose, Hybrid) for Gmail migration.</p>
-            </div>
-            <button onclick="appActions.startAsyncLegacyMigration()" class="bg-[#219ebc] hover:bg-[#023047] text-white px-4 py-2 rounded mb-6 transition-colors shadow-sm font-semibold">Start Migration</button>
-            
-            <div class="flex border-b border-[#8ecae6]/30 mb-4">
-                <button onclick="appActions.switchLegacyTab('entities')" class="px-4 py-2 text-[#219ebc] font-bold border-b-2 border-[#219ebc]">Entities</button>
-                <button onclick="appActions.switchLegacyTab('purposes')" class="px-4 py-2 text-[#023047]/60 hover:text-[#219ebc]">Purposes</button>
-                <button onclick="appActions.switchLegacyTab('hybrids')" class="px-4 py-2 text-[#023047]/60 hover:text-[#219ebc]">Hybrids</button>
-            </div>
-
-            <table id="legacy-labels-table" class="w-full text-left border-collapse border border-[#8ecae6]/40 mb-6">
-                <thead class="bg-slate-50">
-                    <tr>
-                        <th class="p-2 border font-semibold text-sm">Label</th>
-                        <th class="p-2 border font-semibold text-sm">Nav?</th>
-                        <th class="p-2 border font-semibold text-sm">List?</th>
-                        <th class="p-2 border font-semibold text-sm">Flatten?</th>
-                        <th class="p-2 border font-semibold text-sm">Universal?</th>
-                        <th class="p-2 border font-semibold text-sm">Map</th>
-                    </tr>
-                </thead>
-                <tbody id="legacy-label-tbody"></tbody>
-            </table>
-            <button id="btn-commit-legacy" onclick="appActions.executeLegacyLabels()" class="bg-[#fb8500] hover:bg-[#ea580c] text-white px-4 py-2 rounded transition-colors shadow-sm font-semibold hidden">Apply Configuration</button>
-        </div>
     </dialog>
 
     <nav id="sidebar" class="w-64 bg-white border-r border-[#8ecae6]/40 flex flex-col shrink-0 shadow-sm z-20 transition-all duration-300 relative">
@@ -110,6 +81,12 @@
                     <span class="sidebar-text ml-4 whitespace-nowrap">Debug Logs</span>
                 </button>
             </li>
+            <li>
+                <button onclick="appActions.switchTab('tab-legacy-migration')" class="w-full flex items-center px-4 py-3 text-sm font-semibold text-[#023047]/70 hover:text-[#219ebc] hover:bg-[#8ecae6]/10 transition-colors border-l-4 border-transparent hover:border-[#219ebc]">
+                    <svg class="w-6 h-6 shrink-0 mx-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    <span class="sidebar-text ml-4 whitespace-nowrap">Legacy Migration</span>
+                </button>
+            </li>
             <li class="mt-auto">
                 <div id="nexus-pulse-sidebar" class="mb-4 mx-4 p-3 bg-[#8ecae6]/10 rounded-lg border border-[#8ecae6]/30 flex flex-col space-y-3 sidebar-text transition-opacity duration-300">
                     <div class="text-xs font-bold text-[#023047]/50 uppercase tracking-wider mb-1 border-b border-[#8ecae6]/20 pb-1">Nexus Pulse</div>
@@ -142,8 +119,10 @@
             <div id="tab-home" class="block flex flex-col items-center w-full">
                 <div class="w-full max-w-4xl py-8 flex justify-center">
                     <div class="flex items-center bg-white border border-[#8ecae6] rounded-full w-full p-3 shadow-sm focus-within:ring-2 focus-within:ring-[#219ebc] focus-within:border-[#219ebc] transition-all">
-                        <svg class="w-6 h-6 text-[#219ebc] mx-2 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                        <input type="text" id="omnibox-input" placeholder="Search Nexus or command an action..." class="flex-1 bg-transparent outline-none text-[#023047] text-lg px-2 placeholder-[#8ecae6]">
+                        <form onsubmit="event.preventDefault(); appActions.executeGlobalSearch({key: 'Enter'});" class="flex items-center w-full">
+                            <svg class="w-6 h-6 text-[#219ebc] mx-2 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <input type="text" id="omnibox-input" placeholder="Search Nexus or command an action..." class="flex-1 bg-transparent outline-none text-[#023047] text-lg px-2 placeholder-[#8ecae6]">
+                        </form>
                     </div>
                 </div>
 
@@ -197,23 +176,25 @@
         </div>
         <div id="zt-taxonomy-flow" class="flex flex-col gap-6 overflow-y-auto p-8 flex-1 items-center"></div>
         <div id="zt-data-matrix" class="hidden flex-col h-full p-6 overflow-auto">
-            <table class="w-full text-left border-collapse border border-[#8ecae6]/40">
-                <thead class="bg-slate-50 sticky top-0">
-                    <tr>
-                        <th class="p-2 border font-bold text-xs">Category</th>
-                        <th class="p-2 border font-bold text-xs">Parent</th>
-                        <th class="p-2 border font-bold text-xs">Name</th>
-                        <th class="p-2 border font-bold text-xs">Alias</th>
-                        <th class="p-2 border font-bold text-xs">Ingestion Aliases</th>
-                        <th class="p-2 border font-bold text-xs">Nav?</th>
-                        <th class="p-2 border font-bold text-xs">Msg?</th>
-                        <th class="p-2 border font-bold text-xs">Drive?</th>
-                        <th class="p-2 border font-bold text-xs">Flatten?</th>
-                        <th class="p-2 border font-bold text-xs">State</th>
-                    </tr>
-                </thead>
-                <tbody id="matrix-tbody"></tbody>
-            </table>
+            <div class="w-full overflow-x-auto">
+                <table class="w-full text-left border-collapse border border-[#8ecae6]/40 min-w-[1200px]">
+                    <thead class="bg-slate-50 sticky top-0">
+                        <tr>
+                            <th class="p-2 border font-bold text-xs">Category</th>
+                            <th class="p-2 border font-bold text-xs">Parent</th>
+                            <th class="p-2 border font-bold text-xs">Name</th>
+                            <th class="p-2 border font-bold text-xs">Alias</th>
+                            <th class="p-2 border font-bold text-xs">Ingestion Aliases</th>
+                            <th class="p-2 border font-bold text-xs">Nav?</th>
+                            <th class="p-2 border font-bold text-xs">Msg?</th>
+                            <th class="p-2 border font-bold text-xs">Drive?</th>
+                            <th class="p-2 border font-bold text-xs">Flatten?</th>
+                            <th class="p-2 border font-bold text-xs">State</th>
+                        </tr>
+                    </thead>
+                    <tbody id="matrix-tbody"></tbody>
+                </table>
+            </div>
             <button onclick="appActions.loadMoreEntities()" id="btn-load-more" class="mt-4 p-2 bg-[#8ecae6]/20 hover:bg-[#8ecae6]/30 text-[#023047] font-bold rounded">Load More (50)</button>
         </div>
     </div>
@@ -381,6 +362,34 @@
         </div>
 
         <div id="tab-batch-ingestion" class="hidden h-full flex flex-col bg-slate-50">
+            <!-- Existing content -->
+        </div>
+
+        <div id="tab-legacy-migration" class="hidden h-full flex flex-col bg-slate-50 p-6 overflow-auto">
+            <h2 class="text-2xl font-bold mb-4">Legacy Label Migration</h2>
+            <button onclick="appActions.startAsyncLegacyMigration()" class="bg-[#219ebc] text-white px-4 py-2 rounded mb-6">Start Migration</button>
+            <div class="flex border-b border-[#8ecae6]/30 mb-4">
+                <button onclick="appActions.switchLegacyTab('entities')" class="px-4 py-2 text-[#219ebc] font-bold border-b-2 border-[#219ebc]">Entities</button>
+                <button onclick="appActions.switchLegacyTab('purposes')" class="px-4 py-2 text-[#023047]/60 hover:text-[#219ebc]">Purposes</button>
+                <button onclick="appActions.switchLegacyTab('hybrids')" class="px-4 py-2 text-[#023047]/60 hover:text-[#219ebc]">Hybrids</button>
+            </div>
+            <div class="w-full overflow-x-auto">
+                <table id="legacy-labels-table" class="w-full text-left border-collapse border border-[#8ecae6]/40 mb-6">
+                    <thead class="bg-slate-50">
+                        <tr>
+                            <th class="p-2 border font-semibold text-sm">Label</th>
+                            <th class="p-2 border font-semibold text-sm">Nav?</th>
+                            <th class="p-2 border font-semibold text-sm">List?</th>
+                            <th class="p-2 border font-semibold text-sm">Flatten?</th>
+                            <th class="p-2 border font-semibold text-sm">Universal?</th>
+                            <th class="p-2 border font-semibold text-sm">Map</th>
+                        </tr>
+                    </thead>
+                    <tbody id="legacy-label-tbody"></tbody>
+                </table>
+            </div>
+            <button id="btn-commit-legacy" onclick="appActions.executeLegacyLabels()" class="bg-[#fb8500] text-white px-4 py-2 rounded hidden">Apply Configuration</button>
+        </div>
             <!-- Quota Dashboard (Top Panel) -->
             <div class="p-6 border-b border-[#8ecae6]/50 bg-white shrink-0 shadow-sm flex items-center justify-between">
                 <div>

@@ -4,6 +4,26 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.1] - 2026-05-18
+### Fixed
+- **Layer 7:** Repaired UI breakout logic in `JS_Actions.html` to correctly enforce strict `display: none` view toggling for the Legacy Migration and Debug Log views.
+- **Layer 7:** Rewired `loadZeroTrustFlow` and `loadDataMatrix` in `JS_Actions.html` to explicitly utilize `sendToNexusVM` RPC middleware for initial data fetching.
+
+## [v3.2.0] - 2026-05-18
+### Added
+- **Layer 1:** Migrated `entities` table to add `flatten_gmail_label` (BOOLEAN) column.
+- **Layer 7:** Overhauled Taxonomy Explorer to provide a full-screen, 3-tab Tri-State Ontology Matrix.
+- **Layer 7:** Implemented global sidebar navigation for Legacy Migration and dedicated containment CSS for high-density data tables.
+- **Layer 7:** Added global 'Enter' key binding for search interface.
+
+## [v3.1.2] - 2026-05-18
+### Fixed
+- **Layer 3:** Fixed `sqlite3.OperationalError` in `batch_process` endpoint by correcting the SQL query to use `purpose_id` instead of the non-existent `taxonomy_id` column.
+
+## [v3.1.1] - 2026-05-18
+### Changed
+- **Layer 0:** Hard-coded V3 Exhaustive Matrix audit template into `.clinerules/execution-protocol.md` to enforce strict audit reporting standards.
+
 ## [v3.1.0] - 2026-05-18
 ### Added
 - **Layer 6:** Implemented `GET /api/management/entities/paginated` supporting SQL pagination (`LIMIT`/`OFFSET`) and joined entity/alias data.
