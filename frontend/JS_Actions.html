@@ -30,22 +30,16 @@ var appActions = {
         }
     },
 
-    switchTab: function(tabId) {
-        const tabs = ['tab-home', 'tab-zero-trust', 'tab-orchestrator', 'tab-sandbox', 'tab-debug', 'tab-legacy-migration', 'tab-batch-ingestion'];
-        tabs.forEach(t => {
-            const el = document.getElementById(t);
-            if(el) {
-                if(t === tabId) {
-                    el.classList.remove('hidden');
-                    el.classList.add('block');
-                    if(t === 'tab-home') el.classList.add('flex', 'flex-col', 'items-center', 'w-full');
-                } else {
-                    el.classList.add('hidden');
-                    el.classList.remove('block', 'flex', 'flex-col', 'items-center', 'w-full');
-                }
-            }
+    switchView: function(viewId) {
+        document.querySelectorAll('.view-section').forEach(el => {
+            el.classList.add('hidden');
         });
-        appState.activeTab = tabId;
+        const target = document.getElementById(viewId);
+        if (target) {
+            target.classList.remove('hidden');
+        }
+        // Sync appState if needed
+        appState.activeTab = viewId;
     },
 
     previewBatch: function() {
@@ -438,8 +432,28 @@ var appActions = {
     },
 
     switchLegacyTab: function(tab) {
-        // Logic to filter appState.legacyLabels and re-render
-        console.log("Switching to", tab);
+        // Toggle active styling on buttons
+        const buttons = document.querySelectorAll('#tab-legacy-migration .flex.border-b button');
+        buttons.forEach(btn => {
+            if (btn.getAttribute('onclick').includes(tab)) {
+                btn.className = "px-4 py-2 text-[#219ebc] font-bold border-b-2 border-[#219ebc]";
+            } else {
+                btn.className = "px-4 py-2 text-[#023047]/60 hover:text-[#219ebc]";
+            }
+        });
+
+        // Toggle visibility of inner tab content containers
+        const innerTabs = ['entities', 'purposes', 'hybrids'];
+        innerTabs.forEach(t => {
+            const el = document.getElementById(`legacy-content-${t}`);
+            if (el) {
+                if (t === tab) {
+                    el.classList.remove('hidden');
+                } else {
+                    el.classList.add('hidden');
+                }
+            }
+        });
     },
 
     executeLegacyLabels: function() {

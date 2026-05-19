@@ -4,6 +4,13 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.2] - 2026-05-18
+### Fixed
+- **Layer 7:** Implemented missing `switchView` router and correctly applied `.view-section` classes in `Index.html` to fix view stacking issues.
+- **Layer 7:** Added `switchLegacyTab` logic to handle inner tab visibility within the Legacy Migration view.
+- **Layer 7:** Refactored `sendToNexusVM` RPC calls in `JS_Actions.html` to correctly use positional parameters (`endpoint`, `payload`, `method`) instead of passing an object, fixing data initialization failures.
+- **Layer 7:** Fixed table checkbox alignment in `CSS_Styles.html` via scoped `margin: 0 auto; display: block;` properties.
+
 ## [v3.2.1] - 2026-05-18
 ### Fixed
 - **Layer 7:** Repaired UI breakout logic in `JS_Actions.html` to correctly enforce strict `display: none` view toggling for the Legacy Migration and Debug Log views.
