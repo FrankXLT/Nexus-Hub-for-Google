@@ -4,6 +4,11 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.8] - 2026-05-18
+### Fixed
+- **Layer 7:** Resolved critical JavaScript syntax error in `JS_Actions.html` caused by orphaned code blocks by executing a complete bottom-file nuke-and-pave, cleanly closing the `appActions` object and restoring routing capabilities.
+- **Layer 7:** Verified HTML UI closing tags in `Index.html` to guarantee structural integrity of the Apps Script injection tags.
+
 ## [v3.2.7] - 2026-05-18
 ### Fixed
 - **Layer 7:** Enforced SPA container integrity by explicitly assigning `view-section` display attributes to all tab root `div` elements, curing cascading overlaps.

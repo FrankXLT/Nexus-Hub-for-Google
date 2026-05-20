@@ -1,0 +1,39 @@
+<script>
+var appActions = {
+    init: function() {
+        try {
+            this.renderVQB();
+            this.renderSankey();
+            this.loadZeroTrustFlow();
+            this.loadPipelineSettings();
+            this.loadPulseTicker();
+            this.loadQuotaStats();
+            
+            const omnibox = document.getElementById('omnibox-input');
+            if (omnibox) {
+                omnibox.addEventListener('keydown', this.executeGlobalSearch);
+            }
+
+            // Initialize Data Matrix
+            this.loadDataMatrix(0);
+            this.loadLegacyLabels();
+        } catch (e) {
+            console.error("Initialization sequence error:", e);
+        }
+    },
+
+    toggleSidebar: function() {
+        const sidebar = document.getElementById('sidebar');
+        const texts = document.querySelectorAll('.sidebar-text');
+        
+        if (sidebar.classList.contains('w-64')) {
+            sidebar.classList.remove('w-64');
+            sidebar.classList.add('w-16');
+            texts.forEach(t => t.classList.add('hidden', 'opacity-0'));
+        } else {
+            sidebar.classList.remove('w-16');
+            sidebar.classList.add('w-64');
+            texts.forEach(t => t.classList.remove('hidden', 'opacity-0'));
+        }
+    },
+
