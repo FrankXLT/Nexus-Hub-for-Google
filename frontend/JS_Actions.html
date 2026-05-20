@@ -14,7 +14,7 @@ var appActions = {
                 omnibox.addEventListener('keydown', this.executeGlobalSearch);
             }
 
-            // Initialize Data Matrix
+            // Initialize Data Matrix and Legacy Labels safely
             this.loadDataMatrix(0);
             this.loadLegacyLabels();
         } catch (e) {
@@ -44,9 +44,17 @@ var appActions = {
         const target = document.getElementById(viewId);
         if (target) {
             target.classList.remove('hidden');
+            appState.activeTab = viewId;
+            
+            // Re-trigger Mermaid if moving to Orchestrator
+            if (viewId === 'tab-orchestrator' && window.mermaid) {
+                try {
+                    mermaid.run();
+                } catch(e) { console.warn("Mermaid re-render suppressed:", e); }
+            }
+        } else {
+            console.error("ROUTER ERROR: Missing container ID:", viewId);
         }
-        // Sync appState if needed
-        appState.activeTab = viewId;
     },
 
     previewBatch: function() {
@@ -183,7 +191,6 @@ var appActions = {
         appState.activeVQB = viewName;
     },
 
-    // --- HEATMAP MODULE (Live Data) ---
     renderVQB: function() {
         const container = document.getElementById('vqb-heatmap');
         if(!container) return;
@@ -202,7 +209,6 @@ var appActions = {
                     return;
                 }
 
-                // Try to determine the max days from the data, fallback to selected days
                 let numDays = parseInt(days);
                 if (data[0] && data[0].data) {
                     numDays = Math.max(numDays, data[0].data.length);
@@ -212,7 +218,6 @@ var appActions = {
                 container.innerHTML = '';
 
                 data.forEach(row => {
-                    // Y-Axis Label for Sender
                     const label = document.createElement('div');
                     label.className = "flex items-center justify-end pr-3 text-xs font-bold text-[#023047]/70 whitespace-nowrap h-[20px]";
                     label.innerText = row.sender;
@@ -223,20 +228,14 @@ var appActions = {
                         cell.className = "w-[20px] h-[20px] rounded-[2px] cursor-pointer transition-all duration-150 hover:scale-125 hover:ring-2 hover:ring-[#023047] hover:z-10 relative";
                         cell.title = `${row.sender} on ${day.date}: ${day.count} items`;
 
-                        if (day.count === 0) {
-                            cell.classList.add('bg-slate-200'); 
-                        } else if (day.count < 5) {
-                            cell.classList.add('bg-[#8ecae6]'); 
-                        } else if (day.count < 12) {
-                            cell.classList.add('bg-[#219ebc]'); 
-                        } else {
-                            cell.classList.add('bg-[#fb8500]'); 
-                        }
+                        if (day.count === 0) cell.classList.add('bg-slate-200'); 
+                        else if (day.count < 5) cell.classList.add('bg-[#8ecae6]'); 
+                        else if (day.count < 12) cell.classList.add('bg-[#219ebc]'); 
+                        else cell.classList.add('bg-[#fb8500]'); 
 
                         cell.onclick = () => {
                             appActions.stageChip(`Entity:"${row.sender}" AND Date:${day.date}`);
                         };
-
                         container.appendChild(cell);
                     });
                 });
@@ -248,7 +247,6 @@ var appActions = {
             .getHeatmapData(days, source, status);
     },
 
-    // --- SANKEY MODULE (Live Data) ---
     renderSankey: function() {
         const container = document.getElementById('vqb-sankey');
         if (!container) return;
@@ -266,7 +264,6 @@ var appActions = {
                     return;
                 }
 
-                // 3x SCALING FIX: Force Mermaid to render the Sankey significantly larger (1200x800)
                 let mermaidSyntax = "%%{init: {'sankey': {'width': 1200, 'height': 800}}}%%\nsankey-beta\n";
                 links.forEach(link => {
                     const safeSource = link.source.replace(/,/g, '');
@@ -299,7 +296,6 @@ var appActions = {
         }
     },
 
-    // --- UTILITIES ---
     stageChip: function(chipString) {
         const input = document.getElementById('omnibox-input') || document.querySelector('input[type="text"]'); 
         if (!input) return;
@@ -315,7 +311,6 @@ var appActions = {
         if(event.key === 'Enter') {
             const input = document.getElementById('omnibox-input');
             console.log("Searching for:", input.value);
-            // Add search logic here
         }
     },
 
@@ -352,15 +347,32 @@ var appActions = {
         });
     },
 
-    startAsyncLegacyMigration: function() {
+    loadLegacyLabels: function() {
         google.script.run
             .withSuccessHandler(response => {
-                if (response && response.status === 'success') {
-                    alert("Migration started. Polling status...");
-                    this.pollMigrationStatus();
+                if (response && response.status === 'success' && response.labels) {
+                    appActions.renderLegacyLabelTable(response.labels);
                 }
             })
-            .startAsyncLegacyMigration();
+            .withFailureHandler(err => console.error("Error loading legacy labels:", err))
+            .getLegacyLabelStatus();
+    },
+
+    startLegacyImport: function(btn) {
+        if(btn) {
+            btn.disabled = true;
+            btn.innerText = "Importing...";
+        }
+        google.script.run
+            .withSuccessHandler(response => {
+                alert("Migration started. Polling status...");
+                appActions.pollMigrationStatus();
+            })
+            .withFailureHandler(err => {
+                alert("Import failed: " + err);
+                if(btn) { btn.disabled = false; btn.innerText = "Legacy Label Import"; }
+            })
+            .sendToNexusVM('/api/ingestion/legacy-labels/start-async', {}, 'POST');
     },
 
     pollMigrationStatus: function() {
@@ -369,10 +381,10 @@ var appActions = {
                 .withSuccessHandler(response => {
                     if (response && response.status === 'success') {
                         this.renderLegacyLabelTable(response.labels);
-                        // Check if all are processed
                         if (response.labels.every(l => l.status !== 'pending')) {
                             clearInterval(interval);
-                            document.getElementById('btn-commit-legacy').classList.remove('hidden');
+                            const commitBtn = document.getElementById('btn-commit-legacy');
+                            if (commitBtn) commitBtn.classList.remove('hidden');
                         }
                     }
                 })
@@ -383,6 +395,7 @@ var appActions = {
     renderLegacyLabelTable: function(data) {
         appState.legacyLabels = data;
         const tbody = document.getElementById('legacy-label-tbody');
+        if (!tbody) return;
         tbody.innerHTML = '';
 
         data.forEach((lbl, index) => {
@@ -421,7 +434,7 @@ var appActions = {
                 if (response && response.success && response.data && response.data.entities) {
                     const responseData = response.data;
                     const tbody = document.getElementById('matrix-tbody');
-                    if (offset === 0) tbody.innerHTML = '';
+                    if (offset === 0 && tbody) tbody.innerHTML = '';
                     
                     responseData.entities.forEach(ent => {
                         const tr = document.createElement('tr');
@@ -437,13 +450,14 @@ var appActions = {
                             <td class="p-2 border text-center"><input type="checkbox" ${ent.flatten_gmail_label ? 'checked' : ''} onchange="appActions.saveMatrixRow(${ent.id}, 'flatten_gmail_label', this.checked ? 1 : 0)"></td>
                             <td class="p-2 border"><select class="text-xs w-full" onchange="appActions.saveMatrixRow(${ent.id}, 'nexus_state', this.value)"><option ${ent.nexus_state==='active'?'selected':''}>active</option><option ${ent.nexus_state==='disabled'?'selected':''}>disabled</option></select></td>
                         `;
-                        tbody.appendChild(tr);
+                        if (tbody) tbody.appendChild(tr);
                     });
-                    document.getElementById('btn-load-more').classList.toggle('hidden', !responseData.has_more);
+                    const btnLoad = document.getElementById('btn-load-more');
+                    if (btnLoad) btnLoad.classList.toggle('hidden', !responseData.has_more);
                     appState.matrixOffset = offset + 50;
                 }
             })
-            .sendToNexusVM({ method: 'GET', endpoint: `/api/management/entities/paginated?limit=50&offset=${offset}` });
+            .sendToNexusVM(`/api/management/entities/paginated?limit=50&offset=${offset}`, {}, 'GET');
     },
     
     saveMatrixRow: function(id, field, value) {
@@ -459,26 +473,21 @@ var appActions = {
     },
 
     switchLegacyTab: function(tab) {
-        // Toggle active styling on buttons
         const buttons = document.querySelectorAll('#tab-legacy-migration .flex.border-b button');
         buttons.forEach(btn => {
-            if (btn.getAttribute('onclick').includes(tab)) {
+            if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(tab)) {
                 btn.className = "px-4 py-2 text-[#219ebc] font-bold border-b-2 border-[#219ebc]";
             } else {
                 btn.className = "px-4 py-2 text-[#023047]/60 hover:text-[#219ebc]";
             }
         });
 
-        // Toggle visibility of inner tab content containers
         const innerTabs = ['entities', 'purposes', 'hybrids'];
         innerTabs.forEach(t => {
             const el = document.getElementById(`legacy-content-${t}`);
             if (el) {
-                if (t === tab) {
-                    el.classList.remove('hidden');
-                } else {
-                    el.classList.add('hidden');
-                }
+                if (t === tab) el.classList.remove('hidden');
+                else el.classList.add('hidden');
             }
         });
     },
@@ -510,8 +519,6 @@ var appActions = {
                     this.closeSettingsModal();
                     if (typeof this.triggerDiagnostics === 'function') {
                         this.triggerDiagnostics();
-                    } else {
-                        console.warn("triggerDiagnostics not found.");
                     }
                 } else {
                     const errorObj = response ? (response.error || (response.data && (response.data.error || JSON.stringify(response.data)))) : "Unknown error";
@@ -523,7 +530,7 @@ var appActions = {
             })
             .executeLegacyLabels(payload);
     },
-    // --- ZERO TRUST MODULE ---
+
     loadZeroTrustFlow: function() {
         const container = document.getElementById('zt-workflow-view');
         if (!container) return;
@@ -604,7 +611,7 @@ var appActions = {
                     container.innerHTML += `
                         <details class="group bg-white border border-[#8ecae6] w-full mb-4 shadow-sm rounded-md overflow-hidden" open>
                             <summary class="p-4 cursor-pointer list-none flex items-center border-b border-[#8ecae6]/50 text-[#219ebc] font-sans text-xl font-bold select-none hover:bg-slate-50 transition-colors">
-                                <span class="mr-3 transition-transform group-open:rotate-90">▼</span> ${category.name}
+                                <span class="mr-3 transition-transform group-open:rotate-90">笆ｼ</span> ${category.name}
                             </summary>
                             <div class="p-6 bg-slate-50/50">
                                 ${categoryBadges}
@@ -617,100 +624,9 @@ var appActions = {
             .withFailureHandler(err => {
                 container.innerHTML = `<div class="text-red-500 italic p-4 text-center w-full">Error loading taxonomy: ${err.message || err}</div>`;
             })
-            .sendToNexusVM({ method: 'GET', endpoint: '/api/taxonomy/tree' });
-    }
-};
+            .sendToNexusVM('/api/taxonomy/tree', {}, 'GET');
+    },
 
-window.handleNodeClick = function(nodeId) {
-    const drawer = document.getElementById('zt-drawer');
-    if (!drawer) return;
-    drawer.classList.remove('translate-x-full');
-    drawer.innerHTML = `
-        <div class="h-full flex flex-col bg-white text-[#023047]">
-            <div class="p-4 border-b border-[#8ecae6]/50 flex justify-between items-center bg-slate-50">
-                <h2 class="text-xl font-bold text-[#fb8500]">Edit Purpose Settings</h2>
-                <button onclick="document.getElementById('zt-drawer').classList.add('translate-x-full')" class="text-[#8ecae6] hover:text-[#fb8500]">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                </button>
-            </div>
-            <div class="p-6 flex-1 overflow-y-auto">
-                <label class="block text-sm font-bold mb-2">Purpose Name</label>
-                <input type="text" class="w-full bg-slate-50 border border-[#8ecae6] rounded p-2 mb-4 text-[#023047] focus:ring-2 focus:ring-[#219ebc] outline-none" value="${nodeId}" readonly>
-                
-                <label class="block text-sm font-bold mb-2 mt-4">Gmail Navigation Visibility</label>
-                <select class="w-full bg-slate-50 border border-[#8ecae6] rounded p-2 mb-6 text-[#023047] focus:ring-2 focus:ring-[#219ebc] outline-none">
-                    <option>Show Always</option>
-                    <option>Hide</option>
-                    <option>Show if Important</option>
-                </select>
-
-                <button class="w-full bg-[#219ebc] hover:bg-[#023047] text-white font-bold py-2 px-4 rounded transition-colors shadow-sm mt-4">Save Changes</button>
-            </div>
-        </div>
-    `;
-};
-
-window.handleEntityClick = function(entityId, name, alias, flattenLabel) {
-    const drawer = document.getElementById('zt-drawer');
-    if (!drawer) return;
-    drawer.classList.remove('translate-x-full');
-    
-    const isChecked = flattenLabel === 1 ? 'checked' : '';
-    
-    drawer.innerHTML = `
-        <div class="h-full flex flex-col bg-white text-[#023047]">
-            <div class="p-4 border-b border-[#8ecae6]/50 flex justify-between items-center bg-slate-50">
-                <h2 class="text-xl font-bold text-[#219ebc]">Edit Entity Settings</h2>
-                <button onclick="document.getElementById('zt-drawer').classList.add('translate-x-full')" class="text-[#8ecae6] hover:text-[#fb8500]">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                </button>
-            </div>
-            <div class="p-6 flex-1 overflow-y-auto">
-                <label class="block text-sm font-bold mb-2">Entity Name</label>
-                <input type="text" class="w-full bg-slate-100 border border-slate-300 rounded p-2 mb-4 text-[#023047] outline-none" value="${name}" readonly>
-                
-                <label class="block text-sm font-bold mb-2 mt-4">Workspace Alias (Nickname)</label>
-                <input type="text" id="entity-alias-${entityId}" class="w-full bg-slate-50 border border-[#8ecae6] rounded p-2 mb-4 text-[#023047] focus:ring-2 focus:ring-[#219ebc] outline-none" value="${alias}" placeholder="e.g. Acme Corp">
-                
-                <label class="flex items-center space-x-2 mt-4 mb-6 cursor-pointer">
-                    <input type="checkbox" id="entity-flatten-${entityId}" class="rounded border-[#8ecae6] text-[#219ebc] focus:ring-[#219ebc]" ${isChecked}>
-                    <span class="text-sm font-bold">Flatten Gmail Label (Hide Category)</span>
-                </label>
-
-                <button onclick="appActions.saveEntityChanges(${entityId})" class="w-full bg-[#fb8500] hover:bg-[#ea580c] text-white font-bold py-2 px-4 rounded transition-colors shadow-sm mt-4">Save Entity</button>
-            </div>
-        </div>
-    `;
-};
-
-appActions.saveEntityChanges = function(entityId) {
-    const aliasInput = document.getElementById(`entity-alias-${entityId}`);
-    const flattenInput = document.getElementById(`entity-flatten-${entityId}`);
-    
-    if (!aliasInput || !flattenInput) return;
-    
-    const payload = {
-        workspace_alias: aliasInput.value.trim(),
-        flatten_gmail_label: flattenInput.checked ? 1 : 0
-    };
-    
-    google.script.run
-        .withSuccessHandler(response => {
-            if (response && response.success) {
-                document.getElementById('zt-drawer').classList.add('translate-x-full');
-                appActions.loadZeroTrustFlow(); // Refresh the tree
-            } else {
-                alert("Error saving entity: " + (response ? response.error : "Unknown Error"));
-            }
-        })
-        .withFailureHandler(err => {
-            alert("Execution failed: " + (err.message || err));
-        })
-        .updateEntity(entityId, payload);
-};
-
-// --- Add these missing functions to appActions ---
-Object.assign(appActions, {
     initOrchestrator: function() {
         this.contactsGraphDef = `flowchart TB
             classDef default fill:#ffffff,stroke:#219ebc,stroke-width:2px,color:#023047,font-family:sans-serif,rx:6px,ry:6px
@@ -790,9 +706,7 @@ Object.assign(appActions, {
                     }
                 }
             })
-            .withFailureHandler(err => {
-                console.error("Failed to load prompts: ", err);
-            })
+            .withFailureHandler(err => console.error("Failed to load prompts: ", err))
             .getPrompts();
     },
 
@@ -902,9 +816,7 @@ Object.assign(appActions, {
                     alert("Simulation Error: " + errorObj);
                 }
             })
-            .withFailureHandler(err => {
-                alert("Execution failed: " + (err.message || err));
-            })
+            .withFailureHandler(err => alert("Execution failed: " + (err.message || err)))
             .simulateOrchestrator({ artifact_id: artifactId, pipeline: pipeline });
     },
 
@@ -953,30 +865,22 @@ Object.assign(appActions, {
             .savePipelineConfig({ pipeline: pipeline, is_enabled: is_enabled, settings_json: JSON.stringify(settings_json) });
     },
 
-
-
     loadPipelineSettings: function() {
         google.script.run
             .withSuccessHandler(response => {
                 if (response && response.success && response.settings) {
                     const s = response.settings;
-                    
-                    // Gmail
                     if (s.gmail && document.getElementById('toggle-ingest-gmail')) {
                         document.getElementById('toggle-ingest-gmail').checked = s.gmail.enabled || false;
                         if (document.getElementById('threshold-gmail')) document.getElementById('threshold-gmail').value = s.gmail.ai_confidence_threshold || 80;
                         if (document.getElementById('gmail-whitelist')) document.getElementById('gmail-whitelist').value = s.gmail.domain_whitelist || "";
                     }
-                    
-                    // Drive
                     if (s.drive && document.getElementById('toggle-ingest-drive')) {
                         document.getElementById('toggle-ingest-drive').checked = s.drive.enabled || false;
                         if (document.getElementById('threshold-drive')) document.getElementById('threshold-drive').value = s.drive.ai_confidence_threshold || 80;
                         if (document.getElementById('drive-ingest-path')) document.getElementById('drive-ingest-path').value = s.drive.ingest_path || "Nexus Root/Ingest Dropbox";
                         if (document.getElementById('drive-archive-path')) document.getElementById('drive-archive-path').value = s.drive.archive_path || "Nexus Root/Document Archive";
                     }
-                    
-                    // Contacts
                     if (s.contacts && document.getElementById('toggle-ingest-contacts')) {
                         document.getElementById('toggle-ingest-contacts').checked = s.contacts.enabled || false;
                     }
@@ -996,9 +900,7 @@ Object.assign(appActions, {
                     alert("Error starting pipeline: " + errorObj);
                 }
             })
-            .withFailureHandler(err => {
-                alert("Failed to trigger pipeline: " + (err.message || err));
-            })
+            .withFailureHandler(err => alert("Failed to trigger pipeline: " + (err.message || err)))
             .runPipelineNow(pipelineName);
     },
 
@@ -1041,9 +943,7 @@ Object.assign(appActions, {
                     }
                 });
             })
-            .withFailureHandler(error => {
-                console.error("Failed to fetch quarantine queue:", error);
-            })
+            .withFailureHandler(error => console.error("Failed to fetch quarantine queue:", error))
             .getQuarantineQueue();
     },
 
@@ -1057,10 +957,10 @@ Object.assign(appActions, {
             classDef new fill:#fef2f2,stroke:#ef4444,stroke-width:2px,stroke-dasharray: 5 5,color:#991b1b,font-family:sans-serif,rx:6px,ry:6px
             classDef ai_action fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#9a3412,font-family:sans-serif,rx:6px,ry:6px
             
-            C("Category: Business 🔍"):::established
-            E("Entity: ${entityName} 🔍"):::update
+            C("Category: Business 剥"):::established
+            E("Entity: ${entityName} 剥"):::update
             AI("AI Profiler\nfa:fa-globe Web Search Used"):::ai_action
-            P("Proposed Purpose:\nContract 🔍"):::update
+            P("Proposed Purpose:\nContract 剥"):::update
 
             C --- E
             E -.->|Consolidated context| AI
@@ -1138,7 +1038,7 @@ Object.assign(appActions, {
         const fetchPulse = () => {
             google.script.run
                 .withSuccessHandler((response) => {
-                    if (response.success && response.data) {
+                    if (response && response.success && response.data) {
                         const elEmails = document.getElementById('pulse-emails');
                         const elContacts = document.getElementById('pulse-contacts');
                         const elQuar = document.getElementById('pulse-quarantine');
@@ -1151,15 +1051,101 @@ Object.assign(appActions, {
                 .getPulseData();
         };
         
-        fetchPulse(); // Initial load
-        setInterval(fetchPulse, 60000); // Refresh every 60 seconds
+        fetchPulse(); 
+        setInterval(fetchPulse, 60000); 
     }
-});
+};
 
+window.handleNodeClick = function(nodeId) {
+    const drawer = document.getElementById('zt-drawer');
+    if (!drawer) return;
+    drawer.classList.remove('translate-x-full');
+    drawer.innerHTML = `
+        <div class="h-full flex flex-col bg-white text-[#023047]">
+            <div class="p-4 border-b border-[#8ecae6]/50 flex justify-between items-center bg-slate-50">
+                <h2 class="text-xl font-bold text-[#fb8500]">Edit Purpose Settings</h2>
+                <button onclick="document.getElementById('zt-drawer').classList.add('translate-x-full')" class="text-[#8ecae6] hover:text-[#fb8500]">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="p-6 flex-1 overflow-y-auto">
+                <label class="block text-sm font-bold mb-2">Purpose Name</label>
+                <input type="text" class="w-full bg-slate-50 border border-[#8ecae6] rounded p-2 mb-4 text-[#023047] focus:ring-2 focus:ring-[#219ebc] outline-none" value="${nodeId}" readonly>
+                
+                <label class="block text-sm font-bold mb-2 mt-4">Gmail Navigation Visibility</label>
+                <select class="w-full bg-slate-50 border border-[#8ecae6] rounded p-2 mb-6 text-[#023047] focus:ring-2 focus:ring-[#219ebc] outline-none">
+                    <option>Show Always</option>
+                    <option>Hide</option>
+                    <option>Show if Important</option>
+                </select>
 
+                <button class="w-full bg-[#219ebc] hover:bg-[#023047] text-white font-bold py-2 px-4 rounded transition-colors shadow-sm mt-4">Save Changes</button>
+            </div>
+        </div>
+    `;
+};
+
+window.handleEntityClick = function(entityId, name, alias, flattenLabel) {
+    const drawer = document.getElementById('zt-drawer');
+    if (!drawer) return;
+    drawer.classList.remove('translate-x-full');
+    
+    const isChecked = flattenLabel === 1 ? 'checked' : '';
+    
+    drawer.innerHTML = `
+        <div class="h-full flex flex-col bg-white text-[#023047]">
+            <div class="p-4 border-b border-[#8ecae6]/50 flex justify-between items-center bg-slate-50">
+                <h2 class="text-xl font-bold text-[#219ebc]">Edit Entity Settings</h2>
+                <button onclick="document.getElementById('zt-drawer').classList.add('translate-x-full')" class="text-[#8ecae6] hover:text-[#fb8500]">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="p-6 flex-1 overflow-y-auto">
+                <label class="block text-sm font-bold mb-2">Entity Name</label>
+                <input type="text" class="w-full bg-slate-100 border border-slate-300 rounded p-2 mb-4 text-[#023047] outline-none" value="${name}" readonly>
+                
+                <label class="block text-sm font-bold mb-2 mt-4">Workspace Alias (Nickname)</label>
+                <input type="text" id="entity-alias-${entityId}" class="w-full bg-slate-50 border border-[#8ecae6] rounded p-2 mb-4 text-[#023047] focus:ring-2 focus:ring-[#219ebc] outline-none" value="${alias}" placeholder="e.g. Acme Corp">
+                
+                <label class="flex items-center space-x-2 mt-4 mb-6 cursor-pointer">
+                    <input type="checkbox" id="entity-flatten-${entityId}" class="rounded border-[#8ecae6] text-[#219ebc] focus:ring-[#219ebc]" ${isChecked}>
+                    <span class="text-sm font-bold">Flatten Gmail Label (Hide Category)</span>
+                </label>
+
+                <button onclick="appActions.saveEntityChanges(${entityId})" class="w-full bg-[#fb8500] hover:bg-[#ea580c] text-white font-bold py-2 px-4 rounded transition-colors shadow-sm mt-4">Save Entity</button>
+            </div>
+        </div>
+    `;
+};
+
+appActions.saveEntityChanges = function(entityId) {
+    const aliasInput = document.getElementById(`entity-alias-${entityId}`);
+    const flattenInput = document.getElementById(`entity-flatten-${entityId}`);
+    
+    if (!aliasInput || !flattenInput) return;
+    
+    const payload = {
+        workspace_alias: aliasInput.value.trim(),
+        flatten_gmail_label: flattenInput.checked ? 1 : 0
+    };
+    
+    google.script.run
+        .withSuccessHandler(response => {
+            if (response && response.success) {
+                document.getElementById('zt-drawer').classList.add('translate-x-full');
+                appActions.loadZeroTrustFlow(); 
+            } else {
+                alert("Error saving entity: " + (response ? response.error : "Unknown Error"));
+            }
+        })
+        .withFailureHandler(err => alert("Execution failed: " + (err.message || err)))
+        .updateEntity(entityId, payload);
+};
 
 document.addEventListener('DOMContentLoaded', () => {
     appActions.init();
-    appActions.initOrchestrator(); // Added initialization trigger
+    if (typeof appActions.initOrchestrator === 'function') {
+        appActions.initOrchestrator(); 
+    }
 });
 </script>
