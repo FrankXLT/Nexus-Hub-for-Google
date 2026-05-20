@@ -1,12 +1,16 @@
 """
 Module: db_init.py
-Purpose: Initializes the Nexus SQLite database (nexus.db).
+Purpose: Initializes the Nexus SQLite database.
 Enforces STRICT tables, WAL journaling mode, and JSON data type validation.
 """
 import sqlite3
 import os
 import json
 import logging
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,7 +26,8 @@ def get_prompt_template(filename):
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
 
-DB_PATH = 'nexus-live.db'
+# Read DB path from environment variable, default to 'nexus-live.db' if not set
+DB_PATH = os.getenv("NEXUS_DB_PATH", "nexus-live.db")
 
 def column_exists(cursor, table_name, column_name):
     cursor.execute(f"PRAGMA table_info({table_name});")
@@ -39,7 +44,7 @@ def init_db(db_path: str = DB_PATH) -> None:
     Purpose: Connects to the SQLite database and executes the table creation schemas.
              Applies WAL mode and enables foreign key constraints.
     Expected Inputs:
-        db_path (str): The path to the SQLite database file. Defaults to 'nexus.db'.
+        db_path (str): The path to the SQLite database file.
     Expected Outputs: None. Creates or updates the database schema on disk.
     """
     os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
@@ -263,6 +268,14 @@ def init_db(db_path: str = DB_PATH) -> None:
     """)
 
     cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Pipeline_Locks (
+            artifact_id TEXT PRIMARY KEY,
+            locked_by_activity TEXT,
+            locked_at REAL
+        ) STRICT;
+    """)
+
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS quarantine_queue (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             source_app TEXT NOT NULL,
@@ -289,12 +302,29 @@ def init_db(db_path: str = DB_PATH) -> None:
             FOREIGN KEY(mapped_purpose_id) REFERENCES purposes(id)
         ) STRICT;
     """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Activity_Ledger (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            activity_id TEXT NOT NULL,
+            artifact_id TEXT,
+            pipeline_source TEXT,
+            event_timestamp REAL,
+            step_name TEXT,
+            status TEXT,
+            execution_time_ms INTEGER,
+            tokens_used INTEGER,
+            event_payload BLOB
+        ) STRICT;
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_activity_ledger_activity_id ON Activity_Ledger(activity_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_activity_ledger_artifact_id ON Activity_Ledger(artifact_id);")
     
     cursor.execute("COMMIT;")
     
     seed_default_configs(conn)
     seed_default_prompts(conn)
-    seed_taxonomy_from_json(conn)
+    seed_taxonomy(conn)
     
     conn.commit()
     conn.close()
@@ -369,10 +399,16 @@ def seed_default_prompts(conn: sqlite3.Connection) -> None:
             prompt_text = get_prompt_template(filename)
             cursor.execute("INSERT INTO Config_Prompts (target_app, prompt_text) VALUES (?, ?)", (target_app, prompt_text))
 
-def seed_taxonomy_from_json(conn: sqlite3.Connection) -> None:
+def seed_taxonomy(conn: sqlite3.Connection) -> None:
+    """
+    Idempotent seeding of taxonomy categories and purposes from zero_trust_defaults.json.
+    """
     cursor = conn.cursor()
+    
+    # Idempotent check
     cursor.execute("SELECT COUNT(*) FROM categories")
     if cursor.fetchone()[0] > 0:
+        logger.info("Taxonomy already seeded. Skipping.")
         return
 
     json_path = os.path.join(DEFAULTS_DIR, "zero_trust_defaults.json")
@@ -387,9 +423,9 @@ def seed_taxonomy_from_json(conn: sqlite3.Connection) -> None:
     
     blacklist = defaults.get("blacklist", {})
     for d in blacklist.get("domains", []):
-        cursor.execute("INSERT INTO blacklist (type, pattern) VALUES ('domain', ?)", (d,))
+        cursor.execute("INSERT OR IGNORE INTO blacklist (type, pattern) VALUES ('domain', ?)", (d,))
     for p in blacklist.get("purposes", []):
-        cursor.execute("INSERT INTO blacklist (type, pattern) VALUES ('purpose', ?)", (p,))
+        cursor.execute("INSERT OR IGNORE INTO blacklist (type, pattern) VALUES ('purpose', ?)", (p,))
 
     for cat in defaults.get("categories", []):
         cursor.execute("INSERT INTO categories (name, description) VALUES (?, ?)", 
@@ -406,7 +442,7 @@ def seed_taxonomy_from_json(conn: sqlite3.Connection) -> None:
             """, (cat_id, purp_name, f"Standard {purp_name} documents", scope, "Medium", 365))
     
     conn.commit()
-    logger.info("Zero Trust Taxonomy seeded successfully from zero_trust_defaults.json.")
+    logger.info("Zero Trust Taxonomy seeded successfully.")
 
 if __name__ == "__main__":
     init_db()

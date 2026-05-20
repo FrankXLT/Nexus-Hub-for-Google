@@ -15,8 +15,10 @@ from googleapiclient.http import MediaIoBaseUpload
 from auth import authenticate
 import urllib.request
 from notifier import NexusNotifier
+import zlib
+import sqlite3
 
-DB_PATH = 'nexus.db'
+DB_PATH = os.getenv("NEXUS_DB_PATH", "nexus-live.db")
 
 def write_migration_trace(step_name: str, payload) -> None:
     """
@@ -30,6 +32,26 @@ def write_migration_trace(step_name: str, payload) -> None:
             "payload": payload
         }
         f.write(json.dumps(log_entry) + "\n")
+
+def log_activity_event(activity_id: str, artifact_id: Optional[str], pipeline_source: str, step_name: str, status: str, execution_time_ms: int = 0, tokens_used: int = 0, event_payload: Optional[Dict[str, Any]] = None) -> None:
+    """
+    Fire-and-forget logging mechanism for the Activity_Ledger.
+    Compresses payload with zlib before BLOB insertion.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    compressed_payload = None
+    if event_payload:
+        compressed_payload = zlib.compress(json.dumps(event_payload).encode('utf-8'))
+        
+    cursor.execute("""
+        INSERT INTO Activity_Ledger (activity_id, artifact_id, pipeline_source, event_timestamp, step_name, status, execution_time_ms, tokens_used, event_payload)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (activity_id, artifact_id, pipeline_source, time.time(), step_name, status, execution_time_ms, tokens_used, compressed_payload))
+    
+    conn.commit()
+    conn.close()
 
 def check_database() -> dict:
     """

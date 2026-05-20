@@ -693,3 +693,17 @@ function getLegacyLabelStatus() {
     return { status: "error", labels: [] };
   }
 }
+
+/**
+ * Purpose: Fetches the chronological trace for a specific artifact.
+ * Expected Inputs: artifactId (string)
+ * Expected Outputs: Object - The trace timeline data.
+ */
+function getDiagnosticsTrace(artifactId) {
+  try {
+    const result = sendToNexusVM("/api/diagnostics/trace/" + encodeURIComponent(artifactId), {}, 'get');
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}

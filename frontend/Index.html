@@ -363,6 +363,15 @@
             <button onclick="appActions.generateGitHubIssue()" class="bg-[#fb8500] text-white px-4 py-2 rounded mt-4">Generate Bug Report</button>
         </div>
 
+        <div id="tab-pipeline-diagnostics" class="view-section hidden h-full flex flex-col bg-slate-50 p-6 overflow-auto">
+            <h2 class="text-2xl font-bold mb-4">Pipeline Diagnostics Trace</h2>
+            <div class="flex gap-4 mb-6">
+                <input type="text" id="diag-artifact-id" placeholder="Enter Artifact ID (e.g. mail_123, drive_abc)" class="w-full max-w-sm px-4 py-2 border border-[#8ecae6] rounded-lg">
+                <button onclick="appActions.fetchPipelineTrace()" class="bg-[#219ebc] text-white px-6 py-2 rounded-lg font-bold hover:bg-[#023047]">Search Trace</button>
+            </div>
+            <div id="trace-timeline-container" class="space-y-4"></div>
+        </div>
+
         <div id="tab-batch-ingestion" class="view-section hidden h-full flex flex-col bg-slate-50">
             <!-- Quota Dashboard (Top Panel) -->
             <div class="p-6 border-b border-[#8ecae6]/50 bg-white shrink-0 shadow-sm flex items-center justify-between">

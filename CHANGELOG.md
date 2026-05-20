@@ -4,6 +4,18 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.3.1] - 2026-05-20
+### Added
+- **Layer 2:** Implemented Pipeline Mutex Locks (`Pipeline_Locks` table) for race condition prevention in Gmail, Drive, and Contacts pipelines.
+
+## [v3.3.0] - 2026-05-20
+### Added
+- **Layer 1/6:** Environment Stabilization: Updated database initialization to support `NEXUS_DB_PATH` environment variable.
+- **Layer 6:** Implemented `POST /api/system/seed` for manual, idempotent taxonomy seeding.
+- **Layer 6:** Updated provisioning scripts `deploy.ps1` and `deploy.sh` to write `NEXUS_DB_PATH` to `.env` during deployment.
+### Fixed
+- **Layer 1:** Refined `seed_taxonomy` logic to ensure strict idempotency and clean environment-aware data seeding.
+
 ## [v3.2.9] - 2026-05-19
 ### Fixed
 - **Layer 7:** Performed surgical syntax repair in `JS_Actions.html` to eliminate an orphaned code fragment (`t = response.data...`) that was halting JavaScript execution, and verified the proper closure of the `appActions` object (`});`) and the `DOMContentLoaded` block. (Executed by Gemini Code Assist).

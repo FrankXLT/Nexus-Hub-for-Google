@@ -112,7 +112,7 @@ if ($envExists -eq "NO") {
     $NEXUS_HMAC_SECRET = Read-Host "NEXUS_HMAC_SECRET (type a highly unique, secure passphrase)"
     $NEXUS_API_KEY = Read-Host "NEXUS_API_KEY (Your Gemini API Key)"
 
-    $envScript = "mkdir -p `$HOME/nexus/shared && echo 'NEXUS_HMAC_SECRET=$NEXUS_HMAC_SECRET' > `$HOME/nexus/shared/.env && echo 'NEXUS_API_KEY=$NEXUS_API_KEY' >> `$HOME/nexus/shared/.env && echo 'NEXUS_WEBHOOK_URL=$NEXUS_WEB_APP_URL' >> `$HOME/nexus/shared/.env && echo 'shared/.env file generated successfully.'"
+    $envScript = "mkdir -p `$HOME/nexus/shared && echo 'NEXUS_HMAC_SECRET=$NEXUS_HMAC_SECRET' > `$HOME/nexus/shared/.env && echo 'NEXUS_API_KEY=$NEXUS_API_KEY' >> `$HOME/nexus/shared/.env && echo 'NEXUS_WEBHOOK_URL=$NEXUS_WEB_APP_URL' >> `$HOME/nexus/shared/.env && echo 'NEXUS_DB_PATH=$HOME/nexus/shared/data/nexus.db' >> `$HOME/nexus/shared/.env && echo 'shared/.env file generated successfully.'"
     gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --strict-host-key-checking=no --command=$envScript
 } else {
     $NEXUS_HMAC_SECRET = gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --strict-host-key-checking=no --command="grep '^NEXUS_HMAC_SECRET=' `$HOME/nexus/shared/.env | cut -d'=' -f2"

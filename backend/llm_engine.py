@@ -30,14 +30,16 @@ class ProfilerResponse(BaseModel):
 
 class ArtifactClassification(BaseModel):
     artifact_id: str
-    mapped_category_id: int | None
-    mapped_purpose_id: int | None
+    category_id: int
+    purpose_id: int
     confidence_score: float
     reasoning: str
 
 class BatchClassificationResponse(BaseModel):
     classifications: list[ArtifactClassification]
 
+import uuid
+from diagnostics import log_activity_event
 from db_init import DB_PATH
 
 class LabelClassification(str, Enum):
@@ -61,20 +63,17 @@ class BulkMappingResponse(BaseModel):
 def strip_markdown_json(text: str) -> str:
     """
     Strips markdown code blocks from a string and uses regex to extract the first valid JSON block.
+    Defensively strips delimiters and handles whitespace.
     """
-    raw_text = text.strip()
-    # Remove markdown delimiters if present
-    if raw_text.startswith("```json"):
-        raw_text = raw_text[7:]
-    elif raw_text.startswith("```"):
-        raw_text = raw_text[3:]
-    if raw_text.endswith("```"):
-        raw_text = raw_text[:-3]
+    # Remove backticks and potential JSON headers
+    raw_text = re.sub(r'^```json\s*', '', text.strip(), flags=re.IGNORECASE)
+    raw_text = re.sub(r'^```\s*', '', raw_text.strip())
+    raw_text = re.sub(r'\s*```$', '', raw_text.strip())
     
-    # Non-greedy regex extraction to prevent capturing extra data
-    match = re.search(r'(\{.*?\}|\[.*?\])', raw_text.strip(), re.DOTALL)
+    # Extract JSON object/array
+    match = re.search(r'(\{.*\}|\[.*\])', raw_text.strip(), re.DOTALL)
     if match:
-        return match.group(1)
+        return match.group(1).strip()
     return raw_text.strip()
 
 # ---------------------------------------------------------------------------
@@ -353,7 +352,14 @@ async def generate_tuning_rule(artifact_id: str, original_json: Dict[str, Any], 
 **Output:** ONLY valid JSON: {{ "error_analysis": "string", "new_routing_rule": "string" }}"""
 
     # We call the synchronous call_gemini. In a fully async system, we'd use run_in_threadpool.
-    result, _ = call_gemini(prompt, "")
+    # Updated: Now dynamically loading the TUNING prompt template
+    tuning_prompt = fetch_active_prompt('TUNING_ENGINE')
+    tuning_context = f"""
+        **Original Text:** {raw_text}
+        **Model Output:** {json.dumps(original_json)}
+        **User Correction:** {json.dumps(corrected_json)}
+    """
+    result, _ = call_gemini(tuning_prompt, tuning_context)
     
     if result and "new_routing_rule" in result:
         new_rule = result["new_routing_rule"]
@@ -411,7 +417,7 @@ def normalize_taxonomy(extracted_tag: str, whitelist_str: str) -> str:
     # Aggressively enforce exception fallback
     return "Purpose/Review"
 
-def process_gmail_thread(artifact_id: str, email_context: Dict[str, Any], dynamic_array_str: str) -> bool:
+def process_gmail_thread(artifact_id: str, email_context: Dict[str, Any], dynamic_array_str: str, activity_id: str = None) -> bool:
     """
     Single-Pass processing for Gmail threads.
     Injects full multi-dimensional taxonomy profiles and extracts metadata in one prompt.
@@ -571,13 +577,33 @@ def process_gmail_thread(artifact_id: str, email_context: Dict[str, Any], dynami
             telemetry=telemetry
         )
         print(f"Successfully processed {artifact_id}")
+        log_activity_event(
+            activity_id=activity_id or str(uuid.uuid4()),
+            artifact_id=artifact_id,
+            pipeline_source="gmail",
+            step_name="process_gmail_thread",
+            status=status,
+            execution_time_ms=telemetry.get('processing_time_ms', 0),
+            tokens_used=telemetry.get('api_tokens_used', 0),
+            event_payload={"prompt": prompt, "context": full_context, "response": result}
+        )
         return auto_archive_map.get(normalized_path, False)
     else:
         update_artifact_status(artifact_id, "ERROR_LLM_PARSE")
         print(f"Failed to parse LLM output for {artifact_id}")
+        log_activity_event(
+            activity_id=activity_id or str(uuid.uuid4()),
+            artifact_id=artifact_id,
+            pipeline_source="gmail",
+            step_name="process_gmail_thread",
+            status="ERROR_LLM_PARSE",
+            execution_time_ms=telemetry.get('processing_time_ms', 0) if 'telemetry' in locals() else 0,
+            tokens_used=telemetry.get('api_tokens_used', 0) if 'telemetry' in locals() else 0,
+            event_payload={"prompt": prompt, "context": full_context}
+        )
         return False
 
-def process_drive_document(artifact_id: str, ocr_text: str, dynamic_array_str: str) -> None:
+def process_drive_document(artifact_id: str, ocr_text: str, dynamic_array_str: str, activity_id: str = None) -> None:
     """
     Two-Stage Triage processing for Drive documents.
     Validates the Correspondent before requesting expensive custom field extractions.
@@ -641,6 +667,16 @@ def process_drive_document(artifact_id: str, ocr_text: str, dynamic_array_str: s
         update_artifact_status(artifact_id, "ERROR_STAGE_1_FAILED")
         print(f"Stage 1 failed for {artifact_id}")
         conn.close()
+        log_activity_event(
+            activity_id=activity_id or str(uuid.uuid4()),
+            artifact_id=artifact_id,
+            pipeline_source="drive",
+            step_name="process_drive_document_s1",
+            status="ERROR_STAGE_1_FAILED",
+            execution_time_ms=telemetry_s1.get('processing_time_ms', 0) if 'telemetry_s1' in locals() else 0,
+            tokens_used=telemetry_s1.get('api_tokens_used', 0) if 'telemetry_s1' in locals() else 0,
+            event_payload={"prompt": prompt_s1, "context": context_s1}
+        )
         return
         
     correspondent = result_s1["correspondent"]
@@ -767,10 +803,30 @@ def process_drive_document(artifact_id: str, ocr_text: str, dynamic_array_str: s
             telemetry=combined_telemetry
         )
         print(f"Successfully processed {artifact_id}")
+        log_activity_event(
+            activity_id=activity_id or str(uuid.uuid4()),
+            artifact_id=artifact_id,
+            pipeline_source="drive",
+            step_name="process_drive_document_s2",
+            status=status,
+            execution_time_ms=combined_telemetry.get('processing_time_ms', 0),
+            tokens_used=combined_telemetry.get('api_tokens_used', 0),
+            event_payload={"prompt_s1": prompt_s1, "context_s1": context_s1, "result_s1": result_s1, "prompt_s2": prompt_s2, "context_s2": context_s2, "result_s2": result_s2}
+        )
         return auto_archive_map.get(normalized_path, False)
     else:
         update_artifact_status(artifact_id, "ERROR_STAGE_2_FAILED")
         print(f"Stage 2 failed for {artifact_id}")
+        log_activity_event(
+            activity_id=activity_id or str(uuid.uuid4()),
+            artifact_id=artifact_id,
+            pipeline_source="drive",
+            step_name="process_drive_document_s2",
+            status="ERROR_STAGE_2_FAILED",
+            execution_time_ms=combined_telemetry.get('processing_time_ms', 0) if 'combined_telemetry' in locals() else 0,
+            tokens_used=combined_telemetry.get('api_tokens_used', 0) if 'combined_telemetry' in locals() else 0,
+            event_payload={"prompt_s1": prompt_s1, "context_s1": context_s1, "result_s1": result_s1, "prompt_s2": prompt_s2, "context_s2": context_s2}
+        )
 
 def ask_rag(question: str) -> str:
     """
@@ -953,7 +1009,7 @@ def profile_and_map_entities(cleaned_labels: list, current_categories: list) -> 
 # Zero Trust AI Service Layer
 # ---------------------------------------------------------------------------
 
-def run_agent_profiler(domain: str, is_personal: bool = False, context: str = None) -> Optional[Dict[str, Any]]:
+def run_agent_profiler(domain: str, is_personal: bool = False, context: str = None, activity_id: str = None) -> Optional[Dict[str, Any]]:
     """
     Runs the appropriate profiler agent (personal or commercial) to identify the entity.
     """
@@ -981,27 +1037,56 @@ def run_agent_profiler(domain: str, is_personal: bool = False, context: str = No
         logger.debug(f"Raw Gemini response: {response.text}")
         logger.info(f"Profiler completed in {elapsed:.2f} seconds.")
         
-        return json.loads(strip_markdown_json(response.text))
+        result_json = json.loads(strip_markdown_json(response.text))
+        tokens = response.usage_metadata.total_token_count if hasattr(response, 'usage_metadata') and response.usage_metadata else 0
+        log_activity_event(
+            activity_id=activity_id or str(uuid.uuid4()),
+            artifact_id=None,
+            pipeline_source="profiler",
+            step_name="run_agent_profiler",
+            status="PROCESSED",
+            execution_time_ms=int(elapsed * 1000),
+            tokens_used=tokens,
+            event_payload={"prompt": prompt, "context": context or f"Evaluate domain/email: {domain}", "response": result_json}
+        )
+        return result_json
     except (json.JSONDecodeError, ValueError) as e:
         logger.warning(f"Parsing Error or Safety Block in Profiler. Details: {e}")
+        log_activity_event(
+            activity_id=activity_id or str(uuid.uuid4()),
+            artifact_id=None,
+            pipeline_source="profiler",
+            step_name="run_agent_profiler",
+            status="ERROR_PARSE",
+            execution_time_ms=0,
+            tokens_used=0,
+            event_payload={"prompt": prompt, "context": context or f"Evaluate domain/email: {domain}"}
+        )
         return None
     except Exception as e:
         logger.error(f"Gemini API Error in Profiler: {e}")
         raise
 
-def run_agent_classifier(artifact_text: str, entity_known: bool = False, allowed_categories: List[str] = None) -> Optional[Dict[str, Any]]:
+def run_agent_classifier(artifact_text: str, entity_known: bool = False, allowed_categories: List[str] = None, activity_id: str = None) -> Optional[Dict[str, Any]]:
     """
     Runs the Zero Trust Classifier. Maps artifact to Category and Purpose.
     """
     prompt = fetch_active_prompt('agent_classifier')
     
-    context = f"Artifact Text:\n{artifact_text}"
+    # Inject taxonomy for strict ID enforcement
+    conn = sqlite3.connect(DB_PATH)
+    taxonomy = get_taxonomy_tree_json(conn)
+    conn.close()
+    
+    context = f"Taxonomy Dictionary (Use these IDs):\n{json.dumps(taxonomy, indent=2)}\n\nArtifact Text:\n{artifact_text}"
     if entity_known:
         context += "\n\nNote: Entity is known, only evaluate for Purpose."
     if allowed_categories:
         context += f"\n\nAllowed Categories: {', '.join(allowed_categories)}"
         
     client = get_genai_client()
+    import time
+    start_time = time.time()
     try:
         response = client.models.generate_content(
             model='gemini-2.5-flash',
@@ -1011,6 +1096,8 @@ def run_agent_classifier(artifact_text: str, entity_known: bool = False, allowed
                 response_schema=ArtifactClassification,
             ),
         )
+        end_time = time.time()
+        elapsed = end_time - start_time
         result = json.loads(response.text)
         
         # Telemetry
@@ -1018,25 +1105,49 @@ def run_agent_classifier(artifact_text: str, entity_known: bool = False, allowed
         purpose_id = result.get('mapped_purpose_id') or result.get('purpose_id')
         logger.info(f"Classifier resolved Category ID: {category_id}, Purpose ID: {purpose_id}")
         
+        tokens = response.usage_metadata.total_token_count if hasattr(response, 'usage_metadata') and response.usage_metadata else 0
+        log_activity_event(
+            activity_id=activity_id or str(uuid.uuid4()),
+            artifact_id=None,
+            pipeline_source="classifier",
+            step_name="run_agent_classifier",
+            status="PROCESSED",
+            execution_time_ms=int(elapsed * 1000),
+            tokens_used=tokens,
+            event_payload={"prompt": prompt, "context": context, "response": result}
+        )
+        
         return result
     except (json.JSONDecodeError, ValueError) as e:
         logger.warning(f"Parsing Error or Safety Block in Classifier. Hallucination catch. Details: {e}")
+        log_activity_event(
+            activity_id=activity_id or str(uuid.uuid4()),
+            artifact_id=None,
+            pipeline_source="classifier",
+            step_name="run_agent_classifier",
+            status="ERROR_PARSE",
+            execution_time_ms=0,
+            tokens_used=0,
+            event_payload={"prompt": prompt, "context": context}
+        )
         return None
     except Exception as e:
         logger.error(f"Gemini API Error in Classifier: {e}")
         raise
 
-def run_bulk_profiler(sender: str, bulk_context: str) -> Optional[Dict[str, Any]]:
+def run_bulk_profiler(sender: str, bulk_context: str, activity_id: str = None) -> Optional[Dict[str, Any]]:
     """
     Uses profiler prompt with concatenated snippets to profile an entity in bulk.
     """
     prompt_key = 'agent_profiler_commercial' # Defaulting to commercial, could be dynamic
     prompt = fetch_active_prompt(prompt_key)
-    
+
     client = get_genai_client()
     context = f"Evaluate domain/email: {sender}\n\nBulk Context Snippets:\n{bulk_context}"
     logger.info(f"Initiating Bulk Profiler for {sender}")
-    
+
+    import time
+    start_time = time.time()
     try:
         response = client.models.generate_content(
             model='gemini-2.5-flash',
@@ -1045,12 +1156,36 @@ def run_bulk_profiler(sender: str, bulk_context: str) -> Optional[Dict[str, Any]
                 tools=[{"google_search": {}}]
             ),
         )
-        return json.loads(strip_markdown_json(response.text))
+        end_time = time.time()
+        elapsed = end_time - start_time
+
+        result = json.loads(strip_markdown_json(response.text))
+        tokens = response.usage_metadata.total_token_count if hasattr(response, 'usage_metadata') and response.usage_metadata else 0
+        log_activity_event(
+            activity_id=activity_id or str(uuid.uuid4()),
+            artifact_id=None,
+            pipeline_source="profiler",
+            step_name="run_bulk_profiler",
+            status="PROCESSED",
+            execution_time_ms=int(elapsed * 1000),
+            tokens_used=tokens,
+            event_payload={"prompt": prompt, "context": context, "response": result}
+        )
+        return result
     except Exception as e:
         logger.error(f"Error in Bulk Profiler for {sender}: {e}")
+        log_activity_event(
+            activity_id=activity_id or str(uuid.uuid4()),
+            artifact_id=None,
+            pipeline_source="profiler",
+            step_name="run_bulk_profiler",
+            status="ERROR_PARSE",
+            execution_time_ms=0,
+            tokens_used=0,
+            event_payload={"prompt": prompt, "context": context}
+        )
         return None
-
-def run_bulk_classifier(entity_name: str, artifacts: List[dict]) -> Optional[List[Dict[str, Any]]]:
+def run_bulk_classifier(entity_name: str, artifacts: List[dict], activity_id: str = None) -> Optional[List[Dict[str, Any]]]:
     """
     Instructs LLM to map a JSON array of artifacts from the entity to specific Purposes.
     """
@@ -1060,6 +1195,8 @@ def run_bulk_classifier(entity_name: str, artifacts: List[dict]) -> Optional[Lis
     context = json.dumps(artifacts)
     logger.info(f"Initiating Bulk Classifier for {entity_name} with {len(artifacts)} artifacts")
     
+    import time
+    start_time = time.time()
     try:
         response = client.models.generate_content(
             model='gemini-2.5-flash',
@@ -1068,7 +1205,22 @@ def run_bulk_classifier(entity_name: str, artifacts: List[dict]) -> Optional[Lis
                 response_mime_type="application/json",
             ),
         )
+        end_time = time.time()
+        elapsed = end_time - start_time
+        
         result = json.loads(response.text)
+        tokens = response.usage_metadata.total_token_count if hasattr(response, 'usage_metadata') and response.usage_metadata else 0
+        log_activity_event(
+            activity_id=activity_id or str(uuid.uuid4()),
+            artifact_id=None,
+            pipeline_source="classifier",
+            step_name="run_bulk_classifier",
+            status="PROCESSED",
+            execution_time_ms=int(elapsed * 1000),
+            tokens_used=tokens,
+            event_payload={"prompt": prompt, "context": context, "response": result}
+        )
+        
         if isinstance(result, list):
             return result
         elif isinstance(result, dict) and 'artifacts' in result:
@@ -1076,6 +1228,16 @@ def run_bulk_classifier(entity_name: str, artifacts: List[dict]) -> Optional[Lis
         return result
     except Exception as e:
         logger.error(f"Error in Bulk Classifier for {entity_name}: {e}")
+        log_activity_event(
+            activity_id=activity_id or str(uuid.uuid4()),
+            artifact_id=None,
+            pipeline_source="classifier",
+            step_name="run_bulk_classifier",
+            status="ERROR_PARSE",
+            execution_time_ms=0,
+            tokens_used=0,
+            event_payload={"prompt": prompt, "context": context}
+        )
         return None
 
 def run_bulk_legacy_mapper(labels_chunk: list, taxonomy_tree: dict) -> list:

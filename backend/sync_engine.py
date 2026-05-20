@@ -8,8 +8,11 @@ import sqlite3
 import time
 import json
 import logging
+import uuid
 
 logger = logging.getLogger(__name__)
+
+
 logging.basicConfig(level=logging.INFO)
 import io
 import datetime
@@ -241,6 +244,32 @@ def update_sync_state(cursor: sqlite3.Cursor, app_name: str, sync_token: str) ->
             sync_token = excluded.sync_token,
             last_updated = excluded.last_updated
     """, (app_name, sync_token, now))
+
+def acquire_pipeline_lock(cursor: sqlite3.Cursor, artifact_id: str, activity_id: str) -> bool:
+    """
+    Implements a locking gate with a 5-minute TTL.
+    """
+    cursor.execute("SELECT locked_at FROM Pipeline_Locks WHERE artifact_id = ?", (artifact_id,))
+    row = cursor.fetchone()
+    now = time.time()
+    
+    if row:
+        locked_at = row['locked_at']
+        if now - locked_at < 300:
+            return False # Locked
+    
+    cursor.execute("""
+        INSERT INTO Pipeline_Locks (artifact_id, locked_by_activity, locked_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(artifact_id) DO UPDATE SET
+            locked_by_activity = excluded.locked_by_activity,
+            locked_at = excluded.locked_at
+    """, (artifact_id, activity_id, now))
+    return True
+
+def release_pipeline_lock(cursor: sqlite3.Cursor, artifact_id: str) -> None:
+    cursor.execute("DELETE FROM Pipeline_Locks WHERE artifact_id = ?", (artifact_id,))
+
 
 def resolve_folder_path(drive_service, path_string):
     """
@@ -516,7 +545,8 @@ def sync_drive(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
                     file_content = fh.getvalue().decode('utf-8', errors='ignore')
                 from llm_engine import process_drive_document
                 print(f"Processing Drive document '{file_name}' (Stage 1)...")
-                process_drive_document(f"drive_{file_id}", file_content, "[]")
+                activity_id = str(uuid.uuid4())
+                process_drive_document(f"drive_{file_id}", file_content, "[]", activity_id=activity_id)
                 
                 # Check for actionable tasks
                 cursor.execute("SELECT * FROM Workspace_Artifacts WHERE artifact_id = ?", (f"drive_{file_id}",))
@@ -746,7 +776,8 @@ def sync_gmail(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGove
                         # Process the thread
                         from llm_engine import process_gmail_thread
                         try:
-                            should_archive = process_gmail_thread(f"mail_{msg_id}", email_context, "[]")
+                            activity_id = str(uuid.uuid4())
+                            should_archive = process_gmail_thread(f"mail_{msg_id}", email_context, "[]", activity_id=activity_id)
                         except Exception as e:
                             print(f"LLM processing failed for {msg_id}: {e}")
                             continue
@@ -1032,7 +1063,8 @@ def run_sync() -> None:
                         }
                         
                         from llm_engine import process_gmail_thread
-                        process_gmail_thread(f"mail_{msg_id}", email_context, "[]")
+                        activity_id = str(uuid.uuid4())
+                        process_gmail_thread(f"mail_{msg_id}", email_context, "[]", activity_id=activity_id)
                         cursor.execute("UPDATE Ingestion_Queue SET status = 'COMPLETE' WHERE id = ?", (queue_id,))
                     except Exception as e:
                         print(f"Error processing historical message {msg_id}: {e}")
@@ -1201,42 +1233,65 @@ def sync_contacts_pipeline(creds: Credentials, conn: sqlite3.Connection, governo
         cursor = conn.cursor()
         for person in connections:
             source_id = person.get('resourceName')
-            client_data = person.get('clientData', [])
+            activity_id = str(uuid.uuid4())
             
-            nexus_state = next((cd.get('value') for cd in client_data if cd.get('key') == 'nexus_state'), None)
-            
-            if nexus_state:
-                logger.info("Shadow Tether found. Syncing local DB to Google Truth.")
-                # UI manual override syncing logic here
+            if not acquire_pipeline_lock(cursor, source_id, activity_id):
+                cursor.execute("INSERT INTO Activity_Ledger (activity_id, artifact_id, pipeline_source, status, step_name) VALUES (?, ?, ?, ?, ?)",
+                               (activity_id, source_id, 'contacts', 'RACE_CONDITION_ABORT', 'Pipeline Lock Check'))
+                logger.info(f"Race condition aborted for contact {source_id}")
                 continue
-                
-            # If new
-            emails = person.get('emailAddresses', [])
-            if not emails:
-                continue
-            primary_email = emails[0].get('value', '')
-            
-            # Enterprise Bypass Check
-            is_workspace_directory = False # Placeholder for actual directory check logic
-            if primary_email.endswith('@internal-domain.com') or is_workspace_directory:
-                logger.info(f"Enterprise Bypass triggered for {primary_email}. Skipping AI.")
-                # Write directly to quarantine queue with deterministic mapping
-                cursor.execute("INSERT INTO quarantine_queue (source_app, source_id, raw_metadata) VALUES (?, ?, ?)", ('contacts', source_id, json.dumps(person)))
-                continue
-            
-            # Standard Contact Profiling
-            from llm_engine import run_agent_profiler
-            profile = run_agent_profiler(primary_email, is_personal=True, context=json.dumps(person))
-            cursor.execute("INSERT INTO quarantine_queue (source_app, source_id, raw_metadata) VALUES (?, ?, ?)", ('contacts', source_id, json.dumps(profile)))
-            
+
             try:
-                # Inject nexus_metadata into Google clientData
-                # This requires people.connections.update which is omitted for brevity, but here is the telemetry
-                pass
-            except Exception as e:
-                logger.error(f"Failed to inject Shadow Tether for {primary_email}: {e}")
+                client_data = person.get('clientData', [])
+                
+                nexus_state = next((cd.get('value') for cd in client_data if cd.get('key') == 'nexus_state'), None)
+                
+                if nexus_state:
+                    logger.info("Shadow Tether found. Syncing local DB to Google Truth.")
+                    # UI manual override syncing logic here
+                    continue
+                    
+                # If new
+                emails = person.get('emailAddresses', [])
+                if not emails:
+                    continue
+                primary_email = emails[0].get('value', '')
+                
+                # Enterprise Bypass Check
+                is_workspace_directory = False # Placeholder for actual directory check logic
+                if primary_email.endswith('@internal-domain.com') or is_workspace_directory:
+                    logger.info(f"Enterprise Bypass triggered for {primary_email}. Skipping AI.")
+                    # Write directly to quarantine queue with deterministic mapping
+                    cursor.execute("INSERT INTO quarantine_queue (source_app, source_id, raw_metadata) VALUES (?, ?, ?)", ('contacts', source_id, json.dumps(person)))
+                    continue
+                
+                # Standard Contact Profiling
+                from llm_engine import run_agent_profiler
+                profile = run_agent_profiler(primary_email, is_personal=True, context=json.dumps(person), activity_id=activity_id)
+                cursor.execute("INSERT INTO quarantine_queue (source_app, source_id, raw_metadata) VALUES (?, ?, ?)", ('contacts', source_id, json.dumps(profile)))
+                
+                try:
+                    # Inject nexus_metadata into Google clientData
+                    body = {
+                        "clientData": [
+                            {"key": "nexus_state", "value": "processed"}
+                        ]
+                    }
+                    service.people().updateContact(
+                        resourceName=source_id,
+                        updatePersonFields="clientData",
+                        body=body
+                    ).execute()
+                    governor.record_api_call(cost=1)
+                    logger.info(f"Layer 6: Synced Shadow Tether to Google Contacts for {primary_email}")
+                except Exception as e:
+                    logger.error(f"Failed to inject Shadow Tether for {primary_email}: {e}")
+            finally:
+                release_pipeline_lock(cursor, source_id)
+                conn.commit()
                 
         conn.commit()
+
     except Exception as e:
         logger.error(f"Error in sync_contacts_pipeline: {e}")
 
@@ -1248,13 +1303,37 @@ def route_to_zero_trust(cursor: sqlite3.Cursor, source_app: str, artifact_id: st
     cursor.execute("INSERT INTO Workspace_Artifacts (artifact_id, raw_text, status) VALUES (?, ?, 'PROCESSED') ON CONFLICT DO NOTHING", (artifact_id, json.dumps(result)))
     logger.info(f"Artifact {artifact_id} routed to Zero Trust Engine.")
 
-def sync_gmail_pipeline(artifact_id: str, email_context: Dict[str, Any], conn: sqlite3.Connection) -> None:
+def sync_gmail_pipeline(service: Resource, artifact_id: str, email_context: Dict[str, Any], conn: sqlite3.Connection) -> None:
     """
-    Zero Trust Gmail Swimlane
+    Zero Trust Gmail Swimlane.
+    Executes physical mutations: Remove INBOX, apply purpose-label, archive.
     """
     cursor = conn.cursor()
-    # 1. Bypass Rules
-    logger.debug(f"Bypassing artifact {artifact_id} due to native rule.")
+    activity_id = str(uuid.uuid4())
+    
+    if not acquire_pipeline_lock(cursor, artifact_id, activity_id):
+        cursor.execute("INSERT INTO Activity_Ledger (activity_id, artifact_id, pipeline_source, status, step_name) VALUES (?, ?, ?, ?, ?)",
+                       (activity_id, artifact_id, 'gmail', 'RACE_CONDITION_ABORT', 'Pipeline Lock Check'))
+        conn.commit()
+        logger.info(f"Race condition aborted for artifact {artifact_id}")
+        return
+
+    try:
+        # 1. Bypass Rules
+        sender = email_context.get('sender', '')
+        cursor.execute("SELECT pattern FROM blacklist WHERE type='domain'")
+        blacklisted_domains = [row[0] for row in cursor.fetchall()]
+        
+        for domain in blacklisted_domains:
+            if domain in sender:
+                logger.info(f"Bypassing artifact {artifact_id} due to blacklisted domain: {domain}")
+                return
+
+
+    # Check ignored labels in Config_System
+    cursor.execute("SELECT value FROM Config_System WHERE key = 'ui_gmail_filters'")
+    row = cursor.fetchone()
+    ignored_labels = json.loads(row['value']) if row else []
     
     # 2. Extract Metadata
     sender = email_context.get('sender')
@@ -1269,11 +1348,12 @@ def sync_gmail_pipeline(artifact_id: str, email_context: Dict[str, Any], conn: s
     entity = cursor.fetchone()
     
     from llm_engine import run_agent_classifier, run_agent_profiler
+    activity_id = str(uuid.uuid4())
     if entity:
         logger.info(f"Entity Known: {entity['name']}. Executing Purpose-Only AI Evaluation.")
-        result = run_agent_classifier(json.dumps(email_context), entity_known=True)
+        result = run_agent_classifier(json.dumps(email_context), entity_known=True, activity_id=activity_id)
     else:
-        profile = run_agent_profiler(sender, is_personal=False, context=json.dumps(email_context))
+        profile = run_agent_profiler(sender, is_personal=False, context=json.dumps(email_context), activity_id=activity_id)
         if profile:
             entity_name = profile.get('canonical_entity_name', sender)
             workspace_alias = profile.get('workspace_alias')
@@ -1303,7 +1383,7 @@ def sync_gmail_pipeline(artifact_id: str, email_context: Dict[str, Any], conn: s
             except sqlite3.IntegrityError:
                 pass
 
-        result = run_agent_classifier(json.dumps(email_context))
+        result = run_agent_classifier(json.dumps(email_context), activity_id=activity_id)
         
     # Fetch Configured Threshold
     cursor.execute("SELECT settings_json FROM pipeline_config WHERE pipeline_name = 'gmail'")
@@ -1323,16 +1403,57 @@ def sync_gmail_pipeline(artifact_id: str, email_context: Dict[str, Any], conn: s
     else:
         route_to_zero_trust(cursor, 'gmail', artifact_id, result)
         
+        # Layer 6 Mutation: Apply physical label and remove INBOX
+        msg_id = artifact_id.replace('mail_', '')
+        
+        # Find label ID for the mapped purpose
+        purpose_name = result.get('taxonomy_path', '').split('\\')[-1].strip()
+        cursor.execute("SELECT gmail_label_id FROM purposes WHERE name = ?", (purpose_name,))
+        label_row = cursor.fetchone()
+        
+        if label_row and label_row['gmail_label_id']:
+            try:
+                service.users().messages().modify(
+                    userId='me',
+                    id=msg_id,
+                    body={'addLabelIds': [label_row['gmail_label_id']], 'removeLabelIds': ['INBOX']}
+                ).execute()
+                logger.info(f"Layer 6: Physically categorized {artifact_id} with label {label_row['gmail_label_id']}")
+            except Exception as e:
+                logger.error(f"Failed to apply Gmail label mutation for {artifact_id}: {e}")
+        
     conn.commit()
+    finally:
+        release_pipeline_lock(cursor, artifact_id)
+        conn.commit()
 
-def sync_drive_pipeline(artifact_id: str, ocr_text: str, conn: sqlite3.Connection) -> None:
+
+def sync_drive_pipeline(service: Resource, artifact_id: str, ocr_text: str, conn: sqlite3.Connection) -> None:
     """
-    Zero Trust Drive Swimlane
+    Zero Trust Drive Swimlane.
+    Executes physical mutations: Relocate file to Taxonomy folder.
     """
     cursor = conn.cursor()
-    # 1. Bypass Rules
-    logger.debug(f"Bypassing artifact {artifact_id} due to native rule.")
+    activity_id = str(uuid.uuid4())
     
+    if not acquire_pipeline_lock(cursor, artifact_id, activity_id):
+        cursor.execute("INSERT INTO Activity_Ledger (activity_id, artifact_id, pipeline_source, status, step_name) VALUES (?, ?, ?, ?, ?)",
+                       (activity_id, artifact_id, 'drive', 'RACE_CONDITION_ABORT', 'Pipeline Lock Check'))
+        conn.commit()
+        logger.info(f"Race condition aborted for artifact {artifact_id}")
+        return
+
+    try:
+        # 1. Bypass Rules
+        cursor.execute("SELECT pattern FROM blacklist WHERE type='domain'")
+        blacklisted_domains = [row[0] for row in cursor.fetchall()]
+        
+        for domain in blacklisted_domains:
+            if domain in ocr_text:
+                logger.info(f"Bypassing artifact {artifact_id} due to blacklisted domain.")
+                return
+
+
     # 2. Extract Metadata
     
     # 3. Check entities
@@ -1404,7 +1525,35 @@ def sync_drive_pipeline(artifact_id: str, ocr_text: str, conn: sqlite3.Connectio
     else:
         route_to_zero_trust(cursor, 'drive', artifact_id, result)
         
+        # Layer 6 Mutation: Physically move file to Purpose folder
+        file_id = artifact_id.replace('drive_', '')
+        purpose_name = result.get('purpose', '').strip()
+        
+        # Resolve destination folder
+        cursor.execute("SELECT gmail_label_id FROM purposes WHERE name = ?", (purpose_name,))
+        row = cursor.fetchone()
+        
+        if row and row['gmail_label_id']:
+            target_folder_id = row['gmail_label_id']
+            try:
+                file_obj = service.files().get(fileId=file_id, fields='parents').execute()
+                current_parents = ",".join(file_obj.get('parents', []))
+                
+                service.files().update(
+                    fileId=file_id,
+                    addParents=target_folder_id,
+                    removeParents=current_parents,
+                    fields='id, parents'
+                ).execute()
+                logger.info(f"Layer 6: Physically moved {artifact_id} to folder {target_folder_id}")
+            except Exception as e:
+                logger.error(f"Failed to move Drive file {artifact_id}: {e}")
+        
     conn.commit()
+    finally:
+        release_pipeline_lock(cursor, artifact_id)
+        conn.commit()
+
 
 
 def sync_gmail_labels(creds: Credentials, conn: sqlite3.Connection) -> None:

@@ -46,8 +46,10 @@ switchView: function(viewId) {
             'tab-batch-ingestion', 
             'tab-legacy-migration',
             'tab-sandbox',
-            'tab-debug'
+            'tab-debug',
+            'tab-pipeline-diagnostics'
         ];
+
 
         // 2. Bruteforce hide EVERY page (Nuclear option)
         allPages.forEach(page => {
@@ -1070,8 +1072,65 @@ switchView: function(viewId) {
         
         fetchPulse(); 
         setInterval(fetchPulse, 60000); 
+    },
+
+    initPipelineDiagnostics: function() {
+        console.log("Diagnostics module ready.");
+    },
+
+    fetchPipelineTrace: function() {
+        const artifactId = document.getElementById('diag-artifact-id').value.trim();
+        if (!artifactId) {
+            alert("Please enter an artifact ID.");
+            return;
+        }
+
+        const container = document.getElementById('trace-timeline-container');
+        container.innerHTML = '<div class="text-center py-10 animate-pulse text-[#023047]/50">Fetching trace...</div>';
+
+        google.script.run
+            .withSuccessHandler(response => {
+                if (response && response.success && response.trace) {
+                    this.renderTraceTimeline(response.trace);
+                } else {
+                    container.innerHTML = `<div class="text-red-500 p-4">Error: ${response ? response.error : 'Unknown'}</div>`;
+                }
+            })
+            .withFailureHandler(err => {
+                container.innerHTML = `<div class="text-red-500 p-4">Failed: ${err.message || err}</div>`;
+            })
+            .getDiagnosticsTrace(artifactId);
+    },
+
+    renderTraceTimeline: function(trace) {
+        const container = document.getElementById('trace-timeline-container');
+        container.innerHTML = '';
+
+        if (!trace || trace.length === 0) {
+            container.innerHTML = '<div class="text-center py-10 text-[#023047]/50">No trace found for this artifact.</div>';
+            return;
+        }
+
+        trace.forEach((event, index) => {
+            const card = document.createElement('div');
+            card.className = "bg-white p-4 rounded-lg border border-[#8ecae6]/50 shadow-sm";
+            card.innerHTML = `
+                <div class="flex justify-between items-center mb-2">
+                    <span class="font-bold text-[#023047]">${event.step_name}</span>
+                    <span class="text-xs text-[#023047]/60">${new Date(event.event_timestamp * 1000).toLocaleString()}</span>
+                </div>
+                <div class="text-sm text-[#023047]/80 mb-2">Status: <span class="font-bold ${event.status === 'success' ? 'text-[#27AE60]' : 'text-red-500'}">${event.status}</span></div>
+                <div class="text-xs text-[#023047]/50 mb-2">Exec Time: ${event.execution_time_ms}ms | Tokens: ${event.tokens_used}</div>
+                <button onclick="document.getElementById('payload-${index}').classList.toggle('hidden')" class="text-xs text-[#219ebc] font-bold underline">Toggle Raw JSON</button>
+                <div id="payload-${index}" class="hidden mt-2 bg-slate-100 p-2 rounded text-xs font-mono overflow-auto max-h-40">
+                    <pre>${JSON.stringify(event.event_payload, null, 2)}</pre>
+                </div>
+            `;
+            container.appendChild(card);
+        });
     }
 };
+
 
 window.handleNodeClick = function(nodeId) {
     const drawer = document.getElementById('zt-drawer');

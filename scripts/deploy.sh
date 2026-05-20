@@ -128,6 +128,7 @@ if [ "$ENV_EXISTS" = "NO" ]; then
         echo \"NEXUS_HMAC_SECRET=\$NEXUS_HMAC_SECRET\" > \$HOME/nexus/shared/.env
         echo \"NEXUS_API_KEY=\$NEXUS_API_KEY\" >> \$HOME/nexus/shared/.env
         echo \"NEXUS_WEBHOOK_URL=\$NEXUS_WEB_APP_URL\" >> \$HOME/nexus/shared/.env
+        echo \"NEXUS_DB_PATH=\$HOME/nexus/shared/data/nexus.db\" >> \$HOME/nexus/shared/.env
         echo 'shared/.env file generated successfully.'
     "
 else

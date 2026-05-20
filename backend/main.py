@@ -12,6 +12,7 @@ import sqlite3
 import asyncio
 import traceback
 import logging
+import uuid
 from typing import Callable, Awaitable, Optional
 from fastapi import FastAPI, Request, BackgroundTasks, HTTPException
 from fastapi.responses import JSONResponse
@@ -20,6 +21,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 
 from db_init import DB_PATH
+from db_init import seed_taxonomy
 from llm_engine import run_sandbox_prompt, ask_rag, append_zero_shot_rule
 from sync_engine import run_sync
 
@@ -293,6 +295,22 @@ async def zero_shot_rule(request: Request):
     except Exception as e:
         logger.error(f"Endpoint Failure: {str(e)}")
         logger.error(traceback.format_exc())
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/api/system/seed")
+async def seed_system_taxonomy():
+    """
+    Manually triggers taxonomy seeding.
+    """
+    try:
+        from db_init import get_db
+        conn = get_db()
+        seed_taxonomy(conn)
+        conn.commit()
+        conn.close()
+        return JSONResponse(content={"status": "success", "message": "Taxonomy seeding complete."})
+    except Exception as e:
+        logger.error(f"Taxonomy Seeding Failure: {str(e)}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/artifacts/search")
@@ -695,7 +713,43 @@ async def get_diagnostics_logs(limit: int = 50):
         logger.error(f"Endpoint Failure: {str(e)}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+@app.get("/api/diagnostics/trace/{artifact_id}")
+async def get_diagnostics_trace(artifact_id: str):
+    """
+    Fetches the chronological event-sourced trace for a given artifact ID.
+    """
+    try:
+        import zlib
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT activity_id, pipeline_source, event_timestamp, step_name, status, execution_time_ms, tokens_used, event_payload
+            FROM Activity_Ledger
+            WHERE artifact_id = ?
+            ORDER BY event_timestamp ASC
+        """, (artifact_id,))
+        rows = cursor.fetchall()
+        
+        trace = []
+        for row in rows:
+            r = dict(row)
+            try:
+                if r['event_payload']:
+                    r['event_payload'] = json.loads(zlib.decompress(r['event_payload']).decode('utf-8'))
+            except Exception as e:
+                r['event_payload'] = {"error": "Failed to decompress payload", "detail": str(e)}
+            trace.append(r)
+            
+        conn.close()
+        return JSONResponse(content={"status": "success", "trace": trace})
+    except Exception as e:
+        logger.error(f"Trace Endpoint Failure: {str(e)}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 @app.post("/api/diagnostics/generate-issue")
+>>>>+++ REPLACE
+
 async def generate_github_issue(request: Request):
     """
     Generates a sanitized, GitHub-ready bug report from selected logs.
@@ -1006,6 +1060,9 @@ class BatchPayload(BaseModel):
 async def batch_process(payload: BatchPayload):
     conn = get_db()
     cursor = conn.cursor()
+    
+    activity_id = str(uuid.uuid4())
+    
     # Check aliases
     cursor.execute("SELECT e.id, e.name, e.parent_entity_id FROM aliases a JOIN entities e ON a.entity_id = e.id WHERE a.alias_string = ?", (payload.sender_string,))
     row = cursor.fetchone()
@@ -1014,7 +1071,7 @@ async def batch_process(payload: BatchPayload):
     if not row:
         from llm_engine import run_bulk_profiler
         bulk_context = json.dumps([a.get('snippet') for a in payload.artifacts])
-        profile = run_bulk_profiler(payload.sender_string, bulk_context)
+        profile = run_bulk_profiler(payload.sender_string, bulk_context, activity_id=activity_id)
         
         if profile:
             entity_name = profile.get('entity_name', payload.sender_string)
@@ -1046,7 +1103,7 @@ async def batch_process(payload: BatchPayload):
         entity_name = row['name']
         
     from llm_engine import run_bulk_classifier
-    classifier_results = run_bulk_classifier(entity_name, payload.artifacts)
+    classifier_results = run_bulk_classifier(entity_name, payload.artifacts, activity_id=activity_id)
     
     if classifier_results:
         for res in classifier_results:

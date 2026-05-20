@@ -15,12 +15,19 @@ Before concluding ANY task, execute this sequence:
 4. Remove the completed task from `FEATURE_TRACKING.md` if it existed.
 
 ## Architectural Audit Protocol
-When instructed to "run an audit," "perform a system audit," or similar, you must autonomously execute the V3 Exhaustive Matrix audit without further prompting. 
+When instructed to "run an audit," "perform a system audit," or similar, you must autonomously execute the 
 
-You are strictly forbidden from summarizing, truncating, or hand-waving code structures. Every audit report must be a comprehensive, granular inventory matching the exact structural template below:
+You are required to update the project's audit scripts and rule definitions in execution-protocal.md for generating a highly detailed, comprehensive system state report. Complete fidelity is required. Every audit report must be a comprehensive, granular inventory matching the exact structural template below:
 
-1. **Version Determination:** Read `CHANGELOG.md` to identify the most recent Semantic Version and date.
-2. **The 5-Phase Analysis:** Perform a deep static analysis of the codebase and generate a Markdown document enforcing this exact syntax layout:
+
+CRITICAL ANTI-LAZINESS CONSTRAINTS:
+1. ZERO SHORTCUTS: You are strictly forbidden from summarizing, truncating, or using placeholders like "As identified previously," "...", or "Rest of code here."
+2. EXHAUSTIVE GENERATION: You must generate the data for every single phase fresh for this output. Do not reference past audits.
+3. STANDARD MARKDOWN: Use standard triple-backtick markdown for all code blocks, Mermaid diagrams, and raw file outputs.
+4. **Version Determination:** Read `CHANGELOG.md` to identify the most recent Semantic Version and date.
+5. **File Generation:** Create the `AUDITS/` directory if it does not exist. Save the report inside it using the strict naming convention: `[Version]_[YYYY-MM-DD]_audit_trace.md`.
+6. **Constraint:** Audits are strictly read-only operations. Do not modify any operational code during an audit.
+7. Any tools or ancillary files to create the report need to be in the `AUDITS/scripts` folder.
 
 ### Phase 1: Total Census
 List EVERY file in the repository categorized by stack layer. For each file, you MUST read its contents and output a sub-list of every single defined class, function, or API route, followed by an explicit one-sentence functional description.
@@ -36,6 +43,12 @@ Trace the complete, explicit control flow from the Layer 7 user interface down t
 
 ### Phase 3: C4 Architecture Diagram
 Generate a detailed Mermaid C4Container diagram illustrating the boundaries, communication links, and security layer constraints (e.g., HMAC signatures, WAL DB modes) matching the true current state of the repository.
+- User/Admin boundaries.
+- Frontend Orchestrator (HTML/JS/GAS).
+- FastAPI Backend API.
+- Sync Engine / Background Workers.
+- SQLite Database (including WAL modes).
+- External integrations (Google Workspace APIs, Gemini API).
 
 ### Phase 4: Database Verification
 Map active backend Python SQL strings directly against the initialized Layer 1 tables in `db_init.py`. Explicitly verify that all columns, `STRICT` constraints, type definitions, and index keys are aligned, documenting any unqueried schema attributes or type discrepancies.
@@ -47,8 +60,36 @@ Perform a dead-code hunt. Explicitly check for and list:
 - Unused Python imports or helper functions.
 - API routes defined in the router that lack corresponding call hooks in the frontend bridge.
 
-3. **File Generation:** Create the `AUDITS/` directory if it does not exist. Save the report inside it using the strict naming convention: `[Version]_[YYYY-MM-DD]_audit_trace.md`.
-4. **Constraint:** Audits are strictly read-only operations. Do not modify any operational code during an audit.
+### Phase 6: Database Entity-Relationship Diagram (ERD)
+Generate a comprehensive Mermaid.js diagram mapping the entire SQLite database schema.
+- Include every table in the database.
+- List all fields (columns) and their specific data types inside each table node.
+- Explicitly define the relationship links (Foreign Keys) between tables.
+
+### Phase 7: Database Row Sampling
+Query the database and generate a data sampling section for EVERY table.
+- Fetch and display exactly the first 3 rows and the last 3 rows (ordered by primary key) for every table.
+- Format the output as clean, readable text tables.
+- Do not skip any tables.
+
+### Phase 8: Default Prompt Files
+Read the directory containing the system's prompt templates (`DEFAULTS/`).
+- Create a clear subsection for each prompt file.
+- Output the absolute entire contents of each prompt file verbatim from the first character to the last.Phase 7: Database Row Sampling
+Query the database and display exactly the first 3 rows and the last 3 rows for EVERY table (ordered by primary key). Format as clean, readable text tables. Do not skip any tables, even system configs.
+
+
+### Phase 9: Pipeline Flow Audits (Front-to-Back)
+Analyze the codebase for the following five pipelines:
+A. Gmail Pipeline
+B. Drive Pipeline
+C. Contacts/People API Pipeline
+D. Batch Gmail Ingest
+E. Legacy Label Ingest
+
+For EACH of the five pipelines, output:
+- **Flow Diagram:** A Mermaid.js sequence diagram tracing the execution path from frontend interaction to database/UI. Use `[mermaid code begins]` and `[mermaid code ends]`.
+- **Vulnerability & Assumption Matrix:** A bulleted list detailing where the pipeline breaks, code assumptions (payload structures, JSON enforcement, timeouts), and watch-out flags.
 
 ## Resource Management & Cleanup Protocol
 You must operate with zero digital footprint. Every operation you script must explicitly clean up after itself:
