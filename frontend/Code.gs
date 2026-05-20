@@ -71,12 +71,11 @@ function sendToNexusVM(endpoint, payload, method = 'post') {
   const scriptProperties = PropertiesService.getScriptProperties();
   const secret = scriptProperties.getProperty('NEXUS_HMAC_SECRET');
   
-  // If the secret is not found, stop because we cannot authenticate.
   if (!secret) {
-    throw new Error("NEXUS_HMAC_SECRET is not configured in Script Properties. Please run configureHMAC() first.");
+    throw new Error("NEXUS_HMAC_SECRET is not configured.");
   }
   
-  // Inject timestamp for Replay Protection
+  // Inject timestamp
   const currentTimestamp = Math.floor(Date.now() / 1000);
   payload.timestamp = currentTimestamp;
   
@@ -95,6 +94,7 @@ function sendToNexusVM(endpoint, payload, method = 'post') {
     'muteHttpExceptions': true
   };
   
+  // FIX 1: Only add 'payload' if it is NOT a GET request
   if (method.toLowerCase() !== 'get') {
     options.payload = payloadString;
   }
@@ -104,17 +104,16 @@ function sendToNexusVM(endpoint, payload, method = 'post') {
     const responseCode = response.getResponseCode();
     const responseText = response.getContentText();
     
-    // If the HTTP response indicates success (200-level), return the parsed JSON.
     if (responseCode >= 200 && responseCode < 300) {
       return JSON.parse(responseText);
-    } 
-    // Otherwise, throw an error containing the failure details.
-    else {
-      throw new Error("VM Error (" + responseCode + "): " + responseText);
+    } else {
+      // Return error object instead of throwing
+      return { success: false, error: "VM Error (" + responseCode + "): " + responseText };
     }
   } catch (error) {
+    // FIX 2: Log and return object instead of throwing
     Logger.log("Failed to contact Nexus VM: " + error.message);
-    throw new Error("Communication with Nexus VM failed. Ensure the VM is running and accessible.");
+    return { success: false, error: "System Communication Failure: " + error.message };
   }
 }
 
@@ -673,5 +672,24 @@ function getPulseData() {
     return { success: true, data: result };
   } catch (error) {
     return { success: false, error: error.message };
+  }
+}
+/**
+ * Purpose: Fetches the status of legacy Gmail labels for the migration matrix.
+ * Expected Outputs: Object - { status: "success", labels: [...] }
+ */
+function getLegacyLabelStatus() {
+  try {
+    // This routes to your existing FastAPI endpoint
+    const result = sendToNexusVM("/api/ingestion/legacy-labels/status", {}, 'get');
+    
+    // Ensure the response matches what your JS expects
+    return { 
+      status: "success", 
+      labels: Array.isArray(result) ? result : (result.labels || []) 
+    };
+  } catch (error) {
+    Logger.log("Failed to fetch legacy labels: " + error.message);
+    return { status: "error", labels: [] };
   }
 }

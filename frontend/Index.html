@@ -6,6 +6,8 @@
     <title>Nexus V2 Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: false, theme: 'default' });</script>
+
 </head>
 <body class="flex h-screen bg-slate-50 text-[#023047] font-sans overflow-hidden relative selection:bg-[#8ecae6]/50">
 
@@ -451,9 +453,6 @@
         <div id="workspace-drawer" class="fixed top-0 right-0 w-80 h-full bg-white border-l border-[#8ecae6]/50 shadow-2xl transform translate-x-full transition-transform duration-300 z-50"></div>
         <div id="zt-drawer" class="fixed top-0 right-0 w-80 h-full bg-white border-l border-[#8ecae6]/50 shadow-2xl transform translate-x-full transition-transform duration-300 z-50"></div>
     </main>
-
-    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-    <script>mermaid.initialize({ startOnLoad: false, theme: 'default' });</script>
 
     <?!= HtmlService.createHtmlOutputFromFile('JS_State').getContent(); ?>
     <?!= HtmlService.createHtmlOutputFromFile('JS_Actions').getContent(); ?>
