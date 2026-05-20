@@ -15,81 +15,29 @@ Before concluding ANY task, execute this sequence:
 4. Remove the completed task from `FEATURE_TRACKING.md` if it existed.
 
 ## Architectural Audit Protocol
-When instructed to "run an audit," "perform a system audit," or similar, you must autonomously execute the 
+When instructed to "run an audit," "perform a system audit," or similar, you must autonomously execute the **Hybrid Audit Workflow** defined below. You are strictly forbidden from attempting to manually type out file directories, prompt templates, or database rows.
 
-You are required to update the project's audit scripts and rule definitions in execution-protocal.md for generating a highly detailed, comprehensive system state report. Complete fidelity is required. Every audit report must be a comprehensive, granular inventory matching the exact structural template below:
+### The Hybrid Execution Workflow
+**Step 1: Deterministic Baseline Generation (Terminal)**
+1. Open your terminal and execute: `python AUDITS/scripts/audit_builder.py`
+2. Wait for the script to finish. It will autonomously generate a new file in the `AUDITS/` directory named `[Version]_[YYYY-MM-DD]_audit_trace.md`. This script mathematically extracts Phase 1 (File Census), Phase 6 (ERD), Phase 7 (Row Sampling), and Phase 8 (Prompt Files).
 
+**Step 2: Architectural Reasoning (LLM Generation)**
+1. Read the newly generated `[Version]_[YYYY-MM-DD]_audit_trace.md` file into your context.
+2. Locate the placeholders marked `> [PENDING MANUAL AI ARCHITECT GENERATION]` for Phases 2, 3, 4, 5, and 9.
+3. Analyze the codebase and use your architectural reasoning to generate the missing content for these specific phases (definitions below).
+4. Edit the file to replace the placeholders with your generated Markdown and Mermaid diagrams. Save the completed file.
 
-CRITICAL ANTI-LAZINESS CONSTRAINTS:
-1. ZERO SHORTCUTS: You are strictly forbidden from summarizing, truncating, or using placeholders like "As identified previously," "...", or "Rest of code here."
-2. EXHAUSTIVE GENERATION: You must generate the data for every single phase fresh for this output. Do not reference past audits.
-3. STANDARD MARKDOWN: Use standard triple-backtick markdown for all code blocks, Mermaid diagrams, and raw file outputs.
-4. **Version Determination:** Read `CHANGELOG.md` to identify the most recent Semantic Version and date.
-5. **File Generation:** Create the `AUDITS/` directory if it does not exist. Save the report inside it using the strict naming convention: `[Version]_[YYYY-MM-DD]_audit_trace.md`.
-6. **Constraint:** Audits are strictly read-only operations. Do not modify any operational code during an audit.
-7. Any tools or ancillary files to create the report need to be in the `AUDITS/scripts` folder.
+### Phase Definitions for Step 2 Generation:
+* **Phase 2: Hook Map:** Trace the complete, explicit control flow from the Layer 7 user interface down to the Layer 1 database queries for every primary user action. Do not summarize; write out the functional sequence chains.
+* **Phase 3: C4 Architecture Diagram:** Generate a detailed Mermaid `C4Container` diagram illustrating the boundaries, communication links, and security layer constraints matching the true current state of the repository.
+* **Phase 4: Database Verification:** Map active backend Python SQL strings directly against the initialized Layer 1 tables in `db_init.py`. Explicitly verify that all columns, `STRICT` constraints, type definitions, and index keys are aligned, documenting any unqueried schema attributes or type discrepancies.
+* **Phase 5: Orphan Report:** Perform a dead-code hunt. Explicitly list dead/unreferenced files, disconnected UI elements, unused Python imports, and API routes that lack frontend hooks.
+* **Phase 9: Pipeline Flow Audits (Front-to-Back):** Analyze the codebase for the Gmail, Drive, Contacts, Batch, and Legacy Ingest pipelines. For EACH pipeline, output a Mermaid.js `sequenceDiagram` tracing the execution path, and a "Vulnerability & Assumption Matrix" detailing where the pipeline breaks, code assumptions, and watch-out flags.
 
-### Phase 1: Total Census
-List EVERY file in the repository categorized by stack layer. For each file, you MUST read its contents and output a sub-list of every single defined class, function, or API route, followed by an explicit one-sentence functional description.
-*Example Format:*
-- **`backend/main.py`** (FastAPI Core Router)
-  - `health_check()`: Verifies system operational readiness and database heartbeat.
-  - `POST /api/taxonomy/tree`: Fetches the hierarchical Zero Trust mapping structure for the UI explorer.
-
-### Phase 2: Hook Map
-Trace the complete, explicit control flow from the Layer 7 user interface down to the Layer 1 database queries for every primary user action. Do not summarize; write out the functional sequence chains:
-*Example Format:*
-1. **AI Profiling Flow:** `frontend/Index.html` DOM Trigger -> `frontend/Code.gs` RPC (`sendToNexusVM`) -> `backend/main.py` endpoint (`/api/batch/process`) -> `backend/llm_engine.py` (`run_agent_profiler`) -> SQL state mutation in `entities` table.
-
-### Phase 3: C4 Architecture Diagram
-Generate a detailed Mermaid C4Container diagram illustrating the boundaries, communication links, and security layer constraints (e.g., HMAC signatures, WAL DB modes) matching the true current state of the repository.
-- User/Admin boundaries.
-- Frontend Orchestrator (HTML/JS/GAS).
-- FastAPI Backend API.
-- Sync Engine / Background Workers.
-- SQLite Database (including WAL modes).
-- External integrations (Google Workspace APIs, Gemini API).
-
-### Phase 4: Database Verification
-Map active backend Python SQL strings directly against the initialized Layer 1 tables in `db_init.py`. Explicitly verify that all columns, `STRICT` constraints, type definitions, and index keys are aligned, documenting any unqueried schema attributes or type discrepancies.
-
-### Phase 5: Orphan Report
-Perform a dead-code hunt. Explicitly check for and list:
-- Dead/Unreferenced files or shell scripts.
-- Disconnected UI elements, hidden layout blocks, or abandoned DOM triggers.
-- Unused Python imports or helper functions.
-- API routes defined in the router that lack corresponding call hooks in the frontend bridge.
-
-### Phase 6: Database Entity-Relationship Diagram (ERD)
-Generate a comprehensive Mermaid.js diagram mapping the entire SQLite database schema.
-- Include every table in the database.
-- List all fields (columns) and their specific data types inside each table node.
-- Explicitly define the relationship links (Foreign Keys) between tables.
-
-### Phase 7: Database Row Sampling
-Query the database and generate a data sampling section for EVERY table.
-- Fetch and display exactly the first 3 rows and the last 3 rows (ordered by primary key) for every table.
-- Format the output as clean, readable text tables.
-- Do not skip any tables.
-
-### Phase 8: Default Prompt Files
-Read the directory containing the system's prompt templates (`DEFAULTS/`).
-- Create a clear subsection for each prompt file.
-- Output the absolute entire contents of each prompt file verbatim from the first character to the last.Phase 7: Database Row Sampling
-Query the database and display exactly the first 3 rows and the last 3 rows for EVERY table (ordered by primary key). Format as clean, readable text tables. Do not skip any tables, even system configs.
-
-
-### Phase 9: Pipeline Flow Audits (Front-to-Back)
-Analyze the codebase for the following five pipelines:
-A. Gmail Pipeline
-B. Drive Pipeline
-C. Contacts/People API Pipeline
-D. Batch Gmail Ingest
-E. Legacy Label Ingest
-
-For EACH of the five pipelines, output:
-- **Flow Diagram:** A Mermaid.js sequence diagram tracing the execution path from frontend interaction to database/UI. Use `[mermaid code begins]` and `[mermaid code ends]`.
-- **Vulnerability & Assumption Matrix:** A bulleted list detailing where the pipeline breaks, code assumptions (payload structures, JSON enforcement, timeouts), and watch-out flags.
+**CRITICAL ANTI-LAZINESS CONSTRAINTS:**
+1. ZERO SHORTCUTS: When generating the manual phases, you are strictly forbidden from summarizing, truncating, or using placeholders like "As identified previously," "...", or "Rest of code here."
+2. STANDARD MARKDOWN: Use standard triple-backtick markdown for all code blocks and Mermaid diagrams.
 
 ## Resource Management & Cleanup Protocol
 You must operate with zero digital footprint. Every operation you script must explicitly clean up after itself:

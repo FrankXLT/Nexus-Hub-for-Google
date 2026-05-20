@@ -4,6 +4,9 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.3.3] - 2026-05-20
+### Added
+- **Layer 0:** Performed full architectural audit. Generated `v3.3.2_2026-05-20_audit_trace.md` (renamed to v3.3.3 context) covering Hook Maps, C4 diagrams, Database verification, and Pipeline flow audits.
 ## [v3.3.1] - 2026-05-20
 ### Added
 - **Layer 2:** Implemented Pipeline Mutex Locks (`Pipeline_Locks` table) for race condition prevention in Gmail, Drive, and Contacts pipelines.
