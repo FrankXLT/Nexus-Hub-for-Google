@@ -22,6 +22,16 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULTS_DIR = os.path.join(BASE_DIR, "..", "DEFAULTS")
 
 def get_prompt_template(filename):
+    """
+    [Layer 1: Core Storage & Schema Integrity]
+    Reads a prompt template from the DEFAULTS directory.
+
+    Args:
+        filename (str): Name of the template file.
+
+    Returns:
+        str: Content of the prompt template.
+    """
     path = os.path.join(DEFAULTS_DIR, filename)
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
@@ -30,15 +40,39 @@ def get_prompt_template(filename):
 DB_PATH = os.getenv("NEXUS_DB_PATH", "nexus-live.db")
 
 def column_exists(cursor, table_name, column_name):
+    """
+    [Layer 1: Core Storage & Schema Integrity]
+    Checks if a column exists in a specific table.
+
+    Args:
+        cursor (sqlite3.Cursor): Database cursor.
+        table_name (str): Target table.
+        column_name (str): Target column.
+
+    Returns:
+        bool: True if column exists, False otherwise.
+    """
     cursor.execute(f"PRAGMA table_info({table_name});")
     columns = [row[1] for row in cursor.fetchall()]
     return column_name in columns
 
 def add_column_if_not_exists(cursor, table_name, column_name, column_def):
+    """
+    [Layer 1: Core Storage & Schema Integrity]
+    Idempotently adds a column to a table if it does not already exist.
+
+    Args:
+        cursor (sqlite3.Cursor): Database cursor.
+        table_name (str): Target table.
+        column_name (str): Target column.
+        column_def (str): Column definition (type, defaults, etc.).
+
+    Returns:
+        None.
+    """
     if not column_exists(cursor, table_name, column_name):
         cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_def};")
         logger.info(f"Added column {column_name} to {table_name}.")
-
 def init_db(db_path: str = DB_PATH) -> None:
     """
     Purpose: Connects to the SQLite database and executes the table creation schemas.
@@ -331,6 +365,16 @@ def init_db(db_path: str = DB_PATH) -> None:
     print(f"Database initialization complete: {db_path} with STRICT tables and WAL mode enabled.")
 
 def seed_default_configs(conn: sqlite3.Connection) -> None:
+    """
+    [Layer 1: Core Storage & Schema Integrity]
+    Seeds the Config_System table with default UI configurations if not already present.
+
+    Args:
+        conn (sqlite3.Connection): Database connection.
+
+    Returns:
+        None.
+    """
     cursor = conn.cursor()
     cursor.execute("SELECT key FROM Config_System WHERE key = ?", ('ui_gmail_filters',))
     if cursor.fetchone() is None:
@@ -378,6 +422,16 @@ def seed_default_configs(conn: sqlite3.Connection) -> None:
 
 
 def seed_default_prompts(conn: sqlite3.Connection) -> None:
+    """
+    [Layer 1: Core Storage & Schema Integrity]
+    Seeds the Config_Prompts table with default LLM system prompts from templates.
+
+    Args:
+        conn (sqlite3.Connection): Database connection.
+
+    Returns:
+        None.
+    """
     cursor = conn.cursor()
     
     prompts_to_seed = {
@@ -401,7 +455,14 @@ def seed_default_prompts(conn: sqlite3.Connection) -> None:
 
 def seed_taxonomy(conn: sqlite3.Connection) -> None:
     """
+    [Layer 1: Core Storage & Schema Integrity]
     Idempotent seeding of taxonomy categories and purposes from zero_trust_defaults.json.
+
+    Args:
+        conn (sqlite3.Connection): Database connection.
+
+    Returns:
+        None.
     """
     cursor = conn.cursor()
     

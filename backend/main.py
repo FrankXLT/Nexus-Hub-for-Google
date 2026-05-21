@@ -43,7 +43,13 @@ app.add_middleware(
 
 @app.get("/api/telemetry/quota")
 async def get_quota_telemetry():
-    """Returns daily API quota usage and limits for the UI Dashboard."""
+    """
+    [Layer 6: Automation & Workflow Materialization]
+    Returns daily API quota usage and limits for the UI Dashboard.
+
+    Returns:
+        JSONResponse: Quota usage telemetry.
+    """
     try:
         # TODO: Wire this to the actual QuotaGovernor state tracking. 
         # Providing safe structural fallback for UI binding.
@@ -59,7 +65,11 @@ async def get_quota_telemetry():
 @app.on_event("startup")
 async def start_cron_jobs():
     """
+    [Layer 6: Automation & Workflow Materialization]
     Initializes background cron tasks upon server startup.
+
+    Returns:
+        None.
     """
     try:
         from auth import authenticate
@@ -249,6 +259,17 @@ async def process_historical_data(search_query: str):
 
 @app.post("/api/ingestion/queue-historical")
 async def queue_historical(request: Request, background_tasks: BackgroundTasks):
+    """
+    [Layer 2: Ingestion, Token Economy & Array Batching]
+    Queues historical data processing in the background.
+
+    Args:
+        request (Request): FastAPI request.
+        background_tasks (BackgroundTasks): Background task handler.
+
+    Returns:
+        JSONResponse: Status.
+    """
     try:
         payload = await request.json()
         search_query = payload.get("search_query")
@@ -265,6 +286,17 @@ async def queue_historical(request: Request, background_tasks: BackgroundTasks):
 
 @app.post("/api/workflows/materialize")
 async def materialize_items(request: Request, background_tasks: BackgroundTasks):
+    """
+    [Layer 6: Automation & Workflow Materialization]
+    Queues artifact materialization in the background.
+
+    Args:
+        request (Request): FastAPI request.
+        background_tasks (BackgroundTasks): Background task handler.
+
+    Returns:
+        JSONResponse: Status.
+    """
     try:
         body = await request.json()
         artifact_ids = body.get("artifact_ids", [])
@@ -280,7 +312,14 @@ async def materialize_items(request: Request, background_tasks: BackgroundTasks)
 @app.post("/api/taxonomy/zero-shot-rule")
 async def zero_shot_rule(request: Request):
     """
+    [Layer 5: Taxonomy Classification]
     Appends a user instruction as a new extraction rule to the purpose shared by provided artifacts.
+
+    Args:
+        request (Request): FastAPI request.
+
+    Returns:
+        JSONResponse: Result of rule append.
     """
     try:
         body = await request.json()
@@ -300,7 +339,11 @@ async def zero_shot_rule(request: Request):
 @app.post("/api/system/seed")
 async def seed_system_taxonomy():
     """
+    [Layer 1: Core Storage & Schema Integrity]
     Manually triggers taxonomy seeding.
+
+    Returns:
+        JSONResponse: Status.
     """
     try:
         from db_init import get_db
@@ -316,8 +359,17 @@ async def seed_system_taxonomy():
 @app.get("/api/artifacts/search")
 async def search_artifacts(q: str = "", limit: int = 50, offset: int = 0):
     """
+    [Layer 3: Ephemeral Staging & Quarantine Queue]
     AST Parser search endpoint.
-    By default, appends a SQL clause to exclude lifecycle_status = 'MATERIALIZED'
+    By default, appends a SQL clause to exclude lifecycle_status = 'MATERIALIZED'.
+
+    Args:
+        q (str): Search query.
+        limit (int): Result limit.
+        offset (int): Pagination offset.
+
+    Returns:
+        JSONResponse: Search results.
     """
     try:
         import calendar
@@ -425,7 +477,14 @@ async def search_artifacts(q: str = "", limit: int = 50, offset: int = 0):
 @app.post("/api/sandbox")
 async def sandbox_endpoint(request: Request):
     """
+    [Layer 7: Presentation & Visualization]
     Endpoint for testing prompts against raw text without modifying database.
+
+    Args:
+        request (Request): FastAPI request.
+
+    Returns:
+        JSONResponse: Test result.
     """
     try:
         body = await request.json()
@@ -445,7 +504,14 @@ async def sandbox_endpoint(request: Request):
 @app.post("/api/ask")
 async def ask_endpoint(request: Request):
     """
+    [Layer 7: Presentation & Visualization]
     Endpoint for asking questions using RAG over the database.
+
+    Args:
+        request (Request): FastAPI request.
+
+    Returns:
+        JSONResponse: Answer string.
     """
     try:
         body = await request.json()
@@ -463,7 +529,14 @@ async def ask_endpoint(request: Request):
 @app.post("/api/bulk-update")
 async def bulk_update_endpoint(request: Request):
     """
+    [Layer 5: Taxonomy Classification]
     Endpoint for handling bulk updates to metadata for multiple artifacts simultaneously.
+
+    Args:
+        request (Request): FastAPI request.
+
+    Returns:
+        JSONResponse: Status.
     """
     try:
         body = await request.json()
@@ -523,7 +596,11 @@ async def bulk_update_endpoint(request: Request):
 @app.get("/api/settings/pipeline")
 async def get_pipeline_settings():
     """
+    [Layer 3: Ephemeral Staging & Quarantine Queue]
     Retrieves the UI pipeline settings from Config_System.
+
+    Returns:
+        JSONResponse: Pipeline settings.
     """
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -555,7 +632,14 @@ async def get_pipeline_settings():
 @app.post("/api/settings/pipeline")
 async def update_pipeline_settings(request: Request):
     """
+    [Layer 3: Ephemeral Staging & Quarantine Queue]
     Updates the UI pipeline settings in Config_System.
+
+    Args:
+        request (Request): FastAPI request.
+
+    Returns:
+        JSONResponse: Status.
     """
     try:
         body = await request.json()
@@ -599,6 +683,13 @@ async def update_pipeline_settings(request: Request):
 
 @app.get("/api/health/quota")
 async def get_health_quota():
+    """
+    [Layer 3: Ephemeral Staging & Quarantine Queue]
+    Checks system quota health.
+
+    Returns:
+        JSONResponse: Quota telemetry.
+    """
     try:
         from sync_engine import DAILY_QUOTA_LIMIT
         import datetime
@@ -627,6 +718,13 @@ async def get_health_quota():
 
 @app.get("/api/retention/rules")
 async def get_retention_rules():
+    """
+    [Layer 6: Automation & Workflow Materialization]
+    Retrieves retention rules from DB.
+
+    Returns:
+        JSONResponse: List of rules.
+    """
     try:
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
@@ -642,6 +740,16 @@ async def get_retention_rules():
 
 @app.post("/api/retention/rules")
 async def add_retention_rule(request: Request):
+    """
+    [Layer 6: Automation & Workflow Materialization]
+    Adds a retention rule to Config_Retention_Rules.
+
+    Args:
+        request (Request): FastAPI request.
+
+    Returns:
+        JSONResponse: Status.
+    """
     try:
         body = await request.json()
         target_category = body.get('target_category', '')
@@ -662,6 +770,16 @@ async def add_retention_rule(request: Request):
 
 @app.delete("/api/retention/rules/{rule_id}")
 async def delete_retention_rule(rule_id: int):
+    """
+    [Layer 6: Automation & Workflow Materialization]
+    Deletes a retention rule.
+
+    Args:
+        rule_id (int): Rule identifier.
+
+    Returns:
+        JSONResponse: Status.
+    """
     try:
         conn = sqlite3.connect(DB_PATH)
         conn.execute("PRAGMA journal_mode=WAL;")
@@ -677,6 +795,13 @@ async def delete_retention_rule(rule_id: int):
 
 @app.post("/api/retention/sweep")
 async def trigger_retention_sweep():
+    """
+    [Layer 6: Automation & Workflow Materialization]
+    Triggers a retention sweep worker.
+
+    Returns:
+        JSONResponse: Status.
+    """
     try:
         import subprocess
         subprocess.Popen(["python", "retention_worker.py"])
@@ -689,8 +814,15 @@ async def trigger_retention_sweep():
 @app.post("/api/health")
 async def health_check_post(request: Request):
     """
+    [Layer 3: Ephemeral Staging & Quarantine Queue]
     Diagnostic health check route (POST to test signature).
     Executes the comprehensive suite of tests and uploads the report.
+
+    Args:
+        request (Request): FastAPI request.
+
+    Returns:
+        dict: Health report.
     """
     from diagnostics import run_all_diagnostics
     report = run_all_diagnostics()
@@ -699,7 +831,14 @@ async def health_check_post(request: Request):
 @app.get("/api/diagnostics/logs")
 async def get_diagnostics_logs(limit: int = 50):
     """
+    [Layer 3: Ephemeral Staging & Quarantine Queue]
     Retrieves recent system, API, and LLM error logs.
+
+    Args:
+        limit (int): Log limit.
+
+    Returns:
+        JSONResponse: Error logs.
     """
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -716,7 +855,14 @@ async def get_diagnostics_logs(limit: int = 50):
 @app.get("/api/diagnostics/trace/{artifact_id}")
 async def get_diagnostics_trace(artifact_id: str):
     """
+    [Layer 3: Ephemeral Staging & Quarantine Queue]
     Fetches the chronological event-sourced trace for a given artifact ID.
+
+    Args:
+        artifact_id (str): Artifact identifier.
+
+    Returns:
+        JSONResponse: Activity trace.
     """
     try:
         import zlib
@@ -748,9 +894,16 @@ async def get_diagnostics_trace(artifact_id: str):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/api/diagnostics/generate-issue")
->>>>+++ REPLACE
-
 async def generate_github_issue(request: Request):
+    """
+    [Layer 7: Presentation & Visualization]
+    Generates a sanitized, GitHub-ready bug report from selected logs.
+
+    Args:
+        request (Request): FastAPI request.
+
+    Returns:
+        JSONResponse: Issue report.
     """
     Generates a sanitized, GitHub-ready bug report from selected logs.
     """
@@ -785,12 +938,23 @@ async def generate_github_issue(request: Request):
 @app.get("/api/health")
 async def health_check_get():
     """
+    [Layer 3: Ephemeral Staging & Quarantine Queue]
     Simple health check without payload requirements.
+
+    Returns:
+        dict: Health status.
     """
     return {"status": "healthy"}
 
 @app.get("/api/analytics/taxonomy")
 def get_analytics_taxonomy():
+    """
+    [Layer 7: Presentation & Visualization]
+    Aggregates taxonomy analytics data.
+
+    Returns:
+        dict: Heatmap/Sankey telemetry data.
+    """
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -875,12 +1039,28 @@ class BlacklistEntry(BaseModel):
     pattern: str
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
+    """
+    [Layer 1: Core Storage & Schema Integrity]
+    Returns a configured database connection with concurrency settings.
+
+    Returns:
+        sqlite3.Connection: Database connection.
+    """
+    conn = sqlite3.connect(DB_PATH, timeout=20)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA synchronous=NORMAL;")
     return conn
 
 @app.get("/api/taxonomy/flow")
 def get_taxonomy_flow():
+    """
+    [Layer 5: Taxonomy Classification]
+    Retrieves the full taxonomy flow tree for the UI.
+
+    Returns:
+        dict: Taxonomy tree.
+    """
     conn = get_db()
     cursor = conn.cursor()
     
@@ -911,6 +1091,16 @@ def get_taxonomy_flow():
 
 @app.post("/api/taxonomy/discover")
 def discover_entity(payload: DiscoverEntity):
+    """
+    [Layer 5: Taxonomy Classification]
+    Injects a newly discovered entity into the database.
+
+    Args:
+        payload (DiscoverEntity): Entity discovery details.
+
+    Returns:
+        dict: Status and new ID.
+    """
     conn = get_db()
     cursor = conn.cursor()
     try:
@@ -929,6 +1119,13 @@ def discover_entity(payload: DiscoverEntity):
 
 @app.get("/api/taxonomy/blacklist")
 def get_blacklist():
+    """
+    [Layer 5: Taxonomy Classification]
+    Retrieves entity blacklist.
+
+    Returns:
+        dict: Blacklist rules.
+    """
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT id, type, pattern FROM blacklist")
@@ -946,6 +1143,16 @@ def get_blacklist():
 
 @app.post("/api/taxonomy/blacklist")
 def add_blacklist(payload: BlacklistEntry):
+    """
+    [Layer 5: Taxonomy Classification]
+    Adds a new rule to the blacklist.
+
+    Args:
+        payload (BlacklistEntry): Blacklist rule.
+
+    Returns:
+        dict: Status message.
+    """
     if payload.type not in ['domain', 'purpose']:
         raise HTTPException(status_code=400, detail="Type must be 'domain' or 'purpose'")
         
@@ -963,7 +1170,11 @@ def add_blacklist(payload: BlacklistEntry):
 @app.get("/api/orchestrator/telemetry")
 async def get_orchestrator_telemetry():
     """
+    [Layer 7: Presentation & Visualization]
     Returns telemetry data for the Frontend Orchestrator.
+
+    Returns:
+        JSONResponse: Telemetry metrics.
     """
     try:
         conn = get_db()
@@ -992,7 +1203,11 @@ async def get_orchestrator_telemetry():
 @app.get("/api/quarantine/queue")
 async def get_quarantine_queue():
     """
+    [Layer 3: Ephemeral Staging & Quarantine Queue]
     Returns the quarantine queue formatted for the frontend carousel.
+
+    Returns:
+        JSONResponse: Queue contents.
     """
     try:
         conn = get_db()
@@ -1731,7 +1946,13 @@ async def update_entity(entity_id: int, payload: EntityUpdatePayload, background
 
 @app.get("/api/telemetry/pulse")
 async def get_pulse_telemetry():
-    """Returns fast counts from the local database for the sidebar ticker."""
+    """
+    [Layer 7: Presentation & Visualization]
+    Returns fast counts from the local database for the sidebar ticker.
+
+    Returns:
+        JSONResponse: Telemetry metrics.
+    """
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()

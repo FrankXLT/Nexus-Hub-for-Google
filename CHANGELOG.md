@@ -6,7 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [v3.3.3] - 2026-05-20
 ### Added
-- **Layer 0:** Performed full architectural audit. Generated `v3.3.2_2026-05-20_audit_trace.md` (renamed to v3.3.3 context) covering Hook Maps, C4 diagrams, Database verification, and Pipeline flow audits.
+- **Layer 0:** Performed full architectural audit. Generated `v3.3.3_2026-05-20_audit_trace.md` covering Hook Maps, C4 diagrams, Database verification, and Pipeline flow audits.
+- **Layer 1:** Hardened database connections with `timeout=20`, `WAL` mode, and `synchronous=NORMAL` across all drivers.
+- **Layer 2/5:** Implemented LLM JSON sanitization armor and graceful quarantine fallback to prevent batch processing crashes.
 ## [v3.3.1] - 2026-05-20
 ### Added
 - **Layer 2:** Implemented Pipeline Mutex Locks (`Pipeline_Locks` table) for race condition prevention in Gmail, Drive, and Contacts pipelines.

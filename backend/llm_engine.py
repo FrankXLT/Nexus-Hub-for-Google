@@ -62,8 +62,15 @@ class BulkMappingResponse(BaseModel):
 
 def strip_markdown_json(text: str) -> str:
     """
+    [Layer 2: Ingestion, Token Economy & Array Batching]
     Strips markdown code blocks from a string and uses regex to extract the first valid JSON block.
     Defensively strips delimiters and handles whitespace.
+
+    Args:
+        text (str): The raw string containing potential markdown and JSON.
+
+    Returns:
+        str: The extracted JSON string.
     """
     # Remove backticks and potential JSON headers
     raw_text = re.sub(r'^```json\s*', '', text.strip(), flags=re.IGNORECASE)
@@ -82,8 +89,15 @@ def strip_markdown_json(text: str) -> str:
 
 def fetch_active_prompt(prompt_key: str) -> str:
     """
+    [Layer 5: Taxonomy Classification]
     Fetches the active prompt from the Config_Prompts table in the database.
     Gracefully falls back to the absolute path of the default file if the DB is out of sync.
+
+    Args:
+        prompt_key (str): The identifier for the prompt.
+
+    Returns:
+        str: The prompt template content.
     """
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -127,6 +141,7 @@ def fetch_active_prompt(prompt_key: str) -> str:
 
 def get_genai_client() -> genai.Client:
     """
+    [Layer 2: Ingestion, Token Economy & Array Batching]
     Initializes the Gemini client, explicitly using NEXUS_API_KEY from environment.
     
     Returns:
@@ -144,10 +159,12 @@ def get_genai_client() -> genai.Client:
     return genai.Client(api_key=api_key)
 
 @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3))
+@retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3))
 def call_gemini(prompt: str, context: str) -> Tuple[Optional[Dict[str, Any]], Dict[str, int]]:
     """
+    [Layer 2: Ingestion, Token Economy & Array Batching]
     Calls the Gemini API with exponential backoff and forces JSON output.
-    Safely handles parsing errors with a try/except block to catch hallucinated text.
+    Safely handles parsing errors with a try/except block and sanitization to catch hallucinated text.
     
     Args:
         prompt (str): The master system prompt dictating behavior and rules.
@@ -171,18 +188,29 @@ def call_gemini(prompt: str, context: str) -> Tuple[Optional[Dict[str, Any]], Di
         elapsed_ms = int((end_time - start_time) * 1000)
         tokens = response.usage_metadata.total_token_count if hasattr(response, 'usage_metadata') and response.usage_metadata else 0
         telemetry = {"processing_time_ms": elapsed_ms, "api_tokens_used": tokens}
-        return json.loads(response.text), telemetry
-    except (json.JSONDecodeError, ValueError) as e:
-        print(f"Parsing Error or Safety Block. Details: {e}")
-        if response and response.text:
-            print(f"Raw Output: {response.text}")
-        return None, {}
+        
+        # Sanitization Armor
+        sanitized_text = strip_markdown_json(response.text)
+        
+        try:
+            return json.loads(sanitized_text), telemetry
+        except json.JSONDecodeError as e:
+            logger.error(f"CRITICAL: LLM JSON format hallucination detected even after sanitization. Triggering Quarantine Fallback. Details: {e}")
+            fallback = {
+                "mapped_category_id": None,
+                "mapped_purpose_id": None,
+                "confidence_score": 0.0,
+                "reasoning": f"CRITICAL: LLM JSON format hallucination. Error: {str(e)}"
+            }
+            return fallback, telemetry
+
     except Exception as e:
-        print(f"Gemini API Error: {e}")
+        logger.error(f"Gemini API Error: {e}")
         raise # Raise to trigger tenacity retry
 
 def run_sandbox_prompt(artifact_id: str, prompt_string: str) -> Optional[Dict[str, Any]]:
     """
+    [Layer 7: Presentation & Visualization]
     Executes a temporary prompt against an artifact's raw text without saving state.
     Used exclusively by the frontend Sandbox UI to test prompt iterations securely.
     
@@ -217,7 +245,14 @@ def run_sandbox_prompt(artifact_id: str, prompt_string: str) -> Optional[Dict[st
 
 def get_taxonomy_tree_json(conn: sqlite3.Connection) -> dict:
     """
+    [Layer 5: Taxonomy Classification]
     Constructs a strict JSON representation of the active taxonomy.
+
+    Args:
+        conn (sqlite3.Connection): Database connection.
+        
+    Returns:
+        dict: The hierarchical taxonomy tree.
     """
     cursor = conn.cursor()
     cursor.execute("SELECT id, name, description FROM purposes WHERE scope = 'Universal'")
@@ -238,11 +273,15 @@ def get_taxonomy_tree_json(conn: sqlite3.Connection) -> dict:
 
 def update_artifact_status(artifact_id: str, status: str) -> None:
     """
+    [Layer 3: Ephemeral Staging & Quarantine Queue]
     Updates only the status of an artifact, usually in response to an extraction failure.
     
     Args:
         artifact_id (str): The target artifact.
         status (str): The new status string (e.g., 'ERROR_LLM_PARSE').
+
+    Returns:
+        None.
     """
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -254,8 +293,19 @@ def update_artifact_status(artifact_id: str, status: str) -> None:
 
 def persist_llm_results(artifact_id: str, summary: str, custom_data: Dict[str, Any], status: str, telemetry: Dict[str, Any] = {}) -> None:
     """
+    [Layer 1: Core Storage & Schema Integrity]
     Writes the successful extraction to Workspace_Artifacts and logs the change to Artifact_History
     for strict immutable auditing. Supports V2 importance and state tracking.
+
+    Args:
+        artifact_id (str): The target artifact.
+        summary (str): The extracted summary.
+        custom_data (Dict[str, Any]): Additional payload metadata.
+        status (str): New status.
+        telemetry (Dict[str, Any]): Telemetry data (confidence, etc).
+
+    Returns:
+        None.
     """
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -313,6 +363,7 @@ def persist_llm_results(artifact_id: str, summary: str, custom_data: Dict[str, A
 
 async def generate_tuning_rule(artifact_id: str, original_json: Dict[str, Any], corrected_json: Dict[str, Any]) -> None:
     """
+    [Layer 5: Taxonomy Classification]
     Asynchronously generates a tuning rule based on a user's manual override
     and appends it to the correspondent's active prompt inside the Config_Prompts table.
     
@@ -320,6 +371,9 @@ async def generate_tuning_rule(artifact_id: str, original_json: Dict[str, Any], 
         artifact_id (str): The ID of the artifact that was miscategorized.
         original_json (Dict[str, Any]): The incorrect payload generated by the model.
         corrected_json (Dict[str, Any]): The ground-truth payload submitted by the human user.
+
+    Returns:
+        None.
     """
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -389,6 +443,7 @@ async def generate_tuning_rule(artifact_id: str, original_json: Dict[str, Any], 
 
 def normalize_taxonomy(extracted_tag: str, whitelist_str: str) -> str:
     """
+    [Layer 5: Taxonomy Classification]
     Normalizes common plural/misspelled tags before evaluation.
     If it fails to match the whitelist, enforces 'Purpose/Review'.
     
@@ -419,6 +474,7 @@ def normalize_taxonomy(extracted_tag: str, whitelist_str: str) -> str:
 
 def process_gmail_thread(artifact_id: str, email_context: Dict[str, Any], dynamic_array_str: str, activity_id: str = None) -> bool:
     """
+    [Layer 2: Ingestion, Token Economy & Array Batching]
     Single-Pass processing for Gmail threads.
     Injects full multi-dimensional taxonomy profiles and extracts metadata in one prompt.
     
@@ -426,6 +482,10 @@ def process_gmail_thread(artifact_id: str, email_context: Dict[str, Any], dynami
         artifact_id (str): The unique database key for the Gmail thread.
         email_context (Dict[str, Any]): The thread metadata (Sender, Subject, Body Snippet).
         dynamic_array_str (str): A stringified JSON array of custom fields to request from the LLM.
+        activity_id (str): Optional UUID for activity logging.
+
+    Returns:
+        bool: True if thread should be auto-archived.
     """
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -605,6 +665,7 @@ def process_gmail_thread(artifact_id: str, email_context: Dict[str, Any], dynami
 
 def process_drive_document(artifact_id: str, ocr_text: str, dynamic_array_str: str, activity_id: str = None) -> None:
     """
+    [Layer 2: Ingestion, Token Economy & Array Batching]
     Two-Stage Triage processing for Drive documents.
     Validates the Correspondent before requesting expensive custom field extractions.
     
@@ -612,6 +673,10 @@ def process_drive_document(artifact_id: str, ocr_text: str, dynamic_array_str: s
         artifact_id (str): The unique database key for the Drive document.
         ocr_text (str): The raw, unformatted text stripped from the PDF/Image.
         dynamic_array_str (str): A stringified JSON array of custom fields to request during Stage 2.
+        activity_id (str): Optional UUID for activity logging.
+
+    Returns:
+        None.
     """
     print(f"Processing Drive document {artifact_id} (Stage 1)...")
     
@@ -830,6 +895,7 @@ def process_drive_document(artifact_id: str, ocr_text: str, dynamic_array_str: s
 
 def ask_rag(question: str) -> str:
     """
+    [Layer 7: Presentation & Visualization]
     Converts a natural language query into an automated SQLite fetch and contextual summary.
     
     Args:
@@ -894,15 +960,30 @@ Return ONLY valid JSON containing the answer.
 
 def evaluate_quarantine_clusters(conn: sqlite3.Connection) -> None:
     """
+    [Layer 3: Ephemeral Staging & Quarantine Queue]
     Evaluates clustered artifacts in the quarantine queue.
     Currently acts as a safe stub to prevent sync_engine crashes.
+
+    Args:
+        conn (sqlite3.Connection): Database connection.
+
+    Returns:
+        None.
     """
     print("Quarantine evaluation bypassed: Stub implementation active.")
 
 async def append_zero_shot_rule(artifact_ids: list[str], instruction: str) -> dict:
     """
+    [Layer 5: Taxonomy Classification]
     Appends a new extraction rule instruction to the purpose shared by the provided artifacts.
     (Stubbed out in Zero Trust schema because custom_extraction_rules was removed from purposes table).
+
+    Args:
+        artifact_ids (list[str]): List of target artifacts.
+        instruction (str): Human-provided rule.
+
+    Returns:
+        dict: Status message.
     """
     return {"status": "error", "message": "Zero-shot rules are deprecated in the Zero Trust Schema architecture."}
 
@@ -912,7 +993,15 @@ if __name__ == "__main__":
 
 def evaluate_legacy_labels(legacy_labels: list, taxonomy_tree: list) -> list:
     """
+    [Layer 5: Taxonomy Classification]
     Decoupled comparative engine that analyzes legacy Gmail labels against the Nexus taxonomy.
+
+    Args:
+        legacy_labels (list): List of Gmail labels to evaluate.
+        taxonomy_tree (list): Current taxonomy structure.
+
+    Returns:
+        list: Comparative mapping recommendations.
     """
     client = get_genai_client()
     prompt_template = fetch_active_prompt('DEDUPLICATE_LEGACY')
@@ -948,7 +1037,14 @@ def evaluate_legacy_labels(legacy_labels: list, taxonomy_tree: list) -> list:
 
 def deduplicate_legacy_labels(raw_labels: list) -> list:
     """
+    [Layer 5: Taxonomy Classification]
     Uses Gemini to lexically deduplicate a list of raw legacy labels.
+
+    Args:
+        raw_labels (list): List of raw legacy labels.
+
+    Returns:
+        list: Deduplicated label list.
     """
     prompt = fetch_active_prompt('DEDUPLICATE_LEGACY')
     
@@ -972,7 +1068,15 @@ def deduplicate_legacy_labels(raw_labels: list) -> list:
 
 def profile_and_map_entities(cleaned_labels: list, current_categories: list) -> list:
     """
+    [Layer 4: Entity & Sub-Entity Profiling]
     Profiles deduplicated labels in batches using Search Grounding and maps them to categories.
+
+    Args:
+        cleaned_labels (list): Deduplicated labels.
+        current_categories (list): Taxonomy categories.
+
+    Returns:
+        list: Entity profile mappings.
     """
     client = get_genai_client()
     prompt = fetch_active_prompt('PROFILE_AND_MAP').replace("[CURRENT_CATEGORIES]", json.dumps(current_categories))
@@ -1011,7 +1115,17 @@ def profile_and_map_entities(cleaned_labels: list, current_categories: list) -> 
 
 def run_agent_profiler(domain: str, is_personal: bool = False, context: str = None, activity_id: str = None) -> Optional[Dict[str, Any]]:
     """
+    [Layer 4: Entity & Sub-Entity Profiling]
     Runs the appropriate profiler agent (personal or commercial) to identify the entity.
+
+    Args:
+        domain (str): Sender domain or email.
+        is_personal (bool): Whether the persona is personal.
+        context (str): Additional context snippet.
+        activity_id (str): UUID for tracing.
+
+    Returns:
+        Optional[Dict[str, Any]]: Entity profiling result.
     """
     prompt_key = 'PROFILE_AND_MAP'
     prompt = fetch_active_prompt(prompt_key)
@@ -1069,7 +1183,17 @@ def run_agent_profiler(domain: str, is_personal: bool = False, context: str = No
 
 def run_agent_classifier(artifact_text: str, entity_known: bool = False, allowed_categories: List[str] = None, activity_id: str = None) -> Optional[Dict[str, Any]]:
     """
+    [Layer 5: Taxonomy Classification]
     Runs the Zero Trust Classifier. Maps artifact to Category and Purpose.
+
+    Args:
+        artifact_text (str): Content to classify.
+        entity_known (bool): Whether entity is already identified.
+        allowed_categories (List[str]): Optional category restriction.
+        activity_id (str): UUID for tracing.
+
+    Returns:
+        Optional[Dict[str, Any]]: Classification result.
     """
     prompt = fetch_active_prompt('agent_classifier')
     
@@ -1137,7 +1261,16 @@ def run_agent_classifier(artifact_text: str, entity_known: bool = False, allowed
 
 def run_bulk_profiler(sender: str, bulk_context: str, activity_id: str = None) -> Optional[Dict[str, Any]]:
     """
+    [Layer 4: Entity & Sub-Entity Profiling]
     Uses profiler prompt with concatenated snippets to profile an entity in bulk.
+
+    Args:
+        sender (str): Sender name or domain.
+        bulk_context (str): Concatenated data snippets.
+        activity_id (str): UUID for tracing.
+
+    Returns:
+        Optional[Dict[str, Any]]: Bulk profiling result.
     """
     prompt_key = 'agent_profiler_commercial' # Defaulting to commercial, could be dynamic
     prompt = fetch_active_prompt(prompt_key)
@@ -1187,7 +1320,16 @@ def run_bulk_profiler(sender: str, bulk_context: str, activity_id: str = None) -
         return None
 def run_bulk_classifier(entity_name: str, artifacts: List[dict], activity_id: str = None) -> Optional[List[Dict[str, Any]]]:
     """
+    [Layer 5: Taxonomy Classification]
     Instructs LLM to map a JSON array of artifacts from the entity to specific Purposes.
+
+    Args:
+        entity_name (str): Correspondent identifier.
+        artifacts (List[dict]): Artifact data list.
+        activity_id (str): UUID for tracing.
+
+    Returns:
+        Optional[List[Dict[str, Any]]]: Bulk classification result.
     """
     client = get_genai_client()
     prompt = f"You are a Zero Trust Bulk Classifier. The entity is '{entity_name}'. Map each artifact in the following JSON array to a specific 'purpose' and return a JSON list of objects containing 'id' and 'purpose'."
@@ -1241,7 +1383,17 @@ def run_bulk_classifier(entity_name: str, artifacts: List[dict], activity_id: st
         return None
 
 def run_bulk_legacy_mapper(labels_chunk: list, taxonomy_tree: dict) -> list:
-    """Zero Trust Bulk Mapper: Processes up to 50 legacy labels in a single LLM call."""
+    """
+    [Layer 5: Taxonomy Classification]
+    Zero Trust Bulk Mapper: Processes up to 50 legacy labels in a single LLM call.
+
+    Args:
+        labels_chunk (list): List of legacy labels.
+        taxonomy_tree (dict): Nexus taxonomy structure.
+
+    Returns:
+        list: Bulk mapping results.
+    """
     client = get_genai_client()
     prompt = """
     You are a Zero Trust Data Architect. Map the following JSON array of legacy Gmail labels to the provided Taxonomy Tree.

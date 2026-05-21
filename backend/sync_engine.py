@@ -172,7 +172,15 @@ def init_gmail_history_id(service: Resource) -> str:
 
 def is_feature_enabled(cursor: sqlite3.Cursor, feature_key: str) -> bool:
     """
+    [Layer 6: Automation & Workflow Materialization]
     Checks if an Epic 5 Safe Mode feature is enabled in Config_System.
+
+    Args:
+        cursor (sqlite3.Cursor): Database cursor.
+        feature_key (str): The key of the feature to check.
+
+    Returns:
+        bool: True if feature is enabled, False otherwise.
     """
     cursor.execute("SELECT value FROM Config_System WHERE key = ?", (feature_key,))
     row = cursor.fetchone()
@@ -180,7 +188,16 @@ def is_feature_enabled(cursor: sqlite3.Cursor, feature_key: str) -> bool:
 
 def push_to_google_tasks(creds: Credentials, artifact_data: sqlite3.Row, conn: sqlite3.Connection) -> None:
     """
+    [Layer 6: Automation & Workflow Materialization]
     Creates a Google Task based on an actionable artifact and records the task ID.
+
+    Args:
+        creds (Credentials): Authenticated credentials.
+        artifact_data (sqlite3.Row): The artifact metadata.
+        conn (sqlite3.Connection): Database connection.
+
+    Returns:
+        None.
     """
     cursor = conn.cursor()
     # Epic 5 Gatekeeper
@@ -214,6 +231,7 @@ def push_to_google_tasks(creds: Credentials, artifact_data: sqlite3.Row, conn: s
 
 def get_sync_state(cursor: sqlite3.Cursor, app_name: str) -> Optional[str]:
     """
+    [Layer 1: Core Storage & Schema Integrity]
     Reads the last known token from the Sync_State table.
     
     Args:
@@ -229,12 +247,16 @@ def get_sync_state(cursor: sqlite3.Cursor, app_name: str) -> Optional[str]:
 
 def update_sync_state(cursor: sqlite3.Cursor, app_name: str, sync_token: str) -> None:
     """
+    [Layer 1: Core Storage & Schema Integrity]
     Updates the Sync_State table with the new token.
     
     Args:
         cursor (sqlite3.Cursor): The SQLite database cursor.
         app_name (str): The name of the application ('drive' or 'gmail').
         sync_token (str): The new sync token to persist.
+
+    Returns:
+        None.
     """
     now = int(time.time())
     cursor.execute("""
@@ -247,7 +269,16 @@ def update_sync_state(cursor: sqlite3.Cursor, app_name: str, sync_token: str) ->
 
 def acquire_pipeline_lock(cursor: sqlite3.Cursor, artifact_id: str, activity_id: str) -> bool:
     """
+    [Layer 6: Automation & Workflow Materialization]
     Implements a locking gate with a 5-minute TTL.
+
+    Args:
+        cursor (sqlite3.Cursor): Database cursor.
+        artifact_id (str): ID of artifact to lock.
+        activity_id (str): UUID for activity logging.
+
+    Returns:
+        bool: True if lock acquired, False if locked.
     """
     cursor.execute("SELECT locked_at FROM Pipeline_Locks WHERE artifact_id = ?", (artifact_id,))
     row = cursor.fetchone()
@@ -268,13 +299,32 @@ def acquire_pipeline_lock(cursor: sqlite3.Cursor, artifact_id: str, activity_id:
     return True
 
 def release_pipeline_lock(cursor: sqlite3.Cursor, artifact_id: str) -> None:
+    """
+    [Layer 6: Automation & Workflow Materialization]
+    Releases a pipeline lock.
+
+    Args:
+        cursor (sqlite3.Cursor): Database cursor.
+        artifact_id (str): ID of artifact to unlock.
+
+    Returns:
+        None.
+    """
     cursor.execute("DELETE FROM Pipeline_Locks WHERE artifact_id = ?", (artifact_id,))
 
 
 def resolve_folder_path(drive_service, path_string):
     """
+    [Layer 2: Ingestion, Token Economy & Array Batching]
     Resolves a string path (e.g., 'Nexus Root/Ingest Dropbox') into a Google Drive folder ID.
     Idempotently creates folders if they do not exist.
+
+    Args:
+        drive_service (Resource): Google Drive service.
+        path_string (str): Path string.
+
+    Returns:
+        str: Folder ID.
     """
     parts = [p for p in path_string.split('/') if p.strip()]
     parent_id = 'root'
@@ -303,9 +353,16 @@ def resolve_folder_path(drive_service, path_string):
 
 def initialize_drive_structure(drive_service):
     """
+    [Layer 6: Automation & Workflow Materialization]
     Idempotent function to ensure Nexus Google Drive folder scaffolding exists.
     Retrieves or creates 'Nexus Root', 'Ingest Dropbox', 'Document Archive', and 'Diagnostics'.
     Saves the corresponding folderIds securely in the Config_System SQLite table.
+
+    Args:
+        drive_service (Resource): Google Drive service.
+
+    Returns:
+        None.
     """
     folders_to_create = {
         'Nexus Root': None,
@@ -887,7 +944,14 @@ def sync_contacts(creds: Credentials, conn: sqlite3.Connection, governor: QuotaG
 
 def materialize_artifact(artifact_id: str):
     """
+    [Layer 6: Automation & Workflow Materialization]
     Materializes a transient HTML email into a permanent PDF in Google Drive.
+
+    Args:
+        artifact_id (str): ID of artifact to materialize.
+
+    Returns:
+        None.
     """
     try:
         from auth import authenticate
@@ -945,13 +1009,21 @@ def materialize_artifact(artifact_id: str):
 
 def run_single_pipeline(pipeline_name: str) -> None:
     """
+    [Layer 6: Automation & Workflow Materialization]
     Wrapper for executing a single sync pipeline synchronously with all required dependencies.
+
+    Args:
+        pipeline_name (str): Name of pipeline to run.
+
+    Returns:
+        None.
     """
     try:
         creds = authenticate()
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH, timeout=20)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
         
         governor = QuotaGovernor(conn)
         
@@ -971,9 +1043,13 @@ def run_single_pipeline(pipeline_name: str) -> None:
 
 def run_sync() -> None:
     """
+    [Layer 6: Automation & Workflow Materialization]
     Main entry point for the Delta Synchronization Engine.
     Coordinates authentication, Quota Governor initialization, seed ingestion,
     contact syncing, Drive delta fetching, and Gmail history syncing.
+
+    Returns:
+        None.
     """
     import asyncio
     print("Starting synchronization engine...")
@@ -987,9 +1063,10 @@ def run_sync() -> None:
             notifier.send_urgent_webhook({"title": "Nexus: Fatal Auth Error", "message": error_msg, "priority": 1})
             return
             
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH, timeout=20)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
         
         governor = QuotaGovernor(conn)
         
@@ -1094,7 +1171,11 @@ if __name__ == "__main__":
 
 def fetch_legacy_gmail_labels() -> list:
     """
+    [Layer 2: Ingestion, Token Economy & Array Batching]
     Fetches all legacy custom user labels from Gmail.
+
+    Returns:
+        list: List of legacy label strings.
     """
     from auth import authenticate
     from googleapiclient.discovery import build
@@ -1213,7 +1294,16 @@ def fetch_legacy_gmail_labels() -> list:
 
 def sync_contacts_pipeline(creds: Credentials, conn: sqlite3.Connection, governor: QuotaGovernor) -> None:
     """
-    Zero Trust Contacts Swimlane using People API
+    [Layer 2: Ingestion, Token Economy & Array Batching]
+    Zero Trust Contacts Swimlane using People API.
+
+    Args:
+        creds (Credentials): Auth credentials.
+        conn (sqlite3.Connection): Database connection.
+        governor (QuotaGovernor): API quota manager.
+
+    Returns:
+        None.
     """
     logger.info("Polling Contacts. Target ETag: [etag]") # Note: etag implementation would require modifying sync state
     service = build('people', 'v1', credentials=creds)
@@ -1296,17 +1386,47 @@ def sync_contacts_pipeline(creds: Credentials, conn: sqlite3.Connection, governo
         logger.error(f"Error in sync_contacts_pipeline: {e}")
 
 def route_to_quarantine(cursor: sqlite3.Cursor, source_app: str, artifact_id: str, result: dict) -> None:
+    """
+    [Layer 3: Ephemeral Staging & Quarantine Queue]
+    Routes artifact to the quarantine queue.
+
+    Args:
+        cursor (sqlite3.Cursor): DB cursor.
+        source_app (str): Source identifier.
+        artifact_id (str): Artifact ID.
+        result (dict): Metadata.
+    """
     cursor.execute("INSERT INTO quarantine_queue (source_app, source_id, raw_metadata) VALUES (?, ?, ?)", (source_app, artifact_id, json.dumps(result)))
     logger.info(f"Artifact {artifact_id} routed to Quarantine Queue.")
 
 def route_to_zero_trust(cursor: sqlite3.Cursor, source_app: str, artifact_id: str, result: dict) -> None:
+    """
+    [Layer 1: Core Storage & Schema Integrity]
+    Routes artifact to the primary storage (Zero Trust Engine).
+
+    Args:
+        cursor (sqlite3.Cursor): DB cursor.
+        source_app (str): Source identifier.
+        artifact_id (str): Artifact ID.
+        result (dict): Metadata.
+    """
     cursor.execute("INSERT INTO Workspace_Artifacts (artifact_id, raw_text, status) VALUES (?, ?, 'PROCESSED') ON CONFLICT DO NOTHING", (artifact_id, json.dumps(result)))
     logger.info(f"Artifact {artifact_id} routed to Zero Trust Engine.")
 
 def sync_gmail_pipeline(service: Resource, artifact_id: str, email_context: Dict[str, Any], conn: sqlite3.Connection) -> None:
     """
+    [Layer 6: Automation & Workflow Materialization]
     Zero Trust Gmail Swimlane.
     Executes physical mutations: Remove INBOX, apply purpose-label, archive.
+
+    Args:
+        service (Resource): Gmail service.
+        artifact_id (str): Artifact ID.
+        email_context (Dict[str, Any]): Context metadata.
+        conn (sqlite3.Connection): Database connection.
+
+    Returns:
+        None.
     """
     cursor = conn.cursor()
     activity_id = str(uuid.uuid4())
@@ -1430,8 +1550,18 @@ def sync_gmail_pipeline(service: Resource, artifact_id: str, email_context: Dict
 
 def sync_drive_pipeline(service: Resource, artifact_id: str, ocr_text: str, conn: sqlite3.Connection) -> None:
     """
+    [Layer 6: Automation & Workflow Materialization]
     Zero Trust Drive Swimlane.
     Executes physical mutations: Relocate file to Taxonomy folder.
+
+    Args:
+        service (Resource): Drive service.
+        artifact_id (str): Artifact ID.
+        ocr_text (str): Extracted content.
+        conn (sqlite3.Connection): Database connection.
+
+    Returns:
+        None.
     """
     cursor = conn.cursor()
     activity_id = str(uuid.uuid4())
@@ -1558,9 +1688,17 @@ def sync_drive_pipeline(service: Resource, artifact_id: str, ocr_text: str, conn
 
 def sync_gmail_labels(creds: Credentials, conn: sqlite3.Connection) -> None:
     """
+    [Layer 6: Automation & Workflow Materialization]
     Stateful Gmail Label Syncing.
     Extracts physical gmail_label_id for Categories, Purposes, and Entities.
     Renames labels via Gmail API if the name/alias changes in Nexus to prevent orphaning.
+
+    Args:
+        creds (Credentials): Auth credentials.
+        conn (sqlite3.Connection): Database connection.
+
+    Returns:
+        None.
     """
     service = build('gmail', 'v1', credentials=creds)
     cursor = conn.cursor()
