@@ -208,8 +208,15 @@ def generate_phase_7_sampling(db_path=DB_PATH):
             cols = list(rows[0].keys())
             output.append("| " + " | ".join(cols) + " |")
             output.append("| " + " | ".join(["---"] * len(cols)) + " |")
+            
             for row in rows:
-                output.append("| " + " | ".join([str(row[c]) for c in cols]) + " |")
+                sanitized_row = []
+                for c in cols:
+                    val = str(row[c]) if row[c] is not None else ""
+                    # Escape pipes and newlines so markdown tables don't break
+                    val = val.replace("|", "&#124;").replace("\n", "<br>").replace("\r", "")
+                    sanitized_row.append(val)
+                output.append("| " + " | ".join(sanitized_row) + " |")
             output.append("")
     return "\n".join(output)
 
@@ -237,20 +244,106 @@ def get_current_version_and_date():
         return match.group(1), match.group(2)
     return "v0.0.0", datetime.now().strftime('%Y-%m-%d')
 
+def build_ast_context(root_dir='.'):
+    """Build a comprehensive AST map of the codebase for the LLM."""
+    files = get_all_files(root_dir)
+    ast_map = {}
+    for filepath in files:
+        if filepath.endswith('.py'):
+            rel_path = os.path.relpath(filepath, root_dir)
+            ast_map[rel_path] = parse_python_file(filepath)
+    return json.dumps(ast_map, indent=2)
+
+def call_gemini_architect(ast_context, db_erd, phase):
+    """Call Gemini to generate architectural diagrams based on exact context."""
+    from google import genai
+    api_key = os.getenv("NEXUS_API_KEY") or os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return "> [API KEY NOT FOUND - MANUAL ARCHITECTURE REQUIRED]"
+        
+    client = genai.Client(api_key=api_key)
+    
+    prompt = f"""
+    You are an expert Software Architect. Analyze the following system architecture.
+    
+    AST Codebase Map (JSON):
+    {ast_context}
+    
+    Database Schema (Mermaid ERD):
+    {db_erd}
+    """
+    
+    if phase == "3":
+        prompt += """
+        Task: Generate a highly detailed Phase 3 C4 Architecture Diagram (C4Container).
+        Instructions:
+        - Use the provided AST context to identify specific sub-components (e.g., FastAPI routers, Sync Engine, LLM Engine, Auth module).
+        - Map the precise communication links between these specific modules based on the AST, not just generic 'Backend' to 'Database' links.
+        - Output ONLY valid Mermaid.js code using C4Container syntax. Do not output conversational text or markdown wrappers.
+        """
+    elif phase == "9":
+        prompt += """
+        Task: Generate Phase 9 Pipeline Flow Audits.
+        Instructions:
+        You must analyze the AST and generate sequence diagrams and vulnerability matrices for ALL FIVE of the following pipelines:
+        1. Gmail Ingestion Pipeline
+        2. Drive Ingestion Pipeline
+        3. Contacts/People API Pipeline
+        4. Batch Gmail Ingest Pipeline
+        5. Legacy Label Ingest Pipeline
+        
+        For EACH pipeline, provide:
+        - A Mermaid `sequenceDiagram` mapping the exact function calls found in the AST. Wrap this in standard ```mermaid blocks.
+        - A 'Vulnerability & Assumption Matrix' Markdown table below the diagram detailing where it might break or what it assumes (e.g., timeouts, JSON enforcement).
+        Output standard Markdown text containing these headers, diagrams, and tables.
+        """
+        
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt
+        )
+        text = response.text.strip()
+        
+        # Strip code blocks ONLY for phase 3 (which needs pure mermaid code)
+        if phase == "3":
+            text = re.sub(r"^```mermaid\s*", "", text, flags=re.IGNORECASE)
+            text = re.sub(r"^```[a-z]*\s*", "", text, flags=re.IGNORECASE)
+            text = re.sub(r"```$", "", text)
+            return text.strip()
+        
+        # Phase 9 remains full Markdown
+        return text
+    except Exception as e:
+        return f"> [AI GENERATION FAILED: {e}]"
+
 def compile_master_audit():
     """Assemble all phases and write to audit trace file."""
     version, date = get_current_version_and_date()
     
+    print("Generating AST Context...")
+    ast_context = build_ast_context()
+    
+    print("Generating Phase 6 (ERD)...")
+    erd_content = generate_phase_6_erd()
+    
+    print("Generating Phase 3 (C4 Diagram)...")
+    phase_3_content = call_gemini_architect(ast_context, erd_content, "3")
+    
+    print("Generating Phase 9 (Pipelines)...")
+    phase_9_content = call_gemini_architect(ast_context, erd_content, "9")
+    
+    print("Assembling final document...")
     phases = {
         "1": generate_phase_1(),
         "2": "## Phase 2: Hook Map\n> [PENDING MANUAL AI ARCHITECT GENERATION]\n\n",
-        "3": "## Phase 3: C4 Architecture Diagram\n> [PENDING MANUAL AI ARCHITECT GENERATION]\n\n",
+        "3": f"## Phase 3: C4 Architecture Diagram\n\n```mermaid\n{phase_3_content}\n```\n\n",
         "4": "## Phase 4: Database Verification\n> [PENDING MANUAL AI ARCHITECT GENERATION]\n\n",
         "5": "## Phase 5: Orphan Report\n> [PENDING MANUAL AI ARCHITECT GENERATION]\n\n",
-        "6": generate_phase_6_erd(),
+        "6": erd_content,
         "7": generate_phase_7_sampling(),
         "8": generate_phase_8_prompts(),
-        "9": "## Phase 9: Pipeline Flow Audits (Front-to-Back)\n> [PENDING MANUAL AI ARCHITECT GENERATION]\n\n"
+        "9": f"## Phase 9: Pipeline Flow Audits (Front-to-Back)\n\n{phase_9_content}\n\n"
     }
     
     master_content = [f"# Nexus System Audit Trace - {version} ({date})\n"]
@@ -258,6 +351,7 @@ def compile_master_audit():
         master_content.append(phases[str(i)])
         
     filename = f"AUDITS/{version}_{date}_audit_trace.md"
+    os.makedirs("AUDITS", exist_ok=True)
     with open(filename, 'w', encoding='utf-8') as f:
         f.write("\n".join(master_content))
     print(f"Audit trace written to {filename}")
