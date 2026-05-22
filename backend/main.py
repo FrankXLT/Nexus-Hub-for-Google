@@ -905,8 +905,6 @@ async def generate_github_issue(request: Request):
     Returns:
         JSONResponse: Issue report.
     """
-    Generates a sanitized, GitHub-ready bug report from selected logs.
-    """
     try:
         body = await request.json()
         log_ids = body.get("log_ids", [])
