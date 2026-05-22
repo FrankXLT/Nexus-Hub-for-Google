@@ -17,6 +17,7 @@ import urllib.request
 from notifier import NexusNotifier
 import zlib
 import sqlite3
+from typing import Optional, Dict, Any
 
 DB_PATH = os.getenv("NEXUS_DB_PATH", "nexus-live.db")
 

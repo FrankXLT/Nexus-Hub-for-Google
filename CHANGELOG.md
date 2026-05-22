@@ -4,6 +4,10 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.3.7] - 2026-05-21
+### Fixed
+- **Layer 7:** Fixed a Python `NameError` on startup in `backend/diagnostics.py` by adding the missing `Optional`, `Dict`, and `Any` imports from the `typing` module.
+
 ## [v3.3.6] - 2026-05-21
 ### Fixed
 - **Layer 7:** Fixed a Python SyntaxError in `backend/main.py` caused by duplicate unquoted docstring text in the `generate_github_issue` function, restoring compilation.
