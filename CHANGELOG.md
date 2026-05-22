@@ -4,6 +4,10 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.3.8] - 2026-05-21
+### Fixed
+- **Layer 6:** Fixed a Python `SyntaxError` in `backend/sync_engine.py` by repairing the broken indentation of the `try`/`finally` blocks and adding missing `except` blocks in `sync_gmail_pipeline` and `sync_drive_pipeline`.
+
 ## [v3.3.7] - 2026-05-21
 ### Fixed
 - **Layer 7:** Fixed a Python `NameError` on startup in `backend/diagnostics.py` by adding the missing `Optional`, `Dict`, and `Any` imports from the `typing` module.

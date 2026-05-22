@@ -1450,99 +1450,103 @@ def sync_gmail_pipeline(service: Resource, artifact_id: str, email_context: Dict
                 return
 
 
-    # Check ignored labels in Config_System
-    cursor.execute("SELECT value FROM Config_System WHERE key = 'ui_gmail_filters'")
-    row = cursor.fetchone()
-    ignored_labels = json.loads(row['value']) if row else []
+        # Check ignored labels in Config_System
+        cursor.execute("SELECT value FROM Config_System WHERE key = 'ui_gmail_filters'")
+        row = cursor.fetchone()
+        ignored_labels = json.loads(row['value']) if row else []
     
-    # 2. Extract Metadata
-    sender = email_context.get('sender')
+        # 2. Extract Metadata
+        sender = email_context.get('sender')
     
-    # 3. Check entities table via aliases
-    cursor.execute("""
-        SELECT e.id, e.name, e.workspace_alias, e.nexus_state 
-        FROM aliases a 
-        JOIN entities e ON a.entity_id = e.id 
-        WHERE a.alias_string = ?
-    """, (sender,))
-    entity = cursor.fetchone()
+        # 3. Check entities table via aliases
+        cursor.execute("""
+            SELECT e.id, e.name, e.workspace_alias, e.nexus_state 
+            FROM aliases a 
+            JOIN entities e ON a.entity_id = e.id 
+            WHERE a.alias_string = ?
+        """, (sender,))
+        entity = cursor.fetchone()
     
-    from llm_engine import run_agent_classifier, run_agent_profiler
-    activity_id = str(uuid.uuid4())
-    if entity:
-        logger.info(f"Entity Known: {entity['name']}. Executing Purpose-Only AI Evaluation.")
-        result = run_agent_classifier(json.dumps(email_context), entity_known=True, activity_id=activity_id)
-    else:
-        profile = run_agent_profiler(sender, is_personal=False, context=json.dumps(email_context), activity_id=activity_id)
-        if profile:
-            entity_name = profile.get('canonical_entity_name', sender)
-            workspace_alias = profile.get('workspace_alias')
-            proposed_category = profile.get('proposed_category', 'Uncategorized')
+        from llm_engine import run_agent_classifier, run_agent_profiler
+        activity_id = str(uuid.uuid4())
+        if entity:
+            logger.info(f"Entity Known: {entity['name']}. Executing Purpose-Only AI Evaluation.")
+            result = run_agent_classifier(json.dumps(email_context), entity_known=True, activity_id=activity_id)
+        else:
+            profile = run_agent_profiler(sender, is_personal=False, context=json.dumps(email_context), activity_id=activity_id)
+            if profile:
+                entity_name = profile.get('canonical_entity_name', sender)
+                workspace_alias = profile.get('workspace_alias')
+                proposed_category = profile.get('proposed_category', 'Uncategorized')
             
-            cursor.execute("SELECT id FROM categories WHERE name = ?", (proposed_category,))
-            cat_row = cursor.fetchone()
-            if cat_row:
-                cat_id = cat_row['id']
-            else:
-                cursor.execute("INSERT INTO categories (name) VALUES (?)", (proposed_category,))
-                cat_id = cursor.lastrowid
+                cursor.execute("SELECT id FROM categories WHERE name = ?", (proposed_category,))
+                cat_row = cursor.fetchone()
+                if cat_row:
+                    cat_id = cat_row['id']
+                else:
+                    cursor.execute("INSERT INTO categories (name) VALUES (?)", (proposed_category,))
+                    cat_id = cursor.lastrowid
                 
-            cursor.execute("SELECT id FROM entities WHERE name = ?", (entity_name,))
-            existing_ent = cursor.fetchone()
-            if existing_ent:
-                ent_id = existing_ent['id']
-            else:
-                cursor.execute("""
-                    INSERT INTO entities (category_id, name, workspace_alias, nexus_state, is_profiled, ingestion_source) 
-                    VALUES (?, ?, ?, 'pending', 1, 'gmail')
-                """, (cat_id, entity_name, workspace_alias))
-                ent_id = cursor.lastrowid
+                cursor.execute("SELECT id FROM entities WHERE name = ?", (entity_name,))
+                existing_ent = cursor.fetchone()
+                if existing_ent:
+                    ent_id = existing_ent['id']
+                else:
+                    cursor.execute("""
+                        INSERT INTO entities (category_id, name, workspace_alias, nexus_state, is_profiled, ingestion_source) 
+                        VALUES (?, ?, ?, 'pending', 1, 'gmail')
+                    """, (cat_id, entity_name, workspace_alias))
+                    ent_id = cursor.lastrowid
             
+                try:
+                    cursor.execute("INSERT INTO aliases (alias_string, entity_id) VALUES (?, ?)", (sender, ent_id))
+                except sqlite3.IntegrityError:
+                    pass
+
+            result = run_agent_classifier(json.dumps(email_context), activity_id=activity_id)
+        
+        # Fetch Configured Threshold
+        cursor.execute("SELECT settings_json FROM pipeline_config WHERE pipeline_name = 'gmail'")
+        row = cursor.fetchone()
+        threshold = 80
+        if row and row['settings_json']:
             try:
-                cursor.execute("INSERT INTO aliases (alias_string, entity_id) VALUES (?, ?)", (sender, ent_id))
-            except sqlite3.IntegrityError:
+                settings = json.loads(row['settings_json'])
+                threshold = int(settings.get('ai_confidence_threshold', 80))
+            except (json.JSONDecodeError, ValueError, TypeError):
                 pass
 
-        result = run_agent_classifier(json.dumps(email_context), activity_id=activity_id)
-        
-    # Fetch Configured Threshold
-    cursor.execute("SELECT settings_json FROM pipeline_config WHERE pipeline_name = 'gmail'")
-    row = cursor.fetchone()
-    threshold = 80
-    if row and row['settings_json']:
-        try:
-            settings = json.loads(row['settings_json'])
-            threshold = int(settings.get('ai_confidence_threshold', 80))
-        except (json.JSONDecodeError, ValueError, TypeError):
-            pass
+        item_confidence = result.get('confidence', 0) if isinstance(result, dict) else 0
 
-    item_confidence = result.get('confidence', 0) if isinstance(result, dict) else 0
-
-    if item_confidence < threshold:
-        route_to_quarantine(cursor, 'gmail', artifact_id, result)
-    else:
-        route_to_zero_trust(cursor, 'gmail', artifact_id, result)
+        if item_confidence < threshold:
+            route_to_quarantine(cursor, 'gmail', artifact_id, result)
+        else:
+            route_to_zero_trust(cursor, 'gmail', artifact_id, result)
         
-        # Layer 6 Mutation: Apply physical label and remove INBOX
-        msg_id = artifact_id.replace('mail_', '')
+            # Layer 6 Mutation: Apply physical label and remove INBOX
+            msg_id = artifact_id.replace('mail_', '')
         
-        # Find label ID for the mapped purpose
-        purpose_name = result.get('taxonomy_path', '').split('\\')[-1].strip()
-        cursor.execute("SELECT gmail_label_id FROM purposes WHERE name = ?", (purpose_name,))
-        label_row = cursor.fetchone()
+            # Find label ID for the mapped purpose
+            purpose_name = result.get('taxonomy_path', '').split('\\')[-1].strip()
+            cursor.execute("SELECT gmail_label_id FROM purposes WHERE name = ?", (purpose_name,))
+            label_row = cursor.fetchone()
         
-        if label_row and label_row['gmail_label_id']:
-            try:
-                service.users().messages().modify(
-                    userId='me',
-                    id=msg_id,
-                    body={'addLabelIds': [label_row['gmail_label_id']], 'removeLabelIds': ['INBOX']}
-                ).execute()
-                logger.info(f"Layer 6: Physically categorized {artifact_id} with label {label_row['gmail_label_id']}")
-            except Exception as e:
-                logger.error(f"Failed to apply Gmail label mutation for {artifact_id}: {e}")
+            if label_row and label_row['gmail_label_id']:
+                try:
+                    service.users().messages().modify(
+                        userId='me',
+                        id=msg_id,
+                        body={'addLabelIds': [label_row['gmail_label_id']], 'removeLabelIds': ['INBOX']}
+                    ).execute()
+                    logger.info(f"Layer 6: Physically categorized {artifact_id} with label {label_row['gmail_label_id']}")
+                except Exception as e:
+                    logger.error(f"Failed to apply Gmail label mutation for {artifact_id}: {e}")
         
-    conn.commit()
+        conn.commit()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Pipeline error: {e}")
+        conn.rollback()
     finally:
         release_pipeline_lock(cursor, artifact_id)
         conn.commit()
@@ -1584,102 +1588,106 @@ def sync_drive_pipeline(service: Resource, artifact_id: str, ocr_text: str, conn
                 return
 
 
-    # 2. Extract Metadata
+        # 2. Extract Metadata
     
-    # 3. Check entities
-    from llm_engine import run_agent_classifier, run_agent_profiler
+        # 3. Check entities
+        from llm_engine import run_agent_classifier, run_agent_profiler
     
-    profile = run_agent_profiler(ocr_text, is_personal=False, context=ocr_text)
-    sender = profile.get('canonical_entity_name') if profile else None
+        profile = run_agent_profiler(ocr_text, is_personal=False, context=ocr_text)
+        sender = profile.get('canonical_entity_name') if profile else None
     
-    if sender:
-        cursor.execute("""
-            SELECT e.id, e.name, e.workspace_alias, e.nexus_state 
-            FROM aliases a 
-            JOIN entities e ON a.entity_id = e.id 
-            WHERE a.alias_string = ?
-        """, (sender,))
-        entity = cursor.fetchone()
-    else:
-        entity = None
+        if sender:
+            cursor.execute("""
+                SELECT e.id, e.name, e.workspace_alias, e.nexus_state 
+                FROM aliases a 
+                JOIN entities e ON a.entity_id = e.id 
+                WHERE a.alias_string = ?
+            """, (sender,))
+            entity = cursor.fetchone()
+        else:
+            entity = None
     
-    if entity:
-        logger.info(f"Entity Known: {entity['name']}. Executing Purpose-Only AI Evaluation.")
-        result = run_agent_classifier(ocr_text, entity_known=True)
-    else:
-        if profile and sender:
-            workspace_alias = profile.get('workspace_alias')
-            proposed_category = profile.get('proposed_category', 'Uncategorized')
+        if entity:
+            logger.info(f"Entity Known: {entity['name']}. Executing Purpose-Only AI Evaluation.")
+            result = run_agent_classifier(ocr_text, entity_known=True)
+        else:
+            if profile and sender:
+                workspace_alias = profile.get('workspace_alias')
+                proposed_category = profile.get('proposed_category', 'Uncategorized')
             
-            cursor.execute("SELECT id FROM categories WHERE name = ?", (proposed_category,))
-            cat_row = cursor.fetchone()
-            if cat_row:
-                cat_id = cat_row['id']
-            else:
-                cursor.execute("INSERT INTO categories (name) VALUES (?)", (proposed_category,))
-                cat_id = cursor.lastrowid
+                cursor.execute("SELECT id FROM categories WHERE name = ?", (proposed_category,))
+                cat_row = cursor.fetchone()
+                if cat_row:
+                    cat_id = cat_row['id']
+                else:
+                    cursor.execute("INSERT INTO categories (name) VALUES (?)", (proposed_category,))
+                    cat_id = cursor.lastrowid
                 
-            cursor.execute("SELECT id FROM entities WHERE name = ?", (sender,))
-            existing_ent = cursor.fetchone()
-            if existing_ent:
-                ent_id = existing_ent['id']
-            else:
-                cursor.execute("""
-                    INSERT INTO entities (category_id, name, workspace_alias, nexus_state, is_profiled, ingestion_source) 
-                    VALUES (?, ?, ?, 'pending', 1, 'drive')
-                """, (cat_id, sender, workspace_alias))
-                ent_id = cursor.lastrowid
+                cursor.execute("SELECT id FROM entities WHERE name = ?", (sender,))
+                existing_ent = cursor.fetchone()
+                if existing_ent:
+                    ent_id = existing_ent['id']
+                else:
+                    cursor.execute("""
+                        INSERT INTO entities (category_id, name, workspace_alias, nexus_state, is_profiled, ingestion_source) 
+                        VALUES (?, ?, ?, 'pending', 1, 'drive')
+                    """, (cat_id, sender, workspace_alias))
+                    ent_id = cursor.lastrowid
             
+                try:
+                    cursor.execute("INSERT INTO aliases (alias_string, entity_id) VALUES (?, ?)", (sender, ent_id))
+                except sqlite3.IntegrityError:
+                    pass
+
+            result = run_agent_classifier(ocr_text)
+        
+        # Fetch Configured Threshold
+        cursor.execute("SELECT settings_json FROM pipeline_config WHERE pipeline_name = 'drive'")
+        row = cursor.fetchone()
+        threshold = 80
+        if row and row['settings_json']:
             try:
-                cursor.execute("INSERT INTO aliases (alias_string, entity_id) VALUES (?, ?)", (sender, ent_id))
-            except sqlite3.IntegrityError:
+                settings = json.loads(row['settings_json'])
+                threshold = int(settings.get('ai_confidence_threshold', 80))
+            except (json.JSONDecodeError, ValueError, TypeError):
                 pass
 
-        result = run_agent_classifier(ocr_text)
-        
-    # Fetch Configured Threshold
-    cursor.execute("SELECT settings_json FROM pipeline_config WHERE pipeline_name = 'drive'")
-    row = cursor.fetchone()
-    threshold = 80
-    if row and row['settings_json']:
-        try:
-            settings = json.loads(row['settings_json'])
-            threshold = int(settings.get('ai_confidence_threshold', 80))
-        except (json.JSONDecodeError, ValueError, TypeError):
-            pass
+        item_confidence = result.get('confidence', 0) if isinstance(result, dict) else 0
 
-    item_confidence = result.get('confidence', 0) if isinstance(result, dict) else 0
-
-    if item_confidence < threshold:
-        route_to_quarantine(cursor, 'drive', artifact_id, result)
-    else:
-        route_to_zero_trust(cursor, 'drive', artifact_id, result)
+        if item_confidence < threshold:
+            route_to_quarantine(cursor, 'drive', artifact_id, result)
+        else:
+            route_to_zero_trust(cursor, 'drive', artifact_id, result)
         
-        # Layer 6 Mutation: Physically move file to Purpose folder
-        file_id = artifact_id.replace('drive_', '')
-        purpose_name = result.get('purpose', '').strip()
+            # Layer 6 Mutation: Physically move file to Purpose folder
+            file_id = artifact_id.replace('drive_', '')
+            purpose_name = result.get('purpose', '').strip()
         
-        # Resolve destination folder
-        cursor.execute("SELECT gmail_label_id FROM purposes WHERE name = ?", (purpose_name,))
-        row = cursor.fetchone()
+            # Resolve destination folder
+            cursor.execute("SELECT gmail_label_id FROM purposes WHERE name = ?", (purpose_name,))
+            row = cursor.fetchone()
         
-        if row and row['gmail_label_id']:
-            target_folder_id = row['gmail_label_id']
-            try:
-                file_obj = service.files().get(fileId=file_id, fields='parents').execute()
-                current_parents = ",".join(file_obj.get('parents', []))
+            if row and row['gmail_label_id']:
+                target_folder_id = row['gmail_label_id']
+                try:
+                    file_obj = service.files().get(fileId=file_id, fields='parents').execute()
+                    current_parents = ",".join(file_obj.get('parents', []))
                 
-                service.files().update(
-                    fileId=file_id,
-                    addParents=target_folder_id,
-                    removeParents=current_parents,
-                    fields='id, parents'
-                ).execute()
-                logger.info(f"Layer 6: Physically moved {artifact_id} to folder {target_folder_id}")
-            except Exception as e:
-                logger.error(f"Failed to move Drive file {artifact_id}: {e}")
+                    service.files().update(
+                        fileId=file_id,
+                        addParents=target_folder_id,
+                        removeParents=current_parents,
+                        fields='id, parents'
+                    ).execute()
+                    logger.info(f"Layer 6: Physically moved {artifact_id} to folder {target_folder_id}")
+                except Exception as e:
+                    logger.error(f"Failed to move Drive file {artifact_id}: {e}")
         
-    conn.commit()
+        conn.commit()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Pipeline error: {e}")
+        conn.rollback()
     finally:
         release_pipeline_lock(cursor, artifact_id)
         conn.commit()
