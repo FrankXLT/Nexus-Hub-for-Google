@@ -190,17 +190,26 @@ def call_gemini(prompt: str, context: str) -> Tuple[Optional[Dict[str, Any]], Di
         telemetry = {"processing_time_ms": elapsed_ms, "api_tokens_used": tokens}
         
         # Sanitization Armor
-        sanitized_text = strip_markdown_json(response.text)
+        raw_text = response.text.strip()
+        # Remove markdown code blocks if present
+        raw_text = re.sub(r'^```json\s*', '', raw_text, flags=re.IGNORECASE)
+        raw_text = re.sub(r'^```\s*', '', raw_text)
+        raw_text = re.sub(r'\s*```$', '', raw_text)
         
+        # Strip conversational text if present around JSON
+        json_match = re.search(r'(\{.*\}|\[.*\])', raw_text, re.DOTALL)
+        sanitized_text = json_match.group(1) if json_match else raw_text
+
         try:
             return json.loads(sanitized_text), telemetry
         except json.JSONDecodeError as e:
-            logger.error(f"CRITICAL: LLM JSON format hallucination detected even after sanitization. Triggering Quarantine Fallback. Details: {e}")
+            logger.error(f"CRITICAL: LLM JSON format hallucination detected. Triggering Quarantine Fallback. Response content: {raw_text[:200]}... Error: {e}")
             fallback = {
                 "mapped_category_id": None,
                 "mapped_purpose_id": None,
                 "confidence_score": 0.0,
-                "reasoning": f"CRITICAL: LLM JSON format hallucination. Error: {str(e)}"
+                "is_quarantined": 1,
+                "reasoning": f"CRITICAL: LLM JSON format hallucination. Raw response: {raw_text[:50]}..."
             }
             return fallback, telemetry
 
@@ -348,6 +357,13 @@ def persist_llm_results(artifact_id: str, summary: str, custom_data: Dict[str, A
           ai_confidence, is_quarantined,
           gmail_important, gmail_starred,
           artifact_id))
+    
+    # 3. Log to Error_Logs if quarantined due to hallucination
+    if is_quarantined and status == "ERROR_LLM_PARSE":
+        cursor.execute("""
+            INSERT INTO Error_Logs (timestamp, module_name, artifact_id, error_message)
+            VALUES (?, ?, ?, ?)
+        """, (int(time.time()), "LLM_ENGINE", artifact_id, custom_data.get("reasoning", "LLM Hallucination")))
     
     # 3. Insert into Artifact_History
     now = int(time.time())
@@ -1215,19 +1231,29 @@ def run_agent_classifier(artifact_text: str, entity_known: bool = False, allowed
         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=[prompt, context],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=ArtifactClassification,
-            ),
         )
         end_time = time.time()
         elapsed = end_time - start_time
-        result = json.loads(response.text)
+
+        # Sanitization Armor
+        raw_text = response.text.strip()
+        raw_text = re.sub(r'^```json\s*', '', raw_text, flags=re.IGNORECASE)
+        raw_text = re.sub(r'^```\s*', '', raw_text)
+        raw_text = re.sub(r'\s*```$', '', raw_text)
+        json_match = re.search(r'(\{.*\}|\[.*\])', raw_text, re.DOTALL)
+        sanitized_text = json_match.group(1) if json_match else raw_text
         
-        # Telemetry
-        category_id = result.get('mapped_category_id') or result.get('category_id')
-        purpose_id = result.get('mapped_purpose_id') or result.get('purpose_id')
-        logger.info(f"Classifier resolved Category ID: {category_id}, Purpose ID: {purpose_id}")
+        try:
+            result = json.loads(sanitized_text)
+        except json.JSONDecodeError as e:
+            logger.error(f"CRITICAL: LLM JSON format hallucination. Quarantine Fallback. Details: {e}")
+            result = {
+                "artifact_id": "UNKNOWN",
+                "category_id": None,
+                "purpose_id": None,
+                "confidence_score": 0.0,
+                "reasoning": f"CRITICAL: LLM JSON format hallucination. Error: {str(e)}"
+            }
         
         tokens = response.usage_metadata.total_token_count if hasattr(response, 'usage_metadata') and response.usage_metadata else 0
         log_activity_event(
@@ -1242,19 +1268,6 @@ def run_agent_classifier(artifact_text: str, entity_known: bool = False, allowed
         )
         
         return result
-    except (json.JSONDecodeError, ValueError) as e:
-        logger.warning(f"Parsing Error or Safety Block in Classifier. Hallucination catch. Details: {e}")
-        log_activity_event(
-            activity_id=activity_id or str(uuid.uuid4()),
-            artifact_id=None,
-            pipeline_source="classifier",
-            step_name="run_agent_classifier",
-            status="ERROR_PARSE",
-            execution_time_ms=0,
-            tokens_used=0,
-            event_payload={"prompt": prompt, "context": context}
-        )
-        return None
     except Exception as e:
         logger.error(f"Gemini API Error in Classifier: {e}")
         raise
@@ -1350,7 +1363,20 @@ def run_bulk_classifier(entity_name: str, artifacts: List[dict], activity_id: st
         end_time = time.time()
         elapsed = end_time - start_time
         
-        result = json.loads(response.text)
+        # Sanitization Armor
+        raw_text = response.text.strip()
+        raw_text = re.sub(r'^```json\s*', '', raw_text, flags=re.IGNORECASE)
+        raw_text = re.sub(r'^```\s*', '', raw_text)
+        raw_text = re.sub(r'\s*```$', '', raw_text)
+        json_match = re.search(r'(\{.*\}|\[.*\])', raw_text, re.DOTALL)
+        sanitized_text = json_match.group(1) if json_match else raw_text
+        
+        try:
+            result = json.loads(sanitized_text)
+        except json.JSONDecodeError as e:
+            logger.error(f"CRITICAL: LLM JSON format hallucination in Bulk Classifier. Details: {e}")
+            return None
+
         tokens = response.usage_metadata.total_token_count if hasattr(response, 'usage_metadata') and response.usage_metadata else 0
         log_activity_event(
             activity_id=activity_id or str(uuid.uuid4()),

@@ -36,8 +36,8 @@ def get_prompt_template(filename):
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
 
-# Read DB path from environment variable, default to 'nexus-live.db' if not set
-DB_PATH = os.getenv("NEXUS_DB_PATH", "nexus-live.db")
+# Read DB path from environment variable, default to 'nexus.db' if not set
+DB_PATH = os.getenv("NEXUS_DB_PATH", "nexus.db")
 
 def column_exists(cursor, table_name, column_name):
     """
@@ -83,12 +83,13 @@ def init_db(db_path: str = DB_PATH) -> None:
     """
     os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
     
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, timeout=20)
     conn.row_factory = sqlite3.Row
     
-    # Enable Write-Ahead Logging for concurrent reading/writing
+    # Enable Write-Ahead Logging and synchronous=NORMAL for concurrent reading/writing
     conn.execute("PRAGMA journal_mode=WAL;")
-    logger.info("Verified SQLite WAL mode is active.")
+    conn.execute("PRAGMA synchronous=NORMAL;")
+    logger.info("Verified SQLite WAL mode and synchronous=NORMAL active.")
     # Enable foreign key constraint enforcement
     conn.execute("PRAGMA foreign_keys = ON;")
     

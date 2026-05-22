@@ -4,8 +4,14 @@ All notable changes to the Nexus for Google project will be documented in this f
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v3.3.3] - 2026-05-20
+## [v3.3.5] - 2026-05-21
 ### Added
+- **Layer 1:** Hardened database connections with `timeout=20`, `WAL` mode, and `synchronous=NORMAL` to prevent concurrency lock contention.
+- **Layer 2/5:** Implemented robust JSON sanitization (markdown block removal and conversational text stripping) and try-except quarantine fallbacks in `llm_engine.py` to prevent LLM hallucination crashes.
+
+## [v3.3.4] - 2026-05-20
+### Added
+- **Layer 0:** Completed Architectural Audit per `execution-protocol.md`. Generated audit trace `v3.3.3_2026-05-20_audit_trace.md` with complete Hook Map, C4 diagram, Database verification, Orphan Report, and Pipeline flows.
 - **Layer 0:** Performed full architectural audit. Generated `v3.3.3_2026-05-20_audit_trace.md` covering Hook Maps, C4 diagrams, Database verification, and Pipeline flow audits.
 - **Layer 1:** Hardened database connections with `timeout=20`, `WAL` mode, and `synchronous=NORMAL` across all drivers.
 - **Layer 2/5:** Implemented LLM JSON sanitization armor and graceful quarantine fallback to prevent batch processing crashes.
